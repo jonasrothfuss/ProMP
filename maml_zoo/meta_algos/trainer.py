@@ -3,6 +3,7 @@ class Trainer(object):
 			self,
 			algo,
 			env,
+			sampler,
 			policy,
 			n_itr,
             meta_batch_size,
@@ -13,8 +14,9 @@ class Trainer(object):
 		"""
 		Args:
 			algo (Algo) :
-			env (Env) : 
-			Policy (Policy) :
+			env (Env) : # Do we need this?
+			sampler (Sampler) : 
+			policy (Policy) : # Do we need this?
 			n_itr (int) : Number of iterations to train for
 			meta_batch_size (int) : Number of meta tasks
 			num_grad_updates (int) : Number of inner steps per maml iteration
@@ -26,6 +28,15 @@ class Trainer(object):
 	def train(self):
 		"""
 		Trains policy on env using algo
+		Pseudocode:
+			algo.init_opt()
+			for itr in n_itr:
+				for step in num_grad_updates:
+					sampler.sample()
+					algo.compute_updated_dists()
+				algo.optimize_policy()
+				sampler.update_goals()
+
 		"""
 		raise NotImplementedError
 
@@ -40,3 +51,14 @@ class Trainer(object):
 		What is this for?
 		"""
 		pass
+
+
+    def get_itr_snapshot(self, itr):
+    	"""
+		Gets the current policy and env for storage
+    	"""
+        return dict(
+            itr=itr,
+            policy=self.policy,
+            env=self.env,
+        )

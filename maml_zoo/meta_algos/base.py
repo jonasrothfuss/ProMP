@@ -3,33 +3,72 @@ class Algo(object):
     def __init__(
             self,
             optimizer,
+            policy,
             meta_batch_size,
+            num_grad_steps=1,
             ):
         self.optimizer = optimizer
-        self.current_policy_params = [None] * meta_batch_size
+        self.policy = policy
+        # (?) self.current_policy_params = [None] * meta_batch_size
         pass
 
     def make_vars(self, stepnum='0'):
         raise NotImplementedError
 
     def init_opt(self):
+        """
+        Creates computation graph
+        Pseudocode:
+        for task in meta_batch_size:
+            make_vars
+            init_dist_info_sym
+        for step in num_grad_steps:
+            for task in meta_batch_size:
+                make_vars
+                update_dist_info_sym
+        set objectives for optimizer
+        """
         raise NotImplementedError
 
-    def init_dist_info_sym(self):
+    def make_vars(self, prefix=''):
         """
+        Args:
+            prefix (str) : a string to prepend to the name of each variable
+        Returns:
+            (tuple) : a tuple containing lists of placeholders for each input type and meta task
+        """
+        raise NotImplementedError
 
+    def init_dist_info_sym(self, obs_var, params_var, is_training=False):
         """
+        Creates the symbolic representation of the current tf policy
+        Args:
+            obs_var (list) : list of obs placeholders split by env
+            params_ph (dict) : dict of placeholders for initial policy params
+            is_training (bool) : used for batch norm # (Do we support this?)
+        Returns:
+            (tf_op) : symbolic representation the policy's output for each obs
+        """
+        raise NotImplementedError
 
-    def update_dist_info_sym(self):
+    def update_dist_info_sym(self, surr_obj, obs_var, params_var, is_training=False):
         """
-
+        Creates the symbolic representation of the tf policy after one gradient step towards the surr_obj
+        Args:
+            surr_obj (tf_op) : tensorflow op for task specific (inner) objective
+            obs_var (list) : list of obs placeholders split by env
+            params_ph (dict) : dict of placeholders for current policy params
+            is_training (bool) : used for batch norm # (Do we support this?)
+        Returns:
+            (tf_op) : symbolic representation the policy's output for each obs
         """
+        raise NotImplementedError
 
     def compute_updated_dists(self, samples):
         """
-        Performs MAML inner step for each task
+        Performs MAML inner step for each task and stores resulting gradients # (in the policy?)
         Args:
-            samples (list) : tbd
+            samples (list) : list of lists of samples (each is a dict) split by meta task
         Returns:
             None
         """
@@ -39,17 +78,9 @@ class Algo(object):
         """
         Performs MAML outer step for each task
         Args:
-            all_samples_data (list) : list of lists of samples split by meta task
+            all_samples_data (list) : list of lists of lists of samples (each is a dict) split by gradient update and meta task
             log (bool) : whether to log statistics
         Returns:
             None
         """
         raise NotImplementedError
-
-
-    def get_itr_snapshot(self, itr):
-        return dict(
-            itr=itr,
-            policy=self.policy,
-            env=self.env,
-        )
