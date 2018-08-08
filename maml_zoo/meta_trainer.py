@@ -52,13 +52,8 @@ class Trainer(object):
 		"""
 		pass
 
-
-    def get_itr_snapshot(self, itr):
-    	"""
-		Gets the current policy and env for storage
-    	"""
-        return dict(
-            itr=itr,
-            policy=self.policy,
-            env=self.env,
-        )
+	def get_itr_snapshot(self, itr):
+		"""
+        Gets the current policy and env for storage
+        """
+		return dict(itr=itr, policy=self.policy, env=self.env)

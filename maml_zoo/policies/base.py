@@ -7,22 +7,27 @@ class Policy(object):
     Args:
 
     """
-    def __init__(self, env_spec, meta_batch_size):
-        self._env_spec = env_spec
+    def __init__(self, hidden_sizes=(32, 32), activation='tanh'):
+        self._env_spec = None
         self.init_policy = None
+        self.policy_params = None
 
-    def get_action(self, observation, policy_params):
+    def build_graph(self, env_spec, **kwargs):
+        raise NotImplementedError
+
+    def get_action(self, observation):
         """
         Runs a single observation through the specified policy
         Args:
             observation (array) : single observation
-            policy_params (params) : 
+            policy_params (params) :
         Returns:
             (array) : array of arrays of actions for each env
         """
+        # TODO: Call get_actions
         raise NotImplementedError
 
-    def get_actions(self, observations, policy_params):
+    def get_actions(self, observations):
         """
         Runs each set of observations through each task specific policy 
         Args:
@@ -34,18 +39,6 @@ class Policy(object):
 
     def reset(self, dones=None):
         pass
-
-    @property
-    def observation_space(self):
-        return self._env_spec.observation_space
-
-    @property
-    def action_space(self):
-        return self._env_spec.action_space
-
-    @property
-    def env_spec(self):
-        return self._env_spec
 
     def log_diagnostics(self, paths):
         """
@@ -59,8 +52,6 @@ class Policy(object):
             policy_params (array): array of policy parameters for each task
         """
         raise NotImplementedError
-
-class StochasticPolicy(Policy):
 
     @property
     def distribution(self):
@@ -92,3 +83,48 @@ class StochasticPolicy(Policy):
         	(dict) : a dictionary of tf placeholders for the policy output distribution
         """
         raise NotImplementedError
+
+
+class MetaPolicy(Policy)
+    def build_graph(self, env_spec, num_tasks=1):
+        raise NotImplementedError
+
+    def switch_to_pre_update(self):
+        """
+        It switches to the pre-updated policy
+        """
+        self._pre_update_mode = True
+
+    def get_actions(self, observations):
+        if self._pre_update_mode:
+            return self._get_pre_update_actions(observations)
+        else:
+            return self._get_post_update_actions(observations)
+
+    def _get_pre_update_actions(self, observations):
+        """
+        Args:
+            observations (list): List of size meta-batch size with numpy arrays of shape batch_size x obs_dim
+
+        """
+        raise NotImplementedError
+
+    def _get_post_update_actions(self, observations):
+        """
+        Args:
+            observations (list): List of size meta-batch size with numpy arrays of shape batch_size x obs_dim
+
+        """
+        raise NotImplementedError
+
+    def update_parameters(self, updated_policies_parameters):
+        """
+        Args:
+            updated_policies_parameters (list): List of size meta-batch size. Each contains a dict with the policies
+            parameters
+
+        """
+        self.policies_parameters = updated_policies_parameters
+        self._pre_update_mode = False
+        raise NotImplementedError
+

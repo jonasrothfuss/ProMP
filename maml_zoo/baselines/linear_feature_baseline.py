@@ -1,6 +1,7 @@
 from maml_zoo.baselines.base import Baseline
 import numpy as np
 
+
 class LinearFeatureBaseline(Baseline):
     def __init__(self, reg_coeff=1e-5):
         self._coeffs = None

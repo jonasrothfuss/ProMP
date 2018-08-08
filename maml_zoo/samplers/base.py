@@ -18,7 +18,7 @@ class Sampler(object):
             gae_lambda=1,
             center_adv=False,
             positive_adv=False,
-        ):
+            ):
         """
         # Do we care about non-meta samplers?
         # Make PostProcessor a separate class?
@@ -66,6 +66,7 @@ class Sampler(object):
         """
         raise NotImplementedError
 
+
 class MAMLSampler(Sampler):
     def __init__(
             self, 
@@ -78,7 +79,7 @@ class MAMLSampler(Sampler):
             n_envs=None,
             center_adv=False,
             positive_adv=False,
-        ):
+            ):
         """
         Args:
             env (Env) : 

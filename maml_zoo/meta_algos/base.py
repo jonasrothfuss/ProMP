@@ -3,19 +3,16 @@ class Algo(object):
     def __init__(
             self,
             optimizer,
-            policy,
-            meta_batch_size,
-            num_grad_steps=1,
+            inner_loss,
             ):
         self.optimizer = optimizer
-        self.policy = policy
+        self.policy = None
+        self.meta_batch_size = None
+        self.num_grad_steps = None
         # (?) self.current_policy_params = [None] * meta_batch_size
         pass
 
-    def make_vars(self, stepnum='0'):
-        raise NotImplementedError
-
-    def init_opt(self):
+    def build_graph(self, policy, meta_batch_size, num_grad_steps=1):
         """
         Creates computation graph
         Pseudocode:
@@ -28,6 +25,9 @@ class Algo(object):
                 update_dist_info_sym
         set objectives for optimizer
         """
+        self.policy = policy
+        self.meta_batch_size = meta_batch_size
+        self.num_grad_steps = num_grad_steps
         raise NotImplementedError
 
     def make_vars(self, prefix=''):
@@ -39,7 +39,7 @@ class Algo(object):
         """
         raise NotImplementedError
 
-    def init_dist_info_sym(self, obs_var, params_var, is_training=False):
+    def init_dist_sym(self, obs_var, params_var, is_training=False):
         """
         Creates the symbolic representation of the current tf policy
         Args:
@@ -51,7 +51,7 @@ class Algo(object):
         """
         raise NotImplementedError
 
-    def update_dist_info_sym(self, surr_obj, obs_var, params_var, is_training=False):
+    def compute_updated_dists_sym(self, surr_obj, obs_var, params_var, is_training=False):
         """
         Creates the symbolic representation of the tf policy after one gradient step towards the surr_obj
         Args:
