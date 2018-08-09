@@ -1,13 +1,12 @@
-from gym.envs.mujoco.mujoco_env import MujocoEnv
+from maml_zoo.envs.base import MetaEnv
 
-
-class MetaEnv(MujocoEnv):
+class TestEnv(MetaEnv):
     def sample_tasks(self, n_tasks):
         """ 
         Args:
             n_tasks (int) : number of different meta-tasks needed
         Returns:
-            tasks (list) : an (n_tasks) length list of tasks
+            tasks (list) : an (n_tasks) length list of reset args
         """
         raise NotImplementedError
 
