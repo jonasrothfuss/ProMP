@@ -3,16 +3,16 @@ class Algo(object):
     def __init__(
             self,
             optimizer,
+            meta_batch_size,
+            num_grad_steps=1
             inner_loss,
             ):
         self.optimizer = optimizer
+        self.meta_batch_size = meta_batch_size
+        self.num_grad_steps = num_grad_steps
         self.policy = None
-        self.meta_batch_size = None
-        self.num_grad_steps = None
-        # (?) self.current_policy_params = [None] * meta_batch_size
-        pass
 
-    def build_graph(self, policy, meta_batch_size, num_grad_steps=1):
+    def build_graph(self, policy):
         """
         Creates computation graph
         Pseudocode:
@@ -26,8 +26,6 @@ class Algo(object):
         set objectives for optimizer
         """
         self.policy = policy
-        self.meta_batch_size = meta_batch_size
-        self.num_grad_steps = num_grad_steps
         raise NotImplementedError
 
     def make_vars(self, prefix=''):

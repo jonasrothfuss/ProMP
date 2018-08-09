@@ -39,12 +39,11 @@ class MAMLSampler(Sampler):
         else:
             self.vec_env = MAMLIterativeEnvExecutor(env, self.meta_batch_size, self.envs_per_task, self.max_path_length)
 
-    def set_tasks(self, tasks):
+    def update_tasks(self):
         """
-        Sets the parameters for all environments corresponding to each task
-        Args:
-            tasks (list) : a list of length meta_batch_size, specifying reset args for each task
+        Samples a new goal for each meta task
         """
+        tasks = self.env.sample_tasks(self.meta_batch_size)
         assert len(tasks) == self.meta_batch_size
         self.vec_env.set_task(tasks)
 
@@ -112,6 +111,7 @@ class MAMLSampler(Sampler):
                         observations=self.env_spec.observation_space.flatten_n(running_paths[idx]["observations"]),
                         actions=self.env_spec.action_space.flatten_n(running_paths[idx]["actions"]),
                         rewards=np.asarray(running_paths[idx]["rewards"]),
+                        # Todo: verify these are formatted correctly
                         env_infos=np.asarray(running_paths[idx]["env_infos"]),
                         agent_infos=np.asarray(running_paths[idx]["agent_infos"]),
                     ))

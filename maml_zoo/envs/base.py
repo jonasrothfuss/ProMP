@@ -15,7 +15,6 @@ class MetaEnv(MujocoEnv):
         """
         Args:
             task: task of the meta-learning environment
-
         """
         raise NotImplementedError
 
@@ -23,6 +22,14 @@ class MetaEnv(MujocoEnv):
         """
         Returns:
             task: task of the meta-learning environment
+        """
+        raise NotImplementedError
 
+    def log_diagnostics(self, paths, prefix):
+        """
+        Logs env-specific diagnostic information
+        Args:
+            paths (list) : list of all paths collected with this env during this iteration
+            prefix (str) : prefix for logger
         """
         raise NotImplementedError

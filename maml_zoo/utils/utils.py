@@ -9,10 +9,10 @@ def shift_advantages_to_positive(advantages):
     return (advantages - np.min(advantages)) + 1e-8
 
 def discount_cumsum(x, discount):
-	"""
+    """
     See https://docs.scipy.org/doc/scipy/reference/tutorial/signal.html#difference-equation-filtering
     Returns:
-    	(float) : y[t] - discount*y[t+1] = x[t] or rev(y)[t] - discount*rev(y)[t-1] = rev(x)[t]
+        (float) : y[t] - discount*y[t+1] = x[t] or rev(y)[t] - discount*rev(y)[t-1] = rev(x)[t]
     """
     return scipy.signal.lfilter([1], [1, float(-discount)], x[::-1], axis=0)[::-1]
 
@@ -27,12 +27,12 @@ def explained_variance_1d(ypred, y):
     return 1 - np.var(y - ypred) / (vary + 1e-8)
 
 def concat_tensor_dict_list(tensor_dict_list):
-	"""
-	Args:
-		tensor_dict_list (list) : list of dicts of tensors
-	Returns:
-		(dict) : dict of lists of tensors
-	"""
+    """
+    Args:
+        tensor_dict_list (list) : list of dicts of tensors
+    Returns:
+        (dict) : dict of lists of tensors
+    """
     keys = list(tensor_dict_list[0].keys())
     ret = dict()
     for k in keys:
