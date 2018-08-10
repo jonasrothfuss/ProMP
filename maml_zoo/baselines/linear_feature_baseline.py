@@ -7,11 +7,9 @@ class LinearFeatureBaseline(Baseline):
         self._coeffs = None
         self._reg_coeff = reg_coeff
 
-    @overrides
     def get_param_values(self, **tags):
         return self._coeffs
 
-    @overrides
     def set_param_values(self, val, **tags):
         self._coeffs = val
 
@@ -21,7 +19,6 @@ class LinearFeatureBaseline(Baseline):
         al = np.arange(l).reshape(-1, 1) / 100.0
         return np.concatenate([o, o ** 2, al, al ** 2, al ** 3, np.ones((l, 1))], axis=1)
 
-    @overrides
     def fit(self, paths):
         featmat = np.concatenate([self._features(path) for path in paths])
         returns = np.concatenate([path["returns"] for path in paths])
@@ -35,7 +32,6 @@ class LinearFeatureBaseline(Baseline):
                 break
             reg_coeff *= 10
 
-    @overrides
     def predict(self, path):
         if self._coeffs is None:
             return np.zeros(len(path["rewards"]))
