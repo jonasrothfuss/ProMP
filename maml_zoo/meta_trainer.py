@@ -46,9 +46,9 @@ class Trainer(object):
                 policy = joblib.load(load_policy)['policy']
             
             policy.build_graph(env)
-            sampler.build_sampler(env, policy)
+            sampler.build_sampler(env, policy, meta_batch_size)
             # Sample processor here?
-            algo.build_graph(policy, )
+            algo.build_graph(policy, meta_batch_size)
             
             # initialize uninitialized vars  (only initialize vars that were not loaded)
             uninit_vars = [var for var in tf.global_variables() if not sess.run(tf.is_variable_initialized(var))]

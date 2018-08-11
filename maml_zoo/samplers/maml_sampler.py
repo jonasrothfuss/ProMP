@@ -11,7 +11,6 @@ import itertools
 class MAMLSampler(Sampler):
     def __init__(
             self,
-            meta_batch_size,
             batch_size,
             max_path_length,
             envs_per_task=None,
@@ -27,16 +26,16 @@ class MAMLSampler(Sampler):
             envs_per_task (int) : number of envs to run for each task
         """
         super(MAMLSampler, self).__init__(batch_size, max_path_length)
-        self.meta_batch_size = meta_batch_size
         if envs_per_task is None:
             self.envs_per_task = batch_size
         else:
             self.envs_per_task = envs_per_task
         self.parallel = parallel
-        self.total_samples = meta_batch_size * batch_size * max_path_length
 
-    def build_sampler(self, env, policy):
+    def build_sampler(self, env, policy, meta_batch_size):
         super(MAMLSampler, self).build_sampler(env, policy)
+        self.meta_batch_size = meta_batch_size
+        self.total_samples = meta_batch_size * self.batch_size * self.max_path_length
         if self.parallel:
             self.vec_env = MAMLParallelEnvExecutor(env, self.meta_batch_size, self.envs_per_task, self.max_path_length)
         else:
