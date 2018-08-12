@@ -64,7 +64,6 @@ class Trainer(object):
                     algo.compute_updated_dists()
                 algo.optimize_policy()
                 sampler.update_goals()
-
         """
         with tf.Session() as sess:
             start_time = time.time()
@@ -120,7 +119,7 @@ class Trainer(object):
                     logger.log("Optimizing policy...")
                     # This needs to take all samples_data so that it can construct graph for meta-optimization.
                     time_outer_step_start = time.time()
-                    self.optimize_policy(all_samples_data)
+                    self.algo.optimize_policy(all_samples_data)
 
                     """ ------------------- Logging Stuff --------------------------"""
 

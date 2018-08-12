@@ -34,7 +34,6 @@ class Sampler(object):
 class SampleProcessor(object):
     def __init__(
             self, 
-            baseline,
             discount=0.99,
             gae_lambda=1,
             center_adv=False,
@@ -42,17 +41,23 @@ class SampleProcessor(object):
             ):
         """ 
         Args:
-            baseline (Baseline) : 
             discount (float) :
             gae_lambda (float) : 
             center_adv (bool) : 
             positive_adv (bool) : 
         """
-        self.baseline = baseline
         self.discount = discount
         self.gae_lambda = gae_lambda
         self.center_adv = center_adv
         self.positive_adv = positive_adv
+        self.baseline = None
+
+    def build_sample_processor(self, baseline):
+        """
+        Args:
+            baseline (Baseline) : 
+        """
+        self.baseline = baseline
 
     def process_samples(self, paths):
         """

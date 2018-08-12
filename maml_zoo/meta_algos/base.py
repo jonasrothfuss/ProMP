@@ -5,12 +5,15 @@ class Algo(object):
             self,
             optimizer,
             inner_lr,
-            num_inner_grad_steps=1
+            num_inner_grad_steps=1,
+            entropy_bonus=0,
             ):
         assert isinstance(optimizer, Optimizer)
         assert (num_inner_grad_steps).is_integer()
         self.optimizer = optimizer
-        self.num_grad_steps = num_grad_steps
+        self.num_inner_grad_steps = num_inner_grad_steps
+        self.inner_lr = inner_lr
+        self.entropy_bonus = 0
         self.meta_batch_size = None
         self.policy = None
 
@@ -194,6 +197,14 @@ class MAMLAlgo(Algo):
     def set_inner_obj(self, input_list, surr_objs_tensor):
         self.input_list_for_grad = input_list
         self.surr_objs = surr_objs_tensor
+        
+        for key, param in self.all_params.items():
+            shape = param.get_shape().as_list()
+            init_stepsize = np.ones(shape, dtype=np.float32) * self.inner_lr
+            self.param_step_sizes[key + "_step_size"] = tf.Variable(initial_value=init_stepsize,
+                                                                    name='%s_step_size' % key,
+                                                                    dtype=tf.float32)
+
         update_param_keys = self.all_params.keys()
         with tf.variable_scope(self.name):
             # Create the symbolic graph for the one-step inner gradient update (It'll be called several times if

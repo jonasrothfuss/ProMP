@@ -1,14 +1,24 @@
 from maml_zoo.meta_algos.base import MAMLAlgo
 
 class MAMLPPO(MAMLAlgo):
-	"""
-	Algorithm for TRPO MAML
-	Args:
-		optimizer (Optimizer) : Optimizer to use
-		inner_step_Size (float) : maximum kl divergence of inner step
-		inner_type (str) : log_likelihood, likelihood_ratio, or dice
-		num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
-	"""
+    """
+    Algorithm for TRPO MAML
+    Args:
+        optimizer (Optimizer) : Optimizer to use
+        inner_lr (float) : gradient step size used for inner step
+        clip_eps (float) :
+        clip_outer (bool) : whether to use L^CLIP or L^KLPEN on outer gradient update
+        target_outer_step (float) : target outer kl divergence, used only with L^KLPEN and when adaptive_outer_kl_penalty is true
+        target_inner_step (float) : target inner kl divergence, used only when adaptive_inner_kl_penalty is true
+        init_outer_kl_penalty (float) : initial penalty for outer kl, used only with L^KLPEN
+        init_inner_kl_penalty (float) : initial penalty for inner kl
+        adaptive_outer_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on outer gradient update
+        adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
+        anneal_factor (float) : multiplicative factor for clip_eps, updated every iteration
+        multi_adam (bool) : whether to keep separate momentum separately for each PPO step
+        num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
+        entropy_bonus (float) : scaling factor for policy entropy
+    """
     def __init__(
             self,
             optimizer,
@@ -24,10 +34,10 @@ class MAMLPPO(MAMLAlgo):
             anneal_factor=1,
             multi_adam=False,
             num_inner_grad_steps=1,
+            entropy_bonus=0,
             ):
         
-        assert inner_type in ["log_likelihood", "likelihood_ratio", "dice"]
-        super(MAMLPPO, self).__init__(optimizer, inner_lr, num_inner_grad_steps)
+        super(MAMLPPO, self).__init__(optimizer, inner_lr, num_inner_grad_steps, entropy_bonus)
         self.optimizer = optimizer
         self.clip_eps = clip_eps
         self.clip_outer = clip_outer
@@ -35,7 +45,7 @@ class MAMLPPO(MAMLAlgo):
         self.target_inner_step = target_inner_step
         self.adaptive_outer_kl_penalty = adaptive_outer_kl_penalty
         self.adaptive_inner_kl_penalty = adaptive_inner_kl_penalty
-        self.kl_coeff = [init_inner_kl_penalty] * self.meta_batch_size * self.num_grad_updates
+        self.kl_coeff = [init_inner_kl_penalty] * self.meta_batch_size * self.num_inner_grad_steps
         self.outer_kl_coeff = [init_outer_kl_penalty] * self.meta_batch_size
         self.anneal_coeff = 1
         self.anneal_factor = anneal_factor
@@ -45,8 +55,8 @@ class MAMLPPO(MAMLAlgo):
         """
         Creates computation graph
         Args:
-			policy (Policy) : policy for this algorithm
-			meta_batch_size (int) : number of metalearning tasks
+            policy (Policy) : policy for this algorithm
+            meta_batch_size (int) : number of metalearning tasks
         Pseudocode:
         for task in meta_batch_size:
             make_vars
@@ -86,25 +96,18 @@ class MAMLPPO(MAMLAlgo):
             surr_objs = []
             entropies = []
             kls = []
-            # Create graph for gradient step
+            # Create objective for gradient step
             for i in range(self.meta_batch_size):
                 if self.entropy_bonus > 0:
                     entropy = self.entropy_bonus * tf.reduce_mean(dist.entropy_sym(dist_info_vars_list[i]))
                 else: # Save a computation
                     entropy = 0
-                kls.append(tf.reduce_mean(dist.kl_sym(old_dist_info_vars[i], dist_info_vars_list[i])))
+                kls.append(tf.reduce_mean(dist.kl_sym(dist_info_phs[i], dist_info_vars_list[i])))
                 entropies.append(entropy)
 
-                if inner_type == 'log_likelihood':
-                    logli = dist.log_likelihood_sym(action_phs[i], dist_info_vars_list[i])
-                    surr_objs.append(- tf.reduce_mean(logli * adv_phs[i]))
-                    
-                elif inner_type == 'likelihood_ratio':
-                    lr = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], dist_info_vars_list[i])
-                    surr_objs.append(- tf.reduce_mean(lr * adv_phs[i]))
-                else:
-                    raise NotImplementedError
-
+                lr = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], dist_info_vars_list[i])
+                surr_objs.append(- tf.reduce_mean(lr * adv_phs[i]))
+            
             all_surr_objs.append(surr_objs)
             entropy_list.append(entropies)
             
@@ -115,8 +118,8 @@ class MAMLPPO(MAMLAlgo):
             new_params = []  # if there are several grad_updates the new_params are overwritten
 
             for i in range(self.meta_batch_size):
-                dist_info_vars, params = self.compute_updated_dist_sym(i, all_surr_objs[-1][i], obs_phs[i],
-                                                                               params_dict=cur_params[i])
+                dist_info_vars, params = self.compute_updated_dist_sym(i, surr_objs[i], obs_phs[i],
+                                                                            params_dict=cur_params[i])
                 dist_info_vars_list[i] = dist_info_vars
                 new_params.append(params)
 
@@ -127,7 +130,7 @@ class MAMLPPO(MAMLAlgo):
         kls = []
 
         kl_coeff_vars_list = list(list(tf.placeholder(tf.float32, shape=[], name='kl_%s_%s' % (j, i))
-                                  for i in range(self.meta_batch_size)) for j in range(self.num_grad_updates))
+                                  for i in range(self.meta_batch_size)) for j in range(self.num_inner_grad_steps))
         outer_kl_list = []
         if not self.clip_outer:
             outer_kl_coeff_vars = [list(tf.placeholder(tf.float32, shape=[], name='kl_outer_%s' % i) for i in range(self.meta_batch_size))]
@@ -136,8 +139,8 @@ class MAMLPPO(MAMLAlgo):
         anneal_ph = tf.placeholder(tf.float32, shape=[], name='clip_ph')
 
         for i in range(self.meta_batch_size):
-            kl_penalty = sum(list(kl_list[j][i] * kl_coeff_vars_list[j][i] for j in range(self.num_grad_updates)))
-            entropy_bonus = sum(list(entropy_list[j][i] for j in range(self.num_grad_updates)))
+            kl_penalty = sum(list(kl_list[j][i] * kl_coeff_vars_list[j][i] for j in range(self.num_inner_grad_steps)))
+            entropy_bonus = sum(list(entropy_list[j][i] for j in range(self.num_inner_grad_steps)))
 
             lr = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], dist_info_vars_list[i])
 
@@ -163,9 +166,8 @@ class MAMLPPO(MAMLAlgo):
             inner_kl=kl_list,
             outer_kl=outer_kl_list,
             meta_batch_size=self.meta_batch_size,
-            num_grad_updates=self.num_grad_updates,
+            num_grad_updates=self.num_inner_grad_steps,
         )
-
 
     def optimize_policy(self, all_samples_data, log=True):
         """
@@ -176,7 +178,7 @@ class MAMLPPO(MAMLAlgo):
         Returns:
             None
         """
-        assert len(all_samples_data) == self.num_grad_updates + 1  # we collected the rollouts to compute the grads and then the test!
+        assert len(all_samples_data) == self.num_inner_grad_steps + 1  # we collected the rollouts to compute the grads and then the test!
 
         input_list = []
         for step in range(len(all_samples_data)):  # these are the gradient steps
@@ -232,4 +234,3 @@ class MAMLPPO(MAMLAlgo):
             logger.record_tabular('klDiff', np.mean(inner_kls))
             logger.record_tabular('klCoeff', np.mean(self.kl_coeff))
             if not self.clip_outer: logger.record_tabular('outerklDiff', np.mean(outer_kls))
-        return dict()
