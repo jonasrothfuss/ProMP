@@ -46,82 +46,89 @@ class MAMLTRPO(MAMLAlgo):
 
         all_surr_objs, input_list = [], []
         entropy_list = [] # Total entropy across all gradient steps
-        new_params = None
+      	
+		obs_phs, action_phs, adv_phs, dist_info_phs = self.make_placeholders('init')
+		_surr_objs_ph = [] # Used for computing fast gradient step
+		dist_info_vars_list, new_params = [], []
+
+		for i in range(self.meta_batch_size):    
+            dist_info_vars, params = self.init_dist_sym(obs_phs[i], all_params=self.all_params)
+            dist_info_vars_list.append(dist_info_vars)
+            new_params.append(params)
+            if inner_type == 'log_likelihood':
+    			_dist_info_vars, _ = self.init_dist_sym(obs_phs[i], all_params=self.all_params_ph[i])
+        		_logli = dist.log_likelihood_sym(action_phs[i], _dist_info_vars)
+        		_surr_objs_ph.append(-tf.reduce_mean(_logli * adv_phs[i]))
+        	elif inner_type == 'likelihood_ratio':
+            	_dist_info_vars, _ = self.init_dist_sym(obs_phs[i], all_params=self.all_params_ph[i])
+            	_lr = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], _dist_info_vars)
+            	_surr_objs_ph.append(-tf.reduce_mean(_lr * adv_phs[i]))
+            else:
+            	raise NotImplementedError
+        
+		input_list += obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), []) # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
+        # For computing the fast update for sampling
+        self.set_inner_obj(input_list, _surr_objs_ph)
+        
         for j in range(self.num_inner_grad_steps):
-            obs_phs, action_phs, adv_phs, dist_info_phs = self.make_placeholders(str(j))
-            surr_objs = []
+        	surr_objs = []
+        	entropies = []
+        	# Create graph for gradient step
+            for i in range(self.meta_batch_size):
+	            if self.entropy_bonus > 0:
+	                entropy = self.entropy_bonus * tf.reduce_mean(dist.entropy_sym(dist_info_vars_list[i]))
+	            else: # Save a computation
+	                entropy = 0
+
+	            entropies.append(entropy)
+
+	            if inner_type == 'log_likelihood':
+	            	logli = dist.log_likelihood_sym(action_phs[i], dist_info_vars_list[i])
+	            	surr_objs.append(- tf.reduce_mean(logli * adv_phs[i]))
+	                
+	            elif inner_type == 'likelihood_ratio':
+	            	lr = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], dist_info_vars_list[i])
+	            	surr_objs.append(- tf.reduce_mean(lr * adv_phs[i]))
+	            else:
+	            	raise NotImplementedError
+
+        	all_surr_objs.append(surr_objs)
+        	entropy_list.append(entropies)
+            
+            # Update graph for next gradient step
+        	obs_phs, action_phs, adv_phs, dist_info_phs = self.make_placeholders(str(j))
 
             cur_params = new_params
             new_params = []  # if there are several grad_updates the new_params are overwritten
-            kls = []
-            entropies = []
-            _surr_objs_ph = [] # Used for computing fast gradient step
 
-            for i in range(self.meta_batch_size):
-                if j == 0:
-                    dist_info_vars, params = self.init_dist_sym(obs_phs[i], all_params=self.all_params)
-                else:
-                    dist_info_vars, params = self.compute_updated_dist_sym(i, all_surr_objs[-1][i], obs_phs[i],
+        	for i in range(self.meta_batch_size):
+                dist_info_vars, params = self.compute_updated_dist_sym(i, all_surr_objs[-1][i], obs_phs[i],
                                                                                params_dict=cur_params[i])
-                if self.entropy_bonus > 0:
-                    entropy = self.entropy_bonus * tf.reduce_mean(dist.entropy_sym(dist_info_vars))
-                else: # Save a computation
-                    entropy = 0
-                entropies.append(entropy)
+				dist_info_vars_list[i] = dist_info_vars
+            	new_params.append(params)
 
-                new_params.append(params)
-                
-                if inner_type == 'log_likelihood':
-                	logli = dist.log_likelihood_sym(action_phs[i], dist_info_vars)
-                	surr_objs.append(- tf.reduce_mean(logli * adv_phs[i]))
-                	if j == 0:
-                    	_dist_info_vars, _ = self.init_dist_sym(obs_phs[i], all_params=self.all_params_ph[i])
-                    	_logli = dist.log_likelihood_sym(action_phs[i], _dist_info_vars)
-                    	_surr_objs_ph.append(-tf.reduce_mean(_logli * adv_phs[i]))
-
-                elif inner_type == 'likelihood_ratio':
-                	lr = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], dist_info_vars)
-                	surr_objs.append(- tf.reduce_mean(lr * adv_phs[i]))
-                	if j == 0:
-                    	_dist_info_vars, _ = self.init_dist_sym(obs_phs[i], all_params=self.all_params_ph[i])
-                    	_lr = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], _dist_info_vars)
-                    	_surr_objs_ph.append(-tf.reduce_mean(_lr * adv_phs[i]))
-                else:
-                	raise NotImplementedError
-
-            input_list += obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), []) # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
-            if j == 0:
-                # For computing the fast update for sampling
-                self.set_inner_obj(input_list, _surr_objs_ph)
-                self._update_input_keys = self._optimization_keys
-                init_input_list = input_list
-
-            all_surr_objs.append(surr_objs)
-            entropy_list.append(entropies)
-
+            input_list += obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), []) # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...         
+            
         """ TRPO-Objective """
-        obs_phs, action_phs, adv_phs, dist_info_phs = self.make_vars('test')
         surr_objs = []
+        kls = []
 
         for i in range(self.meta_batch_size):
-            dist_info_vars, _ = self.compute_updated_dist_sym(i, all_surr_objs[-1][i], obs_phs[i], params_dict=new_params[i])
-
-            kl = dist.kl_sym(dist_info_phs[i], dist_info_vars)
+            kl = dist.kl_sym(dist_info_phs[i], dist_info_vars_list[i])
             kls.append(kl)
             
-            lr = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], dist_info_vars)
+            lr = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], dist_info_vars_list[i])
             surr_objs.append(- tf.reduce_mean(lr*adv_phs[i]
                              + sum(list(entropy_list[j][i] for j in range(self.num_inner_grad_steps)))))
 
         """ Sum over meta tasks """
-        surr_obj = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)
-        input_list += obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), [])
-
+        meta_obj = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)
+        
         mean_kl = tf.reduce_mean(tf.concat(kls, 0))  ##CF shouldn't this have the option of self.kl_constrain_step == -1?
         max_kl = tf.reduce_max(tf.concat(kls, 0))
 
         self.optimizer.update_opt(
-            loss=surr_obj,
+            loss=meta_obj,
             target=self.policy,
             leq_constraint=(mean_kl, self.inner_step_size),
             inputs=input_list,
