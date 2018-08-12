@@ -15,7 +15,6 @@ class MAMLPPO(MAMLAlgo):
         adaptive_outer_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on outer gradient update
         adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
         anneal_factor (float) : multiplicative factor for clip_eps, updated every iteration
-        multi_adam (bool) : whether to keep separate momentum separately for each PPO step
         num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
         entropy_bonus (float) : scaling factor for policy entropy
     """

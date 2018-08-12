@@ -179,19 +179,19 @@ class ConjugateGradientOptimizer(Serializable):
 
         self._all_input_ph = inputs + extra_inputs
 
-        self.loss = loss
-        self.flat_grad = flat_grad
-        self.constraint_term = constraint_term
+        self._loss = loss
+        self._flat_grad = flat_grad
+        self._constraint_term = constraint_term
 
     def loss(self, inputs, extra_inputs=()):
         assert isinstance(inputs, tuple)
         assert isinstance(extra_inputs, tuple)
-        return tf.get_default_session().run(self.loss, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+        return tf.get_default_session().run(self._loss, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
 
     def constraint_val(self, inputs, extra_inputs=()):
         assert isinstance(inputs, tuple)
         assert isinstance(extra_inputs, tuple)
-        return tf.get_default_session().run(self.constraint_term, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+        return tf.get_default_session().run(self._constraint_term, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
 
     def optimize(self, inputs, extra_inputs=(), subsample_grouped_inputs=None):
         prev_param = np.copy(self._target.get_param_values())
@@ -214,11 +214,11 @@ class ConjugateGradientOptimizer(Serializable):
         sess = tf.get_default_session()
 
         logger.log("computing loss before")
-        loss_before = sess.run(self.loss, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+        loss_before = sess.run(self._loss, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
         logger.log("performing update")
 
         logger.log("computing gradient")
-        flat_g = sess.run(self.flat_grad, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+        flat_g = sess.run(self._flat_grad, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
         logger.log("gradient computed")
 
         logger.log("computing descent direction")
@@ -240,7 +240,7 @@ class ConjugateGradientOptimizer(Serializable):
             cur_step = ratio * flat_descent_step
             cur_param = prev_param - cur_step
             self._target.set_param_values(cur_param)
-            loss, constraint_val = sess.run([self.loss, self.constraint_term], feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+            loss, constraint_val = sess.run([self._loss, self._constraint_term], feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
             if self._debug_nan and np.isnan(constraint_val):
                 import ipdb;
                 ipdb.set_trace()
