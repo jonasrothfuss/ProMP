@@ -124,14 +124,14 @@ class MAMLTRPO(MAMLAlgo):
         """ Sum over meta tasks """
         meta_obj = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)
         
-        mean_kl = tf.reduce_mean(tf.concat(kls, 0))  ##CF shouldn't this have the option of self.kl_constrain_step == -1?
+        mean_kl = tf.reduce_mean(tf.concat(kls, 0))
         max_kl = tf.reduce_max(tf.concat(kls, 0))
 
         self.optimizer.update_opt(
             loss=meta_obj,
             target=self.policy,
-            leq_constraint=(mean_kl, self.inner_step_size),
             inputs=input_list,
+            leq_constraint=(mean_kl, self.inner_step_size),
             constraint_name="mean_kl"
         )
 
