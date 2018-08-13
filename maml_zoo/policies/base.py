@@ -1,4 +1,4 @@
-
+import tensorflow as tf
 
 class Policy(object):
     """
@@ -9,14 +9,16 @@ class Policy(object):
     Args:
 
     """
-    def __init__(self, hidden_sizes=(32, 32), activation='tanh', name='policy'):
-        self._env_spec = None
-        self.init_policy = None
-        self.policy_params = None
-        self.params = None
-        self.param_assign_placeholders = None
+    def __init__(self,
+                 name='policy',
+                 hidden_sizes=(32, 32),
+                 learn_std=True,
+                 hidden_nonlinearity='tanh',
+                 output_nonlinearity=None,
+                 **kwargs
+                 ):
         self.param_assign_ops = None
-        self.name = name
+        self.param_assign_placeholders = None
 
     def build_graph(self, env_spec, **kwargs):
         """
@@ -63,7 +65,7 @@ class Policy(object):
         """
         raise NotImplementedError
 
-    def dist_info_sym(self, obs_var, state_info_vars):
+    def output_sym(self, obs_var, state_info_vars):
         """
         Return the symbolic distribution information about the actions.
         Args:
@@ -75,7 +77,7 @@ class Policy(object):
         """
         raise NotImplementedError
 
-    def dist_info(self, obs, state_infos):
+    def output_info(self, obs, state_infos):
         """
         Args:
             obs (placeholder) : symbolic variable for observations
@@ -109,8 +111,8 @@ class Policy(object):
         Args:
             policy_params (array): array of policy parameters for each task
         """
-        tf.get_default_session().run(self.param_assign_ops, 
-            feed_dict=dict(list(zip(self.param_assign_placeholders, policy_params))))
+        tf.get_default_session().run(self.param_assign_ops,
+                                     feed_dict=dict(list(zip(self.param_assign_placeholders, policy_params))))
 
     def _create_getter_setter(self):
         """
@@ -126,7 +128,9 @@ class Policy(object):
             self.param_assign_placeholders.append(assign_placeholder)
             self.param_assign_ops.append(assign_op)
 
+
 class MetaPolicy(Policy):
+
     def build_graph(self, env_spec, num_tasks=1):
         """
         Also should create lists of variables and corresponding assign ops
@@ -167,6 +171,5 @@ class MetaPolicy(Policy):
             updated_policies_parameters (list): List of size meta-batch size. Each contains a dict with the policies
             parameters
         """
-        self.task_params = updated_policies_parameters
+        self.policies_params_vals = updated_policies_parameters
         self._pre_update_mode = False
-        raise NotImplementedError

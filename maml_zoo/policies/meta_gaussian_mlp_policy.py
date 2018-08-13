@@ -8,6 +8,23 @@ from maml_zoo.utils.utils import get_original_tf_name
 
 
 class MetaGaussianMLPPolicy(GaussianMLPPolicy):
+    def __init__(self, *args, **kwargs):
+        super(MetaGaussianMLPPolicy, self).__init__(*args, **kwargs)
+        self.num_tasks = None
+
+        self.pre_update_action_var = None
+        self.pre_update_mean_var = None
+        self.pre_update_log_std_var = None
+
+        self.post_update_action_var = None
+        self.post_update_mean_var = None
+        self.post_update_log_std_var = None
+
+        self.policies_params_ph = None
+        self.policy_keys = None
+        self.policies_params_vals = None
+
+        self._pre_update_mode = True
 
     def build_graph(self, env_spec, num_tasks=1):
         self.num_tasks = num_tasks
@@ -19,24 +36,28 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy):
         self.pre_update_log_std_var = [self.log_std_var for _ in range(self.num_tasks)]
 
         # Create post-update policy graph
-
         with tf.variable_scope(self.name):
             mean_network_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="mean_network")
             log_std_network_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="log_std_network")
 
             assert len(log_std_network_vars) == 1
 
-            self.policies_params_ph = [
-                OrderedDict([(get_original_tf_name(var.name),
-                              tf.placeholder(tf.float32, shape=var.shape))
-                             for var in mean_network_vars + log_std_network_vars])
-                for _ in range(num_tasks)
-            ]
-            assert False
-            # FIXME: the parameters are problably not ordererd. And for the forward mlp I assume it is a list w/
-            # the params ordered!!
+            mean_network_ph = [OrderedDict([(get_original_tf_name(var.name), tf.placeholder(tf.float32, shape=var.shape))
+                                            for var in mean_network_vars]
+                                           )
+                               for _ in range(num_tasks)
+                               ]
 
-            self.param_keys = list(self.policies_parameters[0].keys())
+            log_std_network_ph = [OrderedDict([(get_original_tf_name(var.name), tf.placeholder(tf.float32, shape=var.shape))
+                                            for var in log_std_network_vars]
+                                           )
+                               for _ in range(num_tasks)
+                               ]
+
+            self.policies_params_ph = [odict.update(log_std_network_ph[idx])
+                                       for idx, odict in enumerate(mean_network_ph)]
+
+            self.policy_keys = list(self.policies_params_ph[0].keys())
 
             self.post_update_action_var = []
             self.post_update_mean_var = []
@@ -49,9 +70,9 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy):
                                                 hidden_nonlinearity=self.hidden_nonlinearity,
                                                 output_nonlinearity=self.output_nonlinearity,
                                                 input_var=obs_var,
-                                                mlp_params=mean_network_vars[idx],
+                                                mlp_params=list(mean_network_ph[idx].values()),
                                                 )
-                log_std_var = self.policies_params_ph[idx][get_original_tf_name(log_std_network_vars[0].name)]
+                log_std_var = log_std_network_ph[idx][0]
                 action_var = mean_var + tf.random_normal(shape=mean_var.shape) * tf.exp(log_std_var)
 
                 self.post_update_action_var.append(action_var)
@@ -72,14 +93,9 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy):
 
         """
         if self._pre_update_mode:
-            return self._get_pre_update_actions(observations)
+            actions, agent_infos = self._get_pre_update_actions(observations)
         else:
-            actions_stack, agent_infos_stack = self._get_post_update_actions(observations)
-
-        actions = np.split(actions_stack, self.num_tasks, axis=0)
-
-        agent_infos = [(key, np.split(value, self.num_tasks, axis=0)) for key, value in agent_infos_stack.items()]
-        agent_infos = [dict([(key, value[i])]) for i in range(self.num_tasks) for key, value in agent_infos]
+            actions, agent_infos = self._get_post_update_actions(observations)
 
         return actions, agent_infos
 
@@ -112,26 +128,16 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy):
         assert self.policies_parameters is not None
         obs_stack = np.concatenate(observations, axis=0)
         feed_dict = {self.obs_var, obs_stack}
-        feed_dict_params = dict([(self.policies_params_ph[idx][key], self.policies_params[idx][key])
-                                for key in self.param_keys for idx in range(self.num_tasks)])
+        feed_dict_params = dict([(self.policies_params_ph[idx][key], self.policies_params_vals[idx][key])
+                                for key in self.policy_keys for idx in range(self.num_tasks)])
         feed_dict.update(feed_dict_params)
         sess = tf.get_default_session()
 
         actions, means, log_stds = sess.run([self.post_update_action_var,
-                                                self.post_update_mean_var,
-                                                self.post_update_log_std_var],
+                                             self.post_update_mean_var,
+                                             self.post_update_log_std_var],
                                             feed_dict=feed_dict)
 
         agent_infos = [dict(mean=means[idx], log_std=log_stds[idx]) for idx in range(self.num_tasks)]
         return actions, agent_infos
-
-    def update_parameters(self, updated_policies_parameters):
-        """
-        Args:
-            updated_policies_parameters (list): List of size meta-batch size. Each contains a dict with the policies
-            parameters
-
-        """
-        self.policies_params = updated_policies_parameters
-        self._pre_update_mode = False
 

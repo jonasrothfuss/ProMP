@@ -2,9 +2,10 @@ from maml_zoo.policies.networks.mlp import create_mlp, forward_mlp
 import tensorflow as tf
 import numpy as np
 from maml_zoo.policies.distributions.diagonal_gaussian import DiagonalGaussian
+from maml_zoo.policies.base import Policy
 
 
-class GaussianMLPPolicy(object):
+class GaussianMLPPolicy(Policy):
     def __init__(self,
                  name='gaussian_mlp_policy',
                  hidden_sizes=(32, 32),
@@ -36,6 +37,8 @@ class GaussianMLPPolicy(object):
         self.log_std_var = None
         self.action_var = None
         self._dist = None
+        self.obs_dim = None
+        self.action_dim = None
 
     def build_graph(self, env_spec, **kwargs):
         self.obs_dim = env_spec.observation_space.flat_dim
