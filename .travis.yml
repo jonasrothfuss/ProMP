@@ -10,10 +10,11 @@ python:
 # command to install dependencies
 install:
   - pip install .
+  - pip install -r requirements.txt
 
 # command to run tests
 script:
-  - python tests/test_baselines.py
-  - python tests/test_optimizers.py
-  - python tests/test_policies.py
-  - python tests/test_samplers.py
+  - python -m tests.test_baselines
+  - python -m tests.test_optimizers
+  - python -m tests.test_policies
+  - python -m tests.test_samplers

@@ -2,12 +2,11 @@ import unittest
 import numpy as np
 import pickle
 from maml_zoo.utils import utils
-from maml_zoo.envs.base import MetaEnv
 from maml_zoo.policies.base import Policy
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.samplers.maml_sampler import MAMLSampler
 
-class RandomEnv(MetaEnv):
+class RandomEnv():
     def __init__(self):
         self.state = np.zeros(1)
         self.goal = 0
