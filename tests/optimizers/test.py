@@ -4,12 +4,14 @@ from maml_zoo.optimizers.maml_first_order_optimizer import MAMLFirstOrderOptimiz
 from maml_zoo.optimizers.maml_first_order_optimizer import MAMLPPOOptimizer
 import tensorflow as tf
 
+
 def fc(x, scope, nh, *, init_scale=1.0, init_bias=0.0):
     with tf.variable_scope(scope):
         nin = x.get_shape()[1].value
         w = tf.get_variable("w", [nin, nh], initializer=tf.orthogonal_initializer(init_scale))
         b = tf.get_variable("b", [nh], initializer=tf.constant_initializer(init_bias))
         return tf.matmul(x, w)+b
+
 
 class Mlp(object):
     def __init__(self, inputs, output_size, hidden_size=(32, 32), name='mlp'):
@@ -25,6 +27,7 @@ class Mlp(object):
     def get_params(self):
         return self.params
 
+
 class CombinedMlp(object):
     def __init__(self, mlps):
         self.params = sum([mlp.params for mlp in mlps], [])
@@ -32,6 +35,7 @@ class CombinedMlp(object):
 
     def get_params(self):
         return self.params
+
 
 class TestOptimizer(unittest.TestCase):
     def setUp(self):
@@ -102,6 +106,7 @@ class TestOptimizer(unittest.TestCase):
 
         self.assertTrue(np.mean(np.square(mean_pred - means)) < 0.2)
         self.assertTrue(np.mean(np.square(std_pred - stds)) < 0.2)
+
 
 if __name__ == '__main__':
     unittest.main()
