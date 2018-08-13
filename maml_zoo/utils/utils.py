@@ -2,11 +2,22 @@ import numpy as np
 import scipy
 import scipy.signal
 
+
+def get_original_tf_name(name):
+    return name.split("/")[-1].split(":")[0]
+
+
+def get_last_scope(name):
+    return name.split("/")[-2]
+
+
 def center_advantages(advantages):
     return (advantages - np.mean(advantages)) / (advantages.std() + 1e-8)
 
+
 def shift_advantages_to_positive(advantages):
     return (advantages - np.min(advantages)) + 1e-8
+
 
 def discount_cumsum(x, discount):
     """
@@ -15,6 +26,7 @@ def discount_cumsum(x, discount):
         (float) : y[t] - discount*y[t+1] = x[t] or rev(y)[t] - discount*rev(y)[t-1] = rev(x)[t]
     """
     return scipy.signal.lfilter([1], [1, float(-discount)], x[::-1], axis=0)[::-1]
+
 
 def explained_variance_1d(ypred, y):
     assert y.ndim == 1 and ypred.ndim == 1
@@ -25,6 +37,7 @@ def explained_variance_1d(ypred, y):
         else:
             return 1
     return 1 - np.var(y - ypred) / (vary + 1e-8)
+
 
 def concat_tensor_dict_list(tensor_dict_list):
     """
