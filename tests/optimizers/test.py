@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 from maml_zoo.optimizers.maml_first_order_optimizer import MAMLFirstOrderOptimizer
 from maml_zoo.optimizers.maml_first_order_optimizer import MAMLPPOOptimizer
+from maml_zoo.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
 import tensorflow as tf
 
 
@@ -40,6 +41,7 @@ class CombinedMlp(object):
 class TestOptimizer(unittest.TestCase):
     def setUp(self):
         self.foo = MAMLFirstOrderOptimizer()
+        self.cgo = ConjugateGradientOptimizer()
         sess = tf.get_default_session()
         if sess is None:
             tf.InteractiveSession()
@@ -55,14 +57,14 @@ class TestOptimizer(unittest.TestCase):
         sess.run(tf.global_variables_initializer())
 
         for i in range(2000):
-            xs = np.random.normal(0, 1, (1000, 1))
+            xs = np.random.normal(0, 3, (1000, 1))
             ys = np.sin(xs)
             inputs = (xs, ys)
             self.foo.optimize(inputs)
             if i % 100 == 0:
                 print(self.foo.loss(inputs))
 
-        xs = np.random.normal(0, 1, (10, 1))
+        xs = np.random.normal(0, 3, (100, 1))
         ys = np.sin(xs) 
         y_pred = sess.run(network.output, feed_dict=dict(list(zip(all_input_phs, (xs, ys)))))
         self.assertTrue(np.allclose(ys, y_pred, rtol=1e-1, atol=1e-1))
@@ -99,8 +101,8 @@ class TestOptimizer(unittest.TestCase):
             if i % 100 == 0:
                 print(self.foo.loss(all_inputs))
 
-        means = np.random.random(size=(10))
-        stds = np.random.random(size=(10))
+        means = np.random.random(size=(20))
+        stds = np.random.random(size=(20))
         inputs = np.vstack([np.random.normal(mean, np.exp(std), 100) for mean, std in zip(means, stds)])
         mean_pred, std_pred = sess.run(joined_network.output, feed_dict=dict(list(zip(all_input_phs, (inputs, means.reshape(-1, 1), stds.reshape(-1, 1))))))
 

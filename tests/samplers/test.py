@@ -74,13 +74,13 @@ class TestSampler(unittest.TestCase):
         self.meta_batch_size = 3
         self.batch_size = 4
         self.path_length = 5
-        self.it_sampler = MAMLSampler(self.meta_batch_size, self.batch_size, self.path_length, parallel=False)
-        self.par_sampler = MAMLSampler(self.meta_batch_size, self.batch_size, self.path_length, parallel=True)
+        self.it_sampler = MAMLSampler(self.batch_size, self.path_length, parallel=False)
+        self.par_sampler = MAMLSampler(self.batch_size, self.path_length, parallel=True)
         self.sample_processor = MAMLSampleProcessor(LinearFeatureBaseline())
 
     def testSingle(self):
         for sampler in [self.par_sampler]:
-            sampler.build_sampler(self.test_env, self.test_policy)
+            sampler.build_sampler(self.test_env, self.test_policy, self.meta_batch_size)
             paths = sampler.obtain_samples()
             self.assertEqual(len(paths), self.meta_batch_size)
             for task in paths.values():

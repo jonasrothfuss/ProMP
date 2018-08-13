@@ -1,4 +1,5 @@
 from maml_zoo.meta_algos.base import MAMLAlgo
+from maml_zoo.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
 
 class MAMLTRPO(MAMLAlgo):
     """
@@ -11,7 +12,6 @@ class MAMLTRPO(MAMLAlgo):
     """
     def __init__(
             self,
-            optimizer,
             inner_lr,
             inner_step_size,
             inner_type,
@@ -20,7 +20,8 @@ class MAMLTRPO(MAMLAlgo):
             ):
         
         assert inner_type in ["log_likelihood", "likelihood_ratio", "dice"]
-        super(MAMLTRPO, self).__init__(optimizer, inner_lr, num_inner_grad_steps, entropy_bonus)
+        super(MAMLTRPO, self).__init__(inner_lr, num_inner_grad_steps, entropy_bonus)
+        self.optimizer = ConjugateGradientOptimizer()
         self.inner_step_size = inner_step_size
         self.inner_type = inner_type
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']

@@ -3,14 +3,11 @@ from maml_zoo.optimizers import Optimizer
 class Algo(object):
     def __init__(
             self,
-            optimizer,
             inner_lr,
             num_inner_grad_steps=1,
             entropy_bonus=0,
             ):
-        assert isinstance(optimizer, Optimizer)
         assert (num_inner_grad_steps).is_integer()
-        self.optimizer = optimizer
         self.num_inner_grad_steps = num_inner_grad_steps
         self.inner_lr = inner_lr
         self.entropy_bonus = 0

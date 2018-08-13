@@ -1,4 +1,5 @@
 from maml_zoo.meta_algos.base import MAMLAlgo
+from maml_zoo.optimizers.maml_first_order_optimizer import MAMLFirstOrderOptimizer
 
 class MAMLVPG(MAMLAlgo):
     """
@@ -10,15 +11,16 @@ class MAMLVPG(MAMLAlgo):
     """
     def __init__(
             self,
-            optimizer,
             inner_lr,
             inner_type,
+            learning_rate=1e-3,
             num_inner_grad_steps=1,
+            entropy_bonus=0,
             ):
         
         assert inner_type in ["log_likelihood", "likelihood_ratio", "dice"]
-        super(MAMLVPG, self).__init__(optimizer, inner_lr, num_inner_grad_steps)
-        self.optimizer = optimizer
+        super(MAMLVPG, self).__init__(inner_lr, num_inner_grad_steps, entropy_bonus)
+        self.optimizer = MAMLFirstOrderOptimizer(learning_rate=learning_rate)
         self.inner_type = inner_type
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']
 

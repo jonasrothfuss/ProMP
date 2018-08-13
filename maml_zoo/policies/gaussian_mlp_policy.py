@@ -62,6 +62,8 @@ class GaussianMLPPolicy(Policy):
 
             log_std_var = tf.maximum(log_std_var, np.log(self.min_log_std))
 
+            self._create_getter_setter()
+
         action_var = mean_var + tf.random_normal(shape=mean_var.shape) * tf.exp(log_std_var)
 
         self.obs_var = obs_var

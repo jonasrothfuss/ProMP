@@ -2,7 +2,7 @@ from maml_zoo.logger import logger
 import itertools
 import numpy as np
 import tensorflow as tf
-from sandbox.rocky.tf.misc import tensor_utils
+from maml_zoo.utils import utils
 
 class PerlmutterHvp(object):
     def __init__(self):
@@ -100,7 +100,7 @@ class FiniteDifferenceHvp(object):
         return eval
 
 
-class ConjugateGradientOptimizer(Serializable):
+class ConjugateGradientOptimizer(object):
     """
     Performs constrained optimization via line search. The search direction is computed using a conjugate gradient
     algorithm, which gives x = A^{-1}g, where A is a second order approximation of the constraint and g is the gradient
@@ -132,7 +132,6 @@ class ConjugateGradientOptimizer(Serializable):
         exhausting all backtracking budgets
             hvp_approach (obj) : 
         """
-        Serializable.quick_init(self, locals())
         self._cg_iters = cg_iters
         self._reg_coeff = reg_coeff
         self._subsample_factor = subsample_factor
@@ -148,7 +147,7 @@ class ConjugateGradientOptimizer(Serializable):
             hvp_approach = PerlmutterHvp()
         self._hvp_approach = hvp_approach
 
-    def update_opt(self, loss, target, inputs, extra_inputs=(), leq_constraint, constraint_name="constraint"):
+    def update_opt(self, loss, target, inputs, leq_constraint, extra_inputs=(), constraint_name="constraint"):
         """
         Sets the objective function and target weights for the optimize function
         Args:
