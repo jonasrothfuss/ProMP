@@ -164,8 +164,6 @@ class MAMLPPO(MAMLAlgo):
             extra_inputs=extra_inputs,
             inner_kl=kl_list,
             outer_kl=outer_kl_list,
-            meta_batch_size=self.meta_batch_size,
-            num_grad_updates=self.num_inner_grad_steps,
         )
 
     def optimize_policy(self, all_samples_data, log=True):

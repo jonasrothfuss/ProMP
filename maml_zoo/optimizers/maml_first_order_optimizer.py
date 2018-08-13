@@ -1,4 +1,5 @@
 from maml_zoo.logger import logger
+from maml_zoo.optimizers.base import Optimizer
 import tensorflow as tf
 import time
 
@@ -28,7 +29,7 @@ class MAMLFirstOrderOptimizer(Optimizer):
         self._tolerance = tolerance
         self._minibatch_splits = minibatch_splits
         self._verbose = verbose
-        self._input_vars = None
+        self._all_inputs = None
         self._train_op = None
         
     def update_opt(self, loss, target, inputs, extra_inputs=(), **kwargs):
@@ -69,11 +70,11 @@ class MAMLFirstOrderOptimizer(Optimizer):
             if self._verbose:
                 logger.log("Epoch %d" % (epoch))
 
-                if hasattr(self, 'multi_adam') and self.multi_adam:
-                    sess.run(self._train_ops[epoch], dict(list(zip(self._input_vars, all_inputs))))
-                else:
-                    sess.run(self._train_op, dict(list(zip(self._input_vars, all_inputs))))
-
+            if hasattr(self, 'multi_adam') and self.multi_adam:
+                sess.run(self._train_ops[epoch], dict(list(zip(self._all_inputs, all_inputs))))
+            else:
+                sess.run(self._train_op, dict(list(zip(self._all_inputs, all_inputs))))
+                
             new_loss = tf.get_default_session().run(self._loss, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
 
             if self._verbose:
@@ -127,9 +128,9 @@ class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
                 # for batch norm
                 updates = tf.group(*update_ops)
                 with tf.control_dependencies([updates]):
-                    self._train_ops = [optimizer.minimize(loss, var_list=target.get_params(trainable=True)) for optimizer in self._tf_optimizers]
+                    self._train_ops = [optimizer.minimize(loss, var_list=target.get_params()) for optimizer in self._tf_optimizers]
             else:
-                self._train_ops = [optimizer.minimize(loss, var_list=target.get_params(trainable=True)) for optimizer in self._tf_optimizers]
+                self._train_ops = [optimizer.minimize(loss, var_list=target.get_params()) for optimizer in self._tf_optimizers]
 
     def inner_kl(self, inputs, extra_inputs=()):
         assert isinstance(inputs, tuple)

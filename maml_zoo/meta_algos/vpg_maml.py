@@ -129,8 +129,6 @@ class MAMLVPG(MAMLAlgo):
             loss=surr_obj,
             target=self.policy,
             inputs=input_list,
-            meta_batch_size=self.meta_batch_size,
-            num_grad_updates=self.num_grad_updates,
         )
 
     def optimize_policy(self, all_samples_data, log=True):
