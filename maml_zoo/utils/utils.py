@@ -7,6 +7,10 @@ def get_original_tf_name(name):
     return name.split("/")[-1].split(":")[0]
 
 
+def get_last_scope(name):
+    return name.split("/")[-2]
+
+
 def center_advantages(advantages):
     return (advantages - np.mean(advantages)) / (advantages.std() + 1e-8)
 

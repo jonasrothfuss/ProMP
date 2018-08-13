@@ -1,4 +1,4 @@
-from maml_zoo.policies.networks.mlp import create_mlp, forward_mlp
+from maml_zoo.policies.networks.mlp import create_mlp
 import tensorflow as tf
 import numpy as np
 from maml_zoo.policies.distributions.diagonal_gaussian import DiagonalGaussian
@@ -94,7 +94,8 @@ class GaussianMLPPolicy(Policy):
             (ndarray) : array of arrays of actions for each env
         """
         sess = tf.get_default_session()
-        actions, means, logs_stds = sess.run([self.action_var, self.mean_var, self.log_std_var], feed_dict={self.obs_var: observations})
+        actions, means, logs_stds = sess.run([self.action_var, self.mean_var, self.log_std_var],
+                                             feed_dict={self.obs_var: observations})
         rnd = np.random.normal(size=means.shape)
         actions = means + rnd * np.exp(logs_stds)
         return actions, dict(mean=means, log_std=logs_stds)

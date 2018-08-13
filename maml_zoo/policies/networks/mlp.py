@@ -1,8 +1,5 @@
 import tensorflow as tf
-from maml_zoo.utils.utils import get_original_tf_name
-
-def get_last_scope(name):
-    return name.split("/")[-2]
+from maml_zoo.utils.utils import get_original_tf_name, get_last_scope
 
 
 def create_mlp(name,
