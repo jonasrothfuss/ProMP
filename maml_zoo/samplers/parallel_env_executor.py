@@ -38,6 +38,7 @@ def worker(remote, parent_remote, env_pickle, n_envs, max_path_length, seed):
 
 class MAMLParallelEnvExecutor(object):
     def __init__(self, env, meta_batch_size, envs_per_task, max_path_length):
+        self.n_envs = meta_batch_size * envs_per_task
         self.remotes, self.work_remotes = zip(*[Pipe() for _ in range(meta_batch_size)])
         seeds = np.random.choice(int(1e5), meta_batch_size, replace=False)
         self.ps = [Process(target=worker, args=(work_remote, remote, pickle.dumps(env), envs_per_task, max_path_length, seed))
@@ -61,6 +62,7 @@ class MAMLParallelEnvExecutor(object):
             remote.send(('step', action_list))
         
         results = [remote.recv() for remote in self.remotes]
+        
         obs, rewards, dones, env_infos = map(lambda x: sum(x, []), zip(*results))
 
         return obs, rewards, dones, env_infos
@@ -70,8 +72,12 @@ class MAMLParallelEnvExecutor(object):
             remote.send(('reset', None))
         return sum([remote.recv() for remote in self.remotes], [])
 
-    def set_task(self, tasks=None):
+    def set_tasks(self, tasks=None):
         for remote, task in zip(self.remotes, tasks):
             remote.send(('set_task', task))
         for remote in self.remotes:
             remote.recv()
+
+    @property
+    def num_envs(self):
+        return self.n_envs

@@ -1,4 +1,4 @@
-from rllab.misc.console import colorize
+from maml_zoo.logger.console import colorize
 import inspect
 
 

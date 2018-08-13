@@ -46,9 +46,9 @@ class Trainer(object):
                 policy = joblib.load(load_policy)['policy']
             
             policy.build_graph(env)
-            sampler.build_sampler(env, policy)
+            sampler.build_sampler(env, policy, meta_batch_size)
             # Sample processor here?
-            algo.build_graph(policy, )
+            algo.build_graph(policy, meta_batch_size)
             
             # initialize uninitialized vars  (only initialize vars that were not loaded)
             uninit_vars = [var for var in tf.global_variables() if not sess.run(tf.is_variable_initialized(var))]
@@ -64,7 +64,6 @@ class Trainer(object):
                     algo.compute_updated_dists()
                 algo.optimize_policy()
                 sampler.update_goals()
-
         """
         with tf.Session() as sess:
             start_time = time.time()
@@ -120,7 +119,7 @@ class Trainer(object):
                     logger.log("Optimizing policy...")
                     # This needs to take all samples_data so that it can construct graph for meta-optimization.
                     time_outer_step_start = time.time()
-                    self.optimize_policy(all_samples_data)
+                    self.algo.optimize_policy(all_samples_data)
 
                     """ ------------------- Logging Stuff --------------------------"""
 

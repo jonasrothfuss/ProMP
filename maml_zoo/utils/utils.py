@@ -38,7 +38,7 @@ def explained_variance_1d(ypred, y):
 def concat_tensor_dict_list(tensor_dict_list):
     """
     Args:
-        tensor_dict_list (list) : list of dicts of tensors
+        tensor_dict_list (list) : list of dicts of lists of tensors
     Returns:
         (dict) : dict of lists of tensors
     """
@@ -50,5 +50,23 @@ def concat_tensor_dict_list(tensor_dict_list):
             v = concat_tensor_dict_list([x[k] for x in tensor_dict_list])
         else:
             v = np.concatenate([x[k] for x in tensor_dict_list])
+        ret[k] = v
+    return ret
+
+def stack_tensor_dict_list(tensor_dict_list):
+    """
+    Args:
+        tensor_dict_list (list) : list of dicts of tensors
+    Returns:
+        (dict) : dict of lists of tensors
+    """
+    keys = list(tensor_dict_list[0].keys())
+    ret = dict()
+    for k in keys:
+        example = tensor_dict_list[0][k]
+        if isinstance(example, dict):
+            v = stack_tensor_dict_list([x[k] for x in tensor_dict_list])
+        else:
+            v = np.asarray([x[k] for x in tensor_dict_list])
         ret[k] = v
     return ret

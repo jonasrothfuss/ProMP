@@ -2,15 +2,16 @@ from maml_zoo.samplers.base import Sampler
 from maml_zoo.samplers.iterative_env_executor import MAMLIterativeEnvExecutor
 from maml_zoo.samplers.parallel_env_executor import MAMLParallelEnvExecutor
 from maml_zoo.utils.progbar import ProgBarCounter
+from maml_zoo.logger import logger
+from maml_zoo.utils import utils
+import numpy as np
 import time
+import itertools
 
 class MAMLSampler(Sampler):
     def __init__(
             self,
-            env,
-            policy,
             batch_size,
-            meta_batch_size,
             max_path_length,
             envs_per_task=None,
             parallel=True
@@ -24,16 +25,17 @@ class MAMLSampler(Sampler):
             max_path_length (int) : max number of steps per trajectory
             envs_per_task (int) : number of envs to run for each task
         """
-        super(self, MAMLSampler).__init__(env, policy, batch_size, max_path_length, n_envs)
-        self.meta_batch_size = meta_batch_size
+        super(MAMLSampler, self).__init__(batch_size, max_path_length)
         if envs_per_task is None:
             self.envs_per_task = batch_size
         else:
             self.envs_per_task = envs_per_task
         self.parallel = parallel
 
-    def build_sampler(self, env, policy):
-        super(self, MAMLSampler).build_sampler(env, policy)
+    def build_sampler(self, env, policy, meta_batch_size):
+        super(MAMLSampler, self).build_sampler(env, policy)
+        self.meta_batch_size = meta_batch_size
+        self.total_samples = meta_batch_size * self.batch_size * self.max_path_length
         if self.parallel:
             self.vec_env = MAMLParallelEnvExecutor(env, self.meta_batch_size, self.envs_per_task, self.max_path_length)
         else:
@@ -45,7 +47,7 @@ class MAMLSampler(Sampler):
         """
         tasks = self.env.sample_tasks(self.meta_batch_size)
         assert len(tasks) == self.meta_batch_size
-        self.vec_env.set_task(tasks)
+        self.vec_env.set_tasks(tasks)
 
     def obtain_samples(self, log_prefix=''):
         """
@@ -56,40 +58,44 @@ class MAMLSampler(Sampler):
             (dict) : A dict of paths of size [meta_batch_size] x (batch_size) x [5] x (max_path_length)
         """
         paths = {}
-        for i in range(self.n_tasks):
+        for i in range(self.meta_batch_size):
             paths[i] = []
-
-        envs_per_task = self.vec_env.envs_per_task
 
         n_samples = 0
         obses = self.vec_env.reset()
         running_paths = [None] * self.vec_env.num_envs
 
-        pbar = ProgBarCounter(self.algo.batch_size)
+        pbar = ProgBarCounter(self.total_samples)
         policy_time = 0
         env_time = 0
         process_time = 0
 
-        policy = self.algo.policy
+        policy = self.policy
         
-        while n_samples < self.algo.batch_size:
+        while n_samples < self.total_samples:
             t = time.time()
 
-            obs_per_task = np.split(np.asarray(obses), self.n_tasks)
-            actions, agent_infos = policy.get_actions_batch(obs_per_task)
+            obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
+            actions, agent_infos = policy.get_actions(obs_per_task)
 
             policy_time += time.time() - t
             t = time.time()
-            next_obses, rewards, dones, env_infos = self.vec_env.step(actions, reset_args)
+            next_obses, rewards, dones, env_infos = self.vec_env.step(actions)
             env_time += time.time() - t
 
             t = time.time()
-
-            agent_infos = tensor_utils.split_tensor_dict_list(agent_infos)
-            if env_infos is None:
+            
+            # agent_infos = tensor_utils.split_tensor_dict_list(agent_infos)
+            if not env_infos:
                 env_infos = [dict() for _ in range(self.vec_env.num_envs)]
-            if agent_infos is None:
+            if not agent_infos:
                 agent_infos = [dict() for _ in range(self.vec_env.num_envs)]
+            else:
+                assert len(agent_infos) == self.meta_batch_size
+                assert len(agent_infos[0]) == self.envs_per_task
+                agent_infos = sum(agent_infos, [])
+            actions = sum(actions, [])
+
             for idx, observation, action, reward, env_info, agent_info, done in zip(itertools.count(), obses, actions,
                                                                                     rewards, env_infos, agent_infos,
                                                                                     dones):
@@ -107,14 +113,16 @@ class MAMLSampler(Sampler):
                 running_paths[idx]["env_infos"].append(env_info)
                 running_paths[idx]["agent_infos"].append(agent_info)
                 if done:
-                    paths[idx // n_envs_per_task].append(dict(
-                        observations=self.env_spec.observation_space.flatten_n(running_paths[idx]["observations"]),
-                        actions=self.env_spec.action_space.flatten_n(running_paths[idx]["actions"]),
-                        rewards=np.asarray(running_paths[idx]["rewards"]),
-                        # Todo: verify these are formatted correctly
-                        env_infos=np.asarray(running_paths[idx]["env_infos"]),
-                        agent_infos=np.asarray(running_paths[idx]["agent_infos"]),
-                    ))
+                    try:
+                        paths[idx // self.envs_per_task].append(dict(
+                            observations=np.asarray(running_paths[idx]["observations"]),
+                            actions=np.asarray(running_paths[idx]["actions"]),
+                            rewards=np.asarray(running_paths[idx]["rewards"]),
+                            env_infos=utils.stack_tensor_dict_list(running_paths[idx]["env_infos"]),
+                            agent_infos=utils.stack_tensor_dict_list(running_paths[idx]["agent_infos"]),
+                        ))
+                    except:
+                        import pdb; pdb.set_trace()
                     n_samples += len(running_paths[idx]["rewards"])
                     running_paths[idx] = None
             process_time += time.time() - t

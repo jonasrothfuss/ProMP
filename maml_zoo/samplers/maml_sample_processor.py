@@ -1,8 +1,10 @@
 from maml_zoo.samplers.base import SampleProcessor
-from maml_zoo.util import utils
+from maml_zoo.utils import utils
+from maml_zoo.logger import logger
+import numpy as np
 
-class MAMLSampleProcessor(Sampler):
-    def process_samples(self, paths, log=True, log_prefix=''):
+class MAMLSampleProcessor(SampleProcessor):
+    def process_samples(self, paths, log=False, log_prefix=''):
         """
         Return processed sample data (typically a dictionary of concatenated tensors) based on the collected paths.
         Args:
@@ -17,7 +19,7 @@ class MAMLSampleProcessor(Sampler):
             path["returns"] = utils.discount_cumsum(path["rewards"], self.discount)
         
         if log: logger.log("fitting baseline...")
-        self.baseline.fit(paths, log=log)
+        self.baseline.fit(paths)
         if log: logger.log("fitted")
 
         all_path_baselines = [self.baseline.predict(path) for path in paths]
@@ -27,7 +29,7 @@ class MAMLSampleProcessor(Sampler):
             deltas = path["rewards"] + \
                      self.discount * path_baselines[1:] - \
                      path_baselines[:-1]
-            path["advantages"] = special.discount_cumsum(
+            path["advantages"] = utils.discount_cumsum(
                 deltas, self.discount * self.gae_lambda)
             baselines.append(path_baselines[:-1])
             returns.append(path["returns"])
@@ -37,8 +39,8 @@ class MAMLSampleProcessor(Sampler):
         rewards = np.concatenate([path["rewards"] for path in paths])
         returns = np.concatenate([path["returns"] for path in paths])
         advantages = np.concatenate([path["advantages"] for path in paths])
-        env_infos = tensor_utils.concat_tensor_dict_list([path["env_infos"] for path in paths])
-        agent_infos = tensor_utils.concat_tensor_dict_list([path["agent_infos"] for path in paths])
+        env_infos = utils.concat_tensor_dict_list([path["env_infos"] for path in paths])
+        agent_infos = utils.concat_tensor_dict_list([path["agent_infos"] for path in paths])
 
         if self.center_adv:
             advantages = utils.center_advantages(advantages)
@@ -59,7 +61,7 @@ class MAMLSampleProcessor(Sampler):
             advantages=advantages,
             env_infos=env_infos,
             agent_infos=agent_infos,
-            paths=paths,
+            # paths=paths,
         )
 
         # ent = np.mean(self.policy.distribution.entropy(agent_infos)) # Todo: give access to policy?

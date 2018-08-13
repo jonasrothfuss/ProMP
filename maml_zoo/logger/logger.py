@@ -1,8 +1,8 @@
 from enum import Enum
 
-from rllab.misc.tabulate import tabulate
-from rllab.misc.console import mkdir_p, colorize
-from rllab.misc.autoargs import get_all_parameters
+from maml_zoo.logger.tabulate import tabulate
+from maml_zoo.logger.console import mkdir_p, colorize
+from maml_zoo.logger.autoargs import get_all_parameters
 from contextlib import contextmanager
 import numpy as np
 import os
