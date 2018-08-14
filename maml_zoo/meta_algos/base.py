@@ -14,14 +14,11 @@ class Algo(object):
             self,
             optimizer,
             inner_lr,
-            num_inner_grad_steps=1,
             entropy_bonus=0,
             ):
 
         assert isinstance(optimizer, Optimizer)
-        assert num_inner_grad_steps >= 0 and isinstance(num_inner_grad_steps, int)
         self.optimizer = optimizer
-        self.num_inner_grad_steps = num_inner_grad_steps
         self.inner_lr = inner_lr
         self.entropy_bonus = entropy_bonus
         self.meta_batch_size = None
@@ -143,7 +140,7 @@ class MAMLAlgo(Algo):
         self.step_sizes = None
         self.policies_params_ph = None
 
-    def build_graph(self, policy, meta_batch_size):
+    def build_graph(self, policy, meta_batch_size, num_inner_grad_steps):
         raise NotImplementedError
 
     def make_input_placeholders(self, prefix='', scope=''):

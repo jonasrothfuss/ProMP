@@ -26,7 +26,6 @@ class MAMLPPO(MAMLAlgo):
             adaptive_outer_kl_penalty=True,
             adaptive_inner_kl_penalty=True,
             anneal_factor=1,
-            num_inner_grad_steps=1,
             entropy_bonus=0,
             name="ppo_maml"
             ):
@@ -46,10 +45,9 @@ class MAMLPPO(MAMLAlgo):
             adaptive_outer_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on outer gradient update
             adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
             anneal_factor (float) : multiplicative factor for clip_eps, updated every iteration
-            num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
             entropy_bonus (float) : scaling factor for policy entropy
         """
-        super(MAMLPPO, self).__init__(inner_lr, num_inner_grad_steps, entropy_bonus)
+        super(MAMLPPO, self).__init__(inner_lr, entropy_bonus)
         self.optimizer = MAMLPPOOptimizer(learning_rate=learning_rate, max_epochs=max_epochs, num_minibatches=num_minibatches)
         self.clip_eps = clip_eps
         self.clip_outer = clip_outer
@@ -57,7 +55,6 @@ class MAMLPPO(MAMLAlgo):
         self.target_inner_step = target_inner_step
         self.adaptive_outer_kl_penalty = adaptive_outer_kl_penalty
         self.adaptive_inner_kl_penalty = adaptive_inner_kl_penalty
-        self.kl_coeff = [init_inner_kl_penalty] * self.meta_batch_size * self.num_inner_grad_steps
         self.outer_kl_coeff = [init_outer_kl_penalty] * self.meta_batch_size
         self.anneal_coeff = 1
         self.anneal_factor = anneal_factor
@@ -68,12 +65,13 @@ class MAMLPPO(MAMLAlgo):
         self.step_sizes = None
         self.dist = None
 
-    def build_graph(self, policy, meta_batch_size):
+    def build_graph(self, policy, meta_batch_size, num_inner_grad_steps):
         """
         Creates the computation graph
         Args:
             policy (Policy) : policy for this algorithm
             meta_batch_size (int) : number of metalearning tasks
+            num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
         Pseudocode:
         for task in meta_batch_size:
             make_vars
@@ -85,6 +83,8 @@ class MAMLPPO(MAMLAlgo):
         set objectives for optimizer
         """
         self.meta_batch_size = meta_batch_size
+        self.num_inner_grad_steps = num_inner_grad_steps
+        self.kl_coeff = [init_inner_kl_penalty] * self.meta_batch_size * self.num_inner_grad_steps
         self.policy = policy
         self.policies_params_ph = policy.policies_params_ph
         self.policy_params = policy.policy_params

@@ -1,7 +1,6 @@
 from maml_zoo.samplers.base import Sampler
 from maml_zoo.samplers.iterative_env_executor import MAMLIterativeEnvExecutor
 from maml_zoo.samplers.parallel_env_executor import MAMLParallelEnvExecutor
-from maml_zoo.utils.progbar import ProgBarCounter
 from maml_zoo.logger import logger
 from maml_zoo.utils import utils
 import numpy as np
@@ -65,7 +64,6 @@ class MAMLSampler(Sampler):
         obses = self.vec_env.reset()
         running_paths = [None] * self.vec_env.num_envs
 
-        pbar = ProgBarCounter(self.total_samples)
         policy_time = 0
         env_time = 0
         process_time = 0
@@ -126,9 +124,7 @@ class MAMLSampler(Sampler):
                     n_samples += len(running_paths[idx]["rewards"])
                     running_paths[idx] = None
             process_time += time.time() - t
-            pbar.inc(len(obses))
             obses = next_obses
-        pbar.stop()
 
         logger.logkv(log_prefix+"PolicyExecTime", policy_time)
         logger.logkv(log_prefix+"EnvExecTime", env_time)
