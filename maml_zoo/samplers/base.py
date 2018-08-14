@@ -1,7 +1,7 @@
 from maml_zoo.utils import utils
 from maml_zoo.logger import logger
-
 import numpy as np
+
 
 class Sampler(object):
     """
@@ -39,6 +39,7 @@ class Sampler(object):
             (list) : A list of paths.
         """
         raise NotImplementedError
+
 
 class SampleProcessor(object):
     """
@@ -102,8 +103,6 @@ class SampleProcessor(object):
 
         assert set(samples_data.keys()) >= set(['observations', 'actions', 'rewards', 'advantages', 'returns'])
         return samples_data
-
-
 
     """ helper functions """
 

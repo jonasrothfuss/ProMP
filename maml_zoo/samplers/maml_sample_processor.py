@@ -1,5 +1,6 @@
 from maml_zoo.samplers.base import SampleProcessor
 
+
 class MAMLSampleProcessor(SampleProcessor):
 
     def process_samples(self, paths_meta_batch, log=False, log_prefix=''):
