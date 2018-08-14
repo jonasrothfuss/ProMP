@@ -114,7 +114,9 @@ class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
         Args:
             loss (tf_op) : minimization objective
             target (Policy) : Policy whose values we are optimizing over
-            inputs (tuple) : tuple of tf.placeholders for input data 
+            inputs (tuple) : tuple of tf.placeholders for input data
+            inner_kl (list): List with the inner kl loss for each task
+            outer_kl (list): List with the outer kl loss for each task
             extra_inputs (tuple) : tuple of tf.placeholders for hyperparameters (e.g. learning rate, if annealed)
         """
         super(MAMLPPOOptimizer, self).build_graph(loss, target, inputs, extra_inputs)

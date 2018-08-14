@@ -66,6 +66,7 @@ class MAMLPPO(MAMLAlgo):
         self.policies_params_ph = None
         self.policy_params = None
         self.step_sizes = None
+        self.dist = None
 
     def build_graph(self, policy, meta_batch_size):
         """
@@ -87,12 +88,12 @@ class MAMLPPO(MAMLAlgo):
         self.policy = policy
         self.policies_params_ph = policy.policies_params_ph
         self.policy_params = policy.policy_params
-        dist = policy.distribution
+        self.dist = dist = policy.distribution
 
         """ Create Variables """
         step_sizes, inner_kl_coeffs, anneal_ph, outer_kl_coeffs = self._create_opt_variables(scope=self.name)
 
-        kl_coeffs = inner_kl_coeffs + outer_kl_coeffs
+        kl_coeffs = inner_kl_coeffs + [outer_kl_coeffs]
         self.step_sizes = step_sizes
 
         """ Inner update for test-time """
@@ -150,7 +151,7 @@ class MAMLPPO(MAMLAlgo):
             obs_phs, action_phs, adv_phs, dist_info_phs = self.make_input_placeholders(str(j), scope=self.name)
 
             current_policy_params = adapted_policy_params
-            dist_info_vars_list = adapted_policy_dist_info_vars
+            distribution_info_vars = adapted_policy_dist_info_vars
 
             all_inputs += obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), []) # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
 
@@ -159,26 +160,11 @@ class MAMLPPO(MAMLAlgo):
         outer_kls = []
 
         for i in range(self.meta_batch_size):
-            kl_penalty = sum(list(all_inner_kls[j][i] * inner_kl_coeffs[j][i] for j in range(self.num_inner_grad_steps)))
-            entropy_bonus = sum(list(all_entropies[j][i] for j in range(self.num_inner_grad_steps)))
-
-            likelihood_ratio = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], dist_info_vars_list[i])
-
-            if self.clip_outer:
-                clipped_obj = tf.minimum(likelihood_ratio * adv_phs[i],
-                                         tf.clip_by_value(likelihood_ratio,
-                                                          1 - self.clip_eps * anneal_ph,
-                                                          1 + self.clip_eps * anneal_ph) * adv_phs[i])
-                surr_obj = - tf.reduce_mean(clipped_obj) - entropy_bonus + kl_penalty
-                surr_objs.append(surr_obj)
-
-            else:
-                outer_kl = tf.reduce_mean(dist.kl_sym(dist_info_phs[i], dist_info_vars_list[i]))
-                outer_kl_penalty = outer_kl_coeffs[0][i] * outer_kl
-                surr_obj = - tf.reduce_mean(likelihood_ratio * adv_phs[i]) - entropy_bonus +\
-                           kl_penalty + outer_kl_penalty
-                surr_objs.append(surr_obj)
-                outer_kls.append(outer_kl)
+            surr_obj, outer_kl = self._build_outer_objective(all_inner_kls[i], inner_kl_coeffs[i], all_entropies[i],
+                                                             action_phs[i], adv_phs[i], dist_info_phs[i],
+                                                             distribution_info_vars[i], anneal_ph, outer_kl_coeffs[i])
+            surr_objs.append(surr_obj)
+            outer_kls.append(outer_kl)
 
         """ Sum over meta tasks """
         meta_objective = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)
@@ -195,6 +181,29 @@ class MAMLPPO(MAMLAlgo):
             inner_kl=all_inner_kls,
             outer_kl=outer_kls,
         )
+
+    def _build_outer_objective(self, kl_penalties, inner_kl_coeffs, entropies_bonus, action_ph,
+                               adv_ph, dist_info_ph, distribution_info_var, anneal_ph, outer_kl_coeffs):
+
+
+        kl_penalty = sum(list(kl_penalties[j] * inner_kl_coeffs[j] for j in range(self.num_inner_grad_steps)))
+        entropy_bonus = sum(list(entropies_bonus[j] for j in range(self.num_inner_grad_steps)))
+
+        likelihood_ratio = self.dist.likelihood_ratio_sym(action_ph, dist_info_ph, distribution_info_var)
+        if self.clip_outer:
+            clipped_obj = tf.minimum(likelihood_ratio * adv_ph,
+                                     tf.clip_by_value(likelihood_ratio,
+                                                      1 - self.clip_eps * anneal_ph,
+                                                      1 + self.clip_eps * anneal_ph) * adv_ph)
+            surr_obj = - tf.reduce_mean(clipped_obj) - entropy_bonus + kl_penalty
+            outer_kl = []
+
+        else:
+            outer_kl = tf.reduce_mean(self.dist.kl_sym(dist_info_ph, distribution_info_var))
+            outer_kl_penalty = outer_kl_coeffs[0] * outer_kl
+            surr_obj = - tf.reduce_mean(likelihood_ratio * adv_ph) - entropy_bonus + \
+                       kl_penalty + outer_kl_penalty
+        return surr_obj, outer_kl
 
     def optimize_policy(self, all_samples_data, log=True):
         """
@@ -273,9 +282,9 @@ class MAMLPPO(MAMLAlgo):
             anneal_ph = tf.placeholder(tf.float32, shape=[], name='clip_ph')
 
             # Outer KL coeffs
-            outer_kl_coeffs = []
+            outer_kl_coeffs = [list() for _ in range(self.meta_batch_size)]
             if not self.clip_outer:
-                outer_kl_coeffs = [list(tf.placeholder(tf.float32, shape=[], name='kl_outer_%s' % i)
-                                        for i in range(self.meta_batch_size))]
+                outer_kl_coeffs = [tf.placeholder(tf.float32, shape=[], name='kl_outer_%s' % i)
+                                        for i in range(self.meta_batch_size)]
         return step_sizes, inner_kl_coeffs, anneal_ph, outer_kl_coeffs
 

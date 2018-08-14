@@ -1,4 +1,6 @@
 import tensorflow as tf
+from collections import OrderedDict
+from maml_zoo.utils.utils import get_original_tf_name
 
 class Policy(object):
     """
@@ -131,11 +133,29 @@ class Policy(object):
 
 class MetaPolicy(Policy):
 
+    def __init__(self, *args, **kwargs):
+        super(MetaPolicy, self).__init__(*args, **kwargs)
+        self._pre_update_mode = True
+        self.policies_params_vals = None
+
     def build_graph(self, env_spec, num_tasks=1):
         """
         Also should create lists of variables and corresponding assign ops
         """
         raise NotImplementedError
+
+    def _create_placeholders_for_vars(self, scopes, num_tasks=1, graph_keys=tf.GraphKeys.TRAINABLE_VARIABLES):
+        assert isinstance(scopes, list) or isinstance(scopes, tuple)
+        placeholders = []
+
+        for scope in scopes:
+            var_list = tf.get_collection(graph_keys, scope=scope)
+            placeholders.append([OrderedDict([(get_original_tf_name(var.name),
+                                              tf.placeholder(tf.float32, shape=var.shape))
+                                             for var in var_list])
+                                for _ in range(num_tasks)
+                                 ])
+        return placeholders
 
     def switch_to_pre_update(self):
         """
