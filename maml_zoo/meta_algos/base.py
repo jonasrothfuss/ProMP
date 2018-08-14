@@ -1,4 +1,9 @@
-from maml_zoo.optimizers import Optimizer
+import tensorflow as tf
+import numpy as np
+from maml_zoo.optimizers.base import Optimizer
+from collections import OrderedDict
+from maml_zoo.utils.utils import extract
+
 
 class Algo(object):
     """
@@ -12,10 +17,13 @@ class Algo(object):
             num_inner_grad_steps=1,
             entropy_bonus=0,
             ):
-        assert (num_inner_grad_steps).is_integer()
+
+        assert isinstance(optimizer, Optimizer)
+        assert num_inner_grad_steps >= 0 and isinstance(num_inner_grad_steps, int)
+        self.optimizer = optimizer
         self.num_inner_grad_steps = num_inner_grad_steps
         self.inner_lr = inner_lr
-        self.entropy_bonus = 0
+        self.entropy_bonus = entropy_bonus
         self.meta_batch_size = None
         self.policy = None
 
@@ -105,11 +113,15 @@ class Algo(object):
         """
         raise NotImplementedError
 
+
 class MAMLAlgo(Algo):
     """
     Provides some implementations shared between all MAML algorithms
     """
-    def make_placeholders(self, prefix=''):
+    def build_graph(self, policy, meta_batch_size):
+        raise NotImplementedError
+
+    def make_placeholders(self, prefix='', scope=''):
         """
         Args:
             prefix (str) : a string to prepend to the name of each variable
@@ -118,52 +130,47 @@ class MAMLAlgo(Algo):
             (tuple) : a tuple containing lists of placeholders for each input type and meta task
         """
         obs_phs, action_phs, adv_phs, dist_info_phs = [], [], [], []
-
         dist_info_specs = self.policy.distribution.dist_info_specs
 
-        for i in range(self.meta_batch_size):
-            obs_phs.append(tf.placeholder(
-                dtype=tf.float32, 
-                shape=[None, np.prod(self.env.observation_space.shape)], 
-                name='obs' + prefix + '_' + str(i)
-            ))
-            action_phs.append(tf.placeholder(
-                dtype=tf.float32,
-                shape=[None, np.prod(self.env.action_space.shape)],
-                name='action' + prefix + '_' + str(i),
-            ))
-            adv_phs.append(tf.placeholder(
-                dtype=tf.float32, 
-                shape=[None], 
-                name='advantage' + prefix + '_' + str(i),
-            ))
-            dist_info_phs.append([tf.placeholder(
-                dtype=tf.float32, 
-                shape=[None] + list(shape), name='%s%s_%i' % (k, prefix, i))
-                for k, shape in dist_info_specs
-            ])
+        with tf.variable_scope(scope):
+            for i in range(self.meta_batch_size):
+                obs_phs.append(tf.placeholder(
+                    dtype=tf.float32,
+                    shape=[None, np.prod(self.env.observation_space.shape)],
+                    name='obs' + prefix + '_' + str(i)
+                ))
+                action_phs.append(tf.placeholder(
+                    dtype=tf.float32,
+                    shape=[None, np.prod(self.env.action_space.shape)],
+                    name='action' + prefix + '_' + str(i),
+                ))
+                adv_phs.append(tf.placeholder(
+                    dtype=tf.float32,
+                    shape=[None],
+                    name='advantage' + prefix + '_' + str(i),
+                ))
+                dist_info_phs.append([tf.placeholder(
+                    dtype=tf.float32,
+                    shape=[None] + list(shape), name='%s%s_%i' % (k, prefix, i))
+                    for k, shape in dist_info_specs
+                ])
         return obs_phs, action_phs, adv_phs, dist_info_phs
 
-    def init_dist_sym(self, obs_var, params_phs, is_training=False):
+    def init_dist_sym(self, obs_var, params=None, is_training=False):
         """
         Creates the symbolic representation of the current tf policy
 
         Args:
             obs_var (list) : list of obs placeholders split by env
-            params_ph (dict) : dict of placeholders for initial policy params
+            params_phs (dict or None) : dict of placeholders for initial policy params
             is_training (bool) : used for batch norm # (Do we support this?)
 
         Returns:
             (tf_op) : symbolic representation the policy's output for each obs
         """
-        # return_params = True
-        # if all_params is None:
-        #     return_params = False
-        #     all_params = self.all_params
+        return self.policy.output_sym(obs_var, params=params)
 
-        return self.policy._forward(obs_var, all_params, is_training), all_params
-
-    def compute_updated_dist_sym(self, surr_obj, obs_var, params_phs, is_training=False):
+    def compute_updated_dist_sym(self, surr_obj, obs_var, params_var, is_training=False):
         """
         Creates the symbolic representation of the tf policy after one gradient step towards the surr_obj
 
@@ -176,16 +183,17 @@ class MAMLAlgo(Algo):
         Returns:
             (tf_op) : symbolic representation the policy's output for each obs
         """
-        update_param_keys = params_phs.keys()
+        update_param_keys = params_var.keys()
+        # TODO: Fix this if we want to learn the learning rate (it isn't supported right now).
 
-        grads = tf.gradients(surr_obj, [params_phs[key] for key in update_param_keys])
+        grads = tf.gradients(surr_obj, [params_var[key] for key in update_param_keys])
 
         gradients = dict(zip(update_param_keys, grads))
         params_dict = dict(zip(update_param_keys, [
-            old_params_dict[key] - tf.multiply(self.param_step_sizes[key + "_step_size"], gradients[key]) for key in
+            params_var[key] - tf.multiply(self.param_step_sizes[key + "_step_size"], gradients[key]) for key in
             update_param_keys]))
 
-        return self.init_dist_sym(obs_var, all_params=params_dict, is_training=is_training)
+        return self.init_dist_sym(obs_var, params=params_dict)
 
     def compute_updated_dists(self, samples):
         """
@@ -200,52 +208,50 @@ class MAMLAlgo(Algo):
         sess = tf.get_default_session()
         num_tasks = len(samples)
         assert num_tasks == self.meta_batch_size
-        input_list = list([] for _ in range(len(self.update_input_keys)))
+
+        obs_list, action_list, adv_list, dist_info_list = [], [], [], []
         for i in range(num_tasks):
-            inputs = ext.extract(
-                all_samples_data[step][i], *self._optimization_keys
+            inputs = extract(
+                samples[i], *self._optimization_keys
             )
             obs_list.append(inputs[0])
             action_list.append(inputs[1])
             adv_list.append(inputs[2])
             dist_info_list.append([inputs[3][k] for k in self.policy.distribution.dist_info_keys])
 
-        input_list += obs_list + action_list + adv_list + sum(list(zip(*dist_info_list)))
+        input_list = obs_list + action_list + adv_list + sum(list(zip(*dist_info_list)))
 
-        feed_dict_inputs = list(zip(self.input_list_for_grad, inputs))
-        feed_dict_params = list((self.all_params_ph[i][key], self.all_param_vals[i][key])
-                                for i in range(num_tasks) for key in self.all_params_ph[0].keys())
+        feed_dict_inputs = list(zip(self.input_list_for_grad, input_list))
+        feed_dict_params = list((self.policy.policies_params_ph[i][key], self.policy.policies_params_vals[i][key])
+                                for i in range(num_tasks) for key in self.policy.policy_params_keys)
         feed_dict = dict(feed_dict_inputs + feed_dict_params)
-        new_param_vals, gradients = sess.run([self.all_fast_params_tensor, self._all_param_gradients], feed_dict=feed_dict)
+
+        new_param_vals = sess.run(self.fast_policy_params_var, feed_dict=feed_dict)
+
         self.policy.update_task_parameters(new_param_vals)
 
-    def set_inner_obj(self, input_list, surr_objs_tensor):
+    def build_test_inner_obj(self, input_list, surr_objs_tensor):
         self.input_list_for_grad = input_list
         self.surr_objs = surr_objs_tensor
-        
-        for key, param in self.all_params.items():
-            shape = param.get_shape().as_list()
-            init_stepsize = np.ones(shape, dtype=np.float32) * self.inner_lr
-            self.param_step_sizes[key + "_step_size"] = tf.Variable(initial_value=init_stepsize,
-                                                                    name='%s_step_size' % key,
-                                                                    dtype=tf.float32)
+        self.fast_policy_params_var = []
 
-        update_param_keys = self.all_params.keys()
+        update_param_keys = self.policy.policy_params_keys
         with tf.variable_scope(self.name):
             # Create the symbolic graph for the one-step inner gradient update (It'll be called several times if
             # more gradient steps are needed
+            # TODO: A tf.map would be faster
             for i in range(self.num_tasks):
                 # compute gradients for a current task (symbolic)
                 gradients = dict(zip(update_param_keys, tf.gradients(self.surr_objs[i],
-                                                                     [self.all_params_ph[i][key] for key in update_param_keys]
+                                                                     [self.policies_params_ph[i][key]
+                                                                      for key in update_param_keys]
                                                                      )))
 
                 # gradient update for params of current task (symbolic)
                 fast_params_tensor = OrderedDict(zip(update_param_keys,
-                                                     [self.all_params_ph[i][key] - tf.multiply(
+                                                     [self.policies_params_ph[i][key] - tf.multiply(
                                                          self.param_step_sizes[key + "_step_size"], gradients[key]) for
                                                       key in update_param_keys]))
 
                 # tensors that represent the updated params for all of the tasks (symbolic)
-                self.all_fast_params_tensor.append(fast_params_tensor)
-                self._all_param_gradients.append(gradients)
+                self.fast_policy_params_var.append(fast_params_tensor)

@@ -142,6 +142,7 @@ class MetaPolicy(Policy):
         It switches to the pre-updated policy
         """
         self._pre_update_mode = True
+        self.policies_params_vals = None
 
     def get_actions(self, observations):
         if self._pre_update_mode:
@@ -170,6 +171,7 @@ class MetaPolicy(Policy):
         Args:
             updated_policies_parameters (list): List of size meta-batch size. Each contains a dict with the policies
             parameters
+
         """
         self.policies_params_vals = updated_policies_parameters
         self._pre_update_mode = False

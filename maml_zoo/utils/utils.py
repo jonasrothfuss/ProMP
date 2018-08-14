@@ -11,6 +11,15 @@ def get_last_scope(name):
     return name.split("/")[-2]
 
 
+def extract(x, *keys):
+    if isinstance(x, dict):
+        return tuple(x[k] for k in keys)
+    elif isinstance(x, list):
+        return tuple([xi[k] for xi in x] for k in keys)
+    else:
+        raise NotImplementedError
+
+
 def center_advantages(advantages):
     return (advantages - np.mean(advantages)) / (advantages.std() + 1e-8)
 
