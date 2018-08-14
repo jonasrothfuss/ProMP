@@ -31,3 +31,18 @@ Sample Processor
     :members:
     :inherited-members:
     :show-inheritance:
+
+Vectorized Environment Executor
+-------------------------------
+
+.. automodule:: maml_zoo.samplers.vectorized_env_executor
+
+.. autoclass:: MAMLIterativeEnvExecutor
+    :members:
+    :inherited-members:
+    :show-inheritance:
+
+.. autoclass:: MAMLParallelEnvExecutor
+    :members:
+    :inherited-members:
+    :show-inheritance:

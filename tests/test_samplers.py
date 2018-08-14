@@ -1,8 +1,7 @@
 import unittest
 import numpy as np
 from maml_zoo.policies.base import Policy
-from maml_zoo.samplers.iterative_env_executor import MAMLIterativeEnvExecutor
-from maml_zoo.samplers.parallel_env_executor import MAMLParallelEnvExecutor
+from maml_zoo.samplers.vectorized_env_executor import MAMLParallelEnvExecutor, MAMLIterativeEnvExecutor
 from maml_zoo.samplers import MAMLSampler
 from maml_zoo.samplers import MAMLSampleProcessor
 from maml_zoo.samplers import SampleProcessor
@@ -74,14 +73,13 @@ class TestSampler(unittest.TestCase):
         self.meta_batch_size = 3
         self.batch_size = 4
         self.path_length = 5
-        self.it_sampler = MAMLSampler(self.batch_size, self.path_length, parallel=False)
-        self.par_sampler = MAMLSampler(self.batch_size, self.path_length, parallel=True)
+        self.it_sampler = MAMLSampler(self.test_env, self.test_policy, self.batch_size, self.meta_batch_size, self.path_length, parallel=False)
+        self.par_sampler = MAMLSampler(self.test_env, self.test_policy, self.batch_size, self.meta_batch_size, self.path_length, parallel=True)
         self.sample_processor = SampleProcessor(baseline=LinearFeatureBaseline())
         self.maml_sample_processor = MAMLSampleProcessor(baseline=LinearFeatureBaseline())
 
     def testSingle(self):
         for sampler in [self.par_sampler]:
-            sampler.build_sampler(self.test_env, self.test_policy, self.meta_batch_size)
             paths = sampler.obtain_samples()
             self.assertEqual(len(paths), self.meta_batch_size)
             for task in paths.values():
@@ -97,7 +95,6 @@ class TestSampler(unittest.TestCase):
 
     def testGoalSet(self):
         for sampler in [self.it_sampler, self.par_sampler]:
-            sampler.build_sampler(self.test_env, self.return_policy, self.meta_batch_size)
             sampler.update_tasks()
             paths = sampler.obtain_samples()
             self.assertEqual(len(paths), self.meta_batch_size)
@@ -113,9 +110,30 @@ class TestSampler(unittest.TestCase):
                     for h in range(1, self.meta_batch_size):
                         self.assertNotEqual(paths[h][i]['observations'][j], curr_obs)
 
-    def testRandomSeeds(self):
-        for sampler in [self.it_sampler, self.par_sampler]:
-            sampler.build_sampler(self.random_env, self.test_policy, self.meta_batch_size)
+    def testRandomSeeds1(self):
+        for sampler_parallel in [True, False]:
+            np.random.seed(22)
+            sampler = MAMLSampler(self.random_env, self.random_policy, self.batch_size, self.meta_batch_size,
+                                     self.path_length, parallel=sampler_parallel)
+            sampler.update_tasks()
+            paths1 = sampler.obtain_samples()
+
+            np.random.seed(22)
+            sampler = MAMLSampler(self.random_env, self.random_policy, self.batch_size, self.meta_batch_size,
+                                  self.path_length, parallel=sampler_parallel)
+            sampler.update_tasks()
+            paths2 = sampler.obtain_samples()
+
+            for task1, task2 in zip(paths1.values(), paths2.values()): # All rewards in task are equal, but obs are not
+                for j in range(self.batch_size):
+                    for k in range(self.path_length):
+                        self.assertEqual(task1[j]["observations"][k], task2[j]["observations"][k])
+
+    def testRandomSeeds2(self):
+        for sampler_parallel in [True, False]:
+            np.random.seed(22)
+            sampler = MAMLSampler(self.random_env, self.test_policy, self.batch_size, self.meta_batch_size,
+                                  self.path_length, parallel=sampler_parallel)
             sampler.update_tasks()
             paths = sampler.obtain_samples()
             self.assertEqual(len(paths), self.meta_batch_size)
@@ -129,8 +147,12 @@ class TestSampler(unittest.TestCase):
                         self.assertEqual(task[h]['rewards'][j], curr_rew)
 
     def testInfoDicts(self):
-        for sampler in [self.it_sampler, self.par_sampler]:
-            sampler.build_sampler(self.random_env, self.random_policy, self.meta_batch_size)
+        it_sampler = MAMLSampler(self.random_env, self.random_policy, self.batch_size, self.meta_batch_size,
+                                      self.path_length, parallel=False)
+        par_sampler = MAMLSampler(self.random_env, self.random_policy, self.batch_size, self.meta_batch_size,
+                                       self.path_length, parallel=True)
+
+        for sampler in [it_sampler, par_sampler]:
             sampler.update_tasks()
             paths = sampler.obtain_samples()
             self.assertEqual(len(paths), self.meta_batch_size)
@@ -146,7 +168,6 @@ class TestSampler(unittest.TestCase):
 
     def testMAMLSampleProcessor(self):
         for sampler in [self.it_sampler, self.par_sampler]:
-            sampler.build_sampler(env=self.random_env, policy=self.random_policy, meta_batch_size=self.meta_batch_size)
             sampler.update_tasks()
             paths_meta_batch = sampler.obtain_samples()
             samples_data_meta_batch = self.maml_sample_processor.process_samples(paths_meta_batch)
@@ -156,9 +177,7 @@ class TestSampler(unittest.TestCase):
                 self.assertEqual(samples_data['advantages'].size, self.path_length*self.batch_size)
 
     def testSampleProcessor(self):
-
         for sampler in [self.it_sampler, self.par_sampler]:
-            sampler.build_sampler(env=self.random_env, policy=self.random_policy, meta_batch_size=self.meta_batch_size)
             sampler.update_tasks()
             paths_meta_batch = sampler.obtain_samples()
             for paths in paths_meta_batch.values():

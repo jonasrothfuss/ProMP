@@ -8,28 +8,20 @@ class Sampler(object):
     Sampler interface
 
     Args:
-      batch_size (int) : number of trajectories per task
-      max_path_length (int) : max number of steps per trajectory
+        env (gym.Env) : environment object
+        policy (maml_zoo.policies.policy) : policy object
+        batch_size (int) : number of trajectories per task
+        max_path_length (int) : max number of steps per trajectory
     """
 
-    def __init__(self, batch_size, max_path_length):
-        self.env = None
-        self.policy = None
-        self.batch_size = batch_size
-        self.max_path_length = max_path_length
-
-    def build_sampler(self, env, policy):
-        """
-        builds the sampler
-
-        Args:
-            env (gym.Env) : environment object
-            policy (maml_zoo.policies.policy) : policy object
-        """
+    def __init__(self, env, policy, batch_size, max_path_length):
         assert hasattr(env, 'env_spec') and hasattr(env, 'reset') and hasattr(env, 'step')
         self.env = env
         self.env_spec = env.env_spec
         self.policy = policy
+
+        self.batch_size = batch_size
+        self.max_path_length = max_path_length
 
     def obtain_samples(self):
         """
