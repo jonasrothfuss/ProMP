@@ -1,7 +1,7 @@
 from maml_zoo.utils import utils
 from maml_zoo.logger import logger
-
 import numpy as np
+
 
 class Sampler(object):
     """
@@ -39,6 +39,7 @@ class Sampler(object):
             (list) : A list of paths.
         """
         raise NotImplementedError
+
 
 class SampleProcessor(object):
     """

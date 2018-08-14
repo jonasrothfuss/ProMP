@@ -137,7 +137,7 @@ class GaussianMLPPolicy(Policy):
         """
         return self._dist
 
-    def output_sym(self, obs_var, params=None):
+    def distribution_info_sym(self, obs_var, params=None):
         """
         Return the symbolic distribution information about the actions.
         Args:
@@ -181,7 +181,7 @@ class GaussianMLPPolicy(Policy):
 
         return dict(mean=mean_var, log_std=log_std_var)
 
-    def output_info(self, obs, state_infos):
+    def distribution_info_keys(self, obs, state_infos):
         """
         Args:
             obs (placeholder) : symbolic variable for observations
@@ -190,6 +190,6 @@ class GaussianMLPPolicy(Policy):
         Returns:
             (dict) : a dictionary of tf placeholders for the policy output distribution
         """
-        raise NotImplementedError
+        raise ["mean", "log_std"]
 
 

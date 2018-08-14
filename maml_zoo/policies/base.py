@@ -65,19 +65,19 @@ class Policy(object):
         """
         raise NotImplementedError
 
-    def output_sym(self, obs_var, state_info_vars):
+    def distribution_info_sym(self, obs_var, params=None):
         """
         Return the symbolic distribution information about the actions.
         Args:
             obs_var (placeholder) : symbolic variable for observations
-            state_info_vars (dict) : a dictionary of placeholders that contains information about the
+            parmas (None or dict) : a dictionary of placeholders that contains information about the
             state of the policy at the time it received the observation
         Returns:
             (dict) : a dictionary of tf placeholders for the policy output distribution
         """
         raise NotImplementedError
 
-    def output_info(self, obs, state_infos):
+    def distribution_info_keys(self, obs, state_infos):
         """
         Args:
             obs (placeholder) : symbolic variable for observations
