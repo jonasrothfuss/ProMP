@@ -10,9 +10,9 @@ class Algo(object):
 
     """
 
-
     def __init__(
             self,
+            optimizer,
             inner_lr,
             num_inner_grad_steps=1,
             entropy_bonus=0,

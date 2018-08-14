@@ -75,9 +75,9 @@ class GaussianMLPPolicy(Policy):
             mean_network_vars = OrderedDict([(get_original_tf_name(var.name), var) for var in mean_network_vars])
             log_std_network_vars = OrderedDict([(get_original_tf_name(var.name), var) for var in log_std_network_vars])
 
-            self._create_getter_setter()
+            # self._create_getter_setter()
 
-        action_var = mean_var + tf.random_normal(shape=mean_var.shape) * tf.exp(log_std_var)
+        action_var = mean_var + tf.random_normal(shape=tf.shape(mean_var)) * tf.exp(log_std_var)
 
         self.obs_var = obs_var
         self.action_var = action_var

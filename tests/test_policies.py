@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 import pickle
 
+
 class DummySpace(object):
     def __init__(self, dim):
         self._dim = dim
