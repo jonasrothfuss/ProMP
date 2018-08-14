@@ -1,0 +1,20 @@
+language: python
+
+python:
+  - "3.4"
+  - "3.5"
+  - "3.5-dev"  # 3.5 development branch
+  - "3.6"
+  - "3.6-dev"  # 3.6 development branch
+
+# command to install dependencies
+install:
+  - pip install .
+  - pip install -r requirements.txt
+
+# command to run tests
+script:
+  - python -m tests.test_baselines
+  - python -m tests.test_optimizers
+  - python -m tests.test_policies
+  - python -m tests.test_samplers

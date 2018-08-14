@@ -105,3 +105,6 @@ venv.bak/
 
 # pycharm
 .idea/
+
+# sphinx doc
+/docs/builds

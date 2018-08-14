@@ -27,7 +27,7 @@ class MAMLFirstOrderOptimizer(Optimizer):
         self._tf_optimizer = tf_optimizer_cls(**tf_optimizer_args)
         self._max_epochs = max_epochs
         self._tolerance = tolerance
-        self._minibatch_splits = minibatch_splits
+        self._minibatch_splits = minibatch_splits # Unused
         self._verbose = verbose
         self._all_inputs = None
         self._train_op = None

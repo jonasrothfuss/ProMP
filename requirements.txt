@@ -1,4 +1,7 @@
-numpy>=1.14.0
-torch>=0.4.0
-gym[mujoco]>=0.10.5
-tensorboardX>=1.2
+joblib==0.12.2
+PyPrind
+numpy
+scipy
+gym==0.10.5
+python_dateutil
+tensorflow>=1.4.0

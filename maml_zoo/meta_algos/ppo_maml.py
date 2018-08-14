@@ -4,29 +4,18 @@ from maml_zoo.logger import logger
 from maml_zoo.meta_algos.base import MAMLAlgo
 from maml_zoo.utils.utils import extract
 
+from maml_zoo.optimizers.maml_first_order_optimizer import MAMLPPOOptimizer
 
 class MAMLPPO(MAMLAlgo):
     """
-    Algorithm for TRPO MAML
-    Args:
-        optimizer (Optimizer) : Optimizer to use
-        inner_lr (float) : gradient step size used for inner step
-        clip_eps (float) :
-        clip_outer (bool) : whether to use L^CLIP or L^KLPEN on outer gradient update
-        target_outer_step (float) : target outer kl divergence, used only with L^KLPEN and when adaptive_outer_kl_penalty is true
-        target_inner_step (float) : target inner kl divergence, used only when adaptive_inner_kl_penalty is true
-        init_outer_kl_penalty (float) : initial penalty for outer kl, used only with L^KLPEN
-        init_inner_kl_penalty (float) : initial penalty for inner kl
-        adaptive_outer_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on outer gradient update
-        adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
-        anneal_factor (float) : multiplicative factor for clip_eps, updated every iteration
-        num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
-        entropy_bonus (float) : scaling factor for policy entropy
+    Algorithm for PPO MAML
     """
     def __init__(
             self,
-            optimizer,
             inner_lr,
+            learning_rate,
+            max_epochs,
+            num_minibatches,
             clip_eps=0.2, 
             clip_outer=True,
             target_outer_step=0.001,
@@ -40,9 +29,27 @@ class MAMLPPO(MAMLAlgo):
             entropy_bonus=0,
             name="ppo_maml"
             ):
-        
-        super(MAMLPPO, self).__init__(optimizer, inner_lr, num_inner_grad_steps, entropy_bonus)
-        self.optimizer = optimizer
+        """
+        Args:
+            optimizer (Optimizer) : Optimizer to use
+            inner_lr (float) : gradient step size used for inner step
+            learning_rate (float) : 
+            max_epochs (int) :
+            num_minibatches (int) : Currently not implemented
+            clip_eps (float) :
+            clip_outer (bool) : whether to use L^CLIP or L^KLPEN on outer gradient update
+            target_outer_step (float) : target outer kl divergence, used only with L^KLPEN and when adaptive_outer_kl_penalty is true
+            target_inner_step (float) : target inner kl divergence, used only when adaptive_inner_kl_penalty is true
+            init_outer_kl_penalty (float) : initial penalty for outer kl, used only with L^KLPEN
+            init_inner_kl_penalty (float) : initial penalty for inner kl
+            adaptive_outer_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on outer gradient update
+            adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
+            anneal_factor (float) : multiplicative factor for clip_eps, updated every iteration
+            num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
+            entropy_bonus (float) : scaling factor for policy entropy
+        """
+        super(MAMLPPO, self).__init__(inner_lr, num_inner_grad_steps, entropy_bonus)
+        self.optimizer = MAMLPPOOptimizer(learning_rate=learning_rate, max_epochs=max_epochs, num_minibatches=num_minibatches)
         self.clip_eps = clip_eps
         self.clip_outer = clip_outer
         self.target_outer_step  = target_outer_step
