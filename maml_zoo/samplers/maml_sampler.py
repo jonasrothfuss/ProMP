@@ -1,8 +1,9 @@
 from maml_zoo.samplers.base import Sampler
 from maml_zoo.samplers.vectorized_env_executor import MAMLParallelEnvExecutor, MAMLIterativeEnvExecutor
-from maml_zoo.utils.progbar import ProgBarCounter
 from maml_zoo.logger import logger
 from maml_zoo.utils import utils
+
+from pyprind import ProgBar
 import numpy as np
 import time
 import itertools
@@ -31,6 +32,7 @@ class MAMLSampler(Sampler):
             parallel=False
             ):
         super(MAMLSampler, self).__init__(env, policy, batch_size, max_path_length)
+        assert hasattr(env, 'set_task')
 
         self.envs_per_task = batch_size if envs_per_task is None else envs_per_task
         self.meta_batch_size = meta_batch_size
@@ -73,7 +75,7 @@ class MAMLSampler(Sampler):
         n_samples = 0
         running_paths = [_get_empty_running_paths_dict() for _ in range(self.vec_env.num_envs)]
 
-        pbar = ProgBarCounter(self.total_samples)
+        pbar = ProgBar(self.total_samples)
         policy_time, env_time = 0, 0
 
         policy = self.policy
@@ -117,10 +119,10 @@ class MAMLSampler(Sampler):
                         env_infos=utils.stack_tensor_dict_list(running_paths[idx]["env_infos"]),
                         agent_infos=utils.stack_tensor_dict_list(running_paths[idx]["agent_infos"]),
                     ))
-                    running_paths[idx] = _get_empty_running_paths_dict
                     n_samples += len(running_paths[idx]["rewards"])
+                    running_paths[idx] = _get_empty_running_paths_dict()
 
-            pbar.inc(len(obses))
+            pbar.update(n_samples)
             obses = next_obses
         pbar.stop()
 

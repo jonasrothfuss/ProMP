@@ -1,7 +1,6 @@
 import unittest
 import numpy as np
 from maml_zoo.policies.base import Policy
-from maml_zoo.samplers.vectorized_env_executor import MAMLParallelEnvExecutor, MAMLIterativeEnvExecutor
 from maml_zoo.samplers import MAMLSampler
 from maml_zoo.samplers import MAMLSampleProcessor
 from maml_zoo.samplers import SampleProcessor
