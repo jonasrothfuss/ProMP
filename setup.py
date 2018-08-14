@@ -1,13 +1,13 @@
 from setuptools import setup
 
-setup(name="maml-zoo",
+setup(name="maml_zoo",
       version='0.1',
-      description='Model Agnostic Meta-Learning and ',
+      description='Framework that provides multiple Model Agnostic Meta-Learning (MAML) algorithms for reinforcement learning',
       url='https://github.com/jonasrothfuss/maml-zoo',
       author='Dennis Lee, Ignasi Clavera, Jonas Rothfuss',
       author_email='jonas.rothfuss@berkeley.edu',
       license='MIT',
-      packages=['maml-zoo'],
+      packages=['maml_zoo'],
       test_suite='nose.collector',
       tests_require=['nose'],
       install_requires=[

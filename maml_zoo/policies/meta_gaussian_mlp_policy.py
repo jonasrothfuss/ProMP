@@ -21,7 +21,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy):
         self.post_update_log_std_var = None
 
         self.policies_params_ph = None
-        self.policy_keys = None
+        self.policy_params_keys = None
         self.policies_params_vals = None
 
         self._pre_update_mode = True
@@ -37,27 +37,33 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy):
 
         # Create post-update policy graph
         with tf.variable_scope(self.name):
-            mean_network_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="mean_network")
-            log_std_network_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="log_std_network")
+
+            current_scope = tf.get_default_graph().get_name_scope()
+            mean_network_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                                                  scope=current_scope + '/mean_network')
+            log_std_network_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                                                     scope=current_scope + '/log_std_network')
 
             assert len(log_std_network_vars) == 1
 
-            mean_network_ph = [OrderedDict([(get_original_tf_name(var.name), tf.placeholder(tf.float32, shape=var.shape))
+            mean_network_ph = [OrderedDict([(get_original_tf_name(var.name),
+                                             tf.placeholder(tf.float32, shape=var.shape))
                                             for var in mean_network_vars]
                                            )
                                for _ in range(num_tasks)
                                ]
 
-            log_std_network_ph = [OrderedDict([(get_original_tf_name(var.name), tf.placeholder(tf.float32, shape=var.shape))
-                                            for var in log_std_network_vars]
-                                           )
-                               for _ in range(num_tasks)
-                               ]
+            log_std_network_ph = [OrderedDict([(get_original_tf_name(var.name),
+                                                tf.placeholder(tf.float32, shape=var.shape))
+                                               for var in log_std_network_vars]
+                                              )
+                                  for _ in range(num_tasks)
+                                  ]
 
             self.policies_params_ph = [odict.update(log_std_network_ph[idx])
                                        for idx, odict in enumerate(mean_network_ph)]
 
-            self.policy_keys = list(self.policies_params_ph[0].keys())
+            self.policy_params_keys = list(self.policies_params_ph[0].keys())
 
             self.post_update_action_var = []
             self.post_update_mean_var = []
@@ -78,13 +84,6 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy):
                 self.post_update_action_var.append(action_var)
                 self.post_update_mean_var.append(mean_var)
                 self.post_update_log_std_var.append(log_std_var)
-
-    def switch_to_pre_update(self):
-        """
-        It switches to the pre-updated policy
-        """
-        self._pre_update_mode = True
-        self.policies_parameters = None
 
     def get_actions(self, observations):
         """
@@ -125,7 +124,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy):
             observations (list): List of size meta-batch size with numpy arrays of shape batch_size x obs_dim
 
         """
-        assert self.policies_parameters is not None
+        assert self.policies_params_vals is not None
         obs_stack = np.concatenate(observations, axis=0)
         feed_dict = {self.obs_var, obs_stack}
         feed_dict_params = dict([(self.policies_params_ph[idx][key], self.policies_params_vals[idx][key])

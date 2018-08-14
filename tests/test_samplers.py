@@ -1,6 +1,5 @@
 import unittest
 import numpy as np
-from maml_zoo.envs.base import MetaEnv
 from maml_zoo.policies.base import Policy
 from maml_zoo.samplers.iterative_env_executor import MAMLIterativeEnvExecutor
 from maml_zoo.samplers.parallel_env_executor import MAMLParallelEnvExecutor
@@ -8,7 +7,7 @@ from maml_zoo.samplers.maml_sampler import MAMLSampler
 from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 
-class TestEnv(MetaEnv):
+class TestEnv():
     def __init__(self):
         self.state = np.zeros(1)
         self.goal = 0

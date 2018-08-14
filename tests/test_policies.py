@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 import pickle
 
+
 class DummySpace(object):
     def __init__(self, dim):
         self._dim = dim
@@ -36,18 +37,18 @@ class DummyEnvSpec(object):
 class TestPolicy(unittest.TestCase):
 
     def setUp(self):
-        self.policy = GaussianMLPPolicy(name='test_policy',
-                                        hidden_sizes=(64, 64))
-        self.env_spec = DummyEnvSpec(23, 7)
-        self.policy.build_graph(self.env_spec)
         sess = tf.get_default_session()
         if sess is None:
             tf.InteractiveSession()
 
     def test_output_sym(self):
+        self.policy = GaussianMLPPolicy(name='test_policy_ouput_sym',
+                                        hidden_sizes=(64, 64))
+        self.env_spec = DummyEnvSpec(23, 7)
+        self.policy.build_graph(self.env_spec)
         obs_ph_1 = tf.placeholder(dtype=tf.float32, name="obs_ph_1",
                                    shape=(None, self.env_spec.observation_space.flat_dim))
-        output_sym_1 = self.policy.output_sym(obs_ph_1, {})
+        output_sym_1 = self.policy.output_sym(obs_ph_1)
 
         sess = tf.get_default_session()
         sess.run(tf.global_variables_initializer())
@@ -56,19 +57,30 @@ class TestPolicy(unittest.TestCase):
         action, agent_infos = self.policy.get_actions(n_obs)
         agent_infos_output_sym = sess.run(output_sym_1, feed_dict={obs_ph_1: n_obs})
 
-        self.assertEqual(agent_infos, agent_infos_output_sym)
+        for k in agent_infos.keys():
+            self.assertTrue(np.allclose(agent_infos[k], agent_infos_output_sym[k], rtol=1e-5, atol=1e-5))
 
     def test_get_action(self):
+        self.policy = GaussianMLPPolicy(name='test_policy_get_action',
+                                        hidden_sizes=(64, 64))
+        self.env_spec = DummyEnvSpec(23, 7)
+        self.policy.build_graph(self.env_spec)
+
         sess = tf.get_default_session()
         sess.run(tf.global_variables_initializer())
 
         obs = self.env_spec.get_obs()
         action, agent_infos = self.policy.get_action(obs)
-        actions, agents_infos = self.policy.get_action(np.expand_dims(obs, 0))
-        self.assertEquals(actions[0], action)
-        self.assertEquals(agent_infos, dict([(k, v[0]) for k, v in agent_infos.items()]))
+        actions, agents_infos = self.policy.get_actions(np.expand_dims(obs, 0))
+        for k in agent_infos.keys():
+            self.assertTrue(np.allclose(agent_infos[k], agents_infos[k], rtol=1e-5, atol=1e-5))
 
     def testSerialize(self):
+        self.policy = GaussianMLPPolicy(name='test_policy_test_serialize',
+                                        hidden_sizes=(64, 64))
+        self.env_spec = DummyEnvSpec(23, 7)
+        self.policy.build_graph(self.env_spec)
+
         sess = tf.get_default_session()
         sess.run(tf.global_variables_initializer())
         all_param_values = self.policy.get_param_values()
@@ -84,6 +96,7 @@ class TestPolicy(unittest.TestCase):
         self.assertEquals(pre_action, post_action)
         for key in pre_agent_infos.keys():
             self.assertEquals(pre_agent_infos[key], post_agent_infos[key])
+
 
 if __name__ == '__main__':
     unittest.main()
