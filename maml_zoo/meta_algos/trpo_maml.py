@@ -175,9 +175,9 @@ class MAMLTRPO(MAMLAlgo):
         logger.log("Computing KL after")
         mean_kl = self.optimizer.constraint_val(input_list)
         if log:
-            logger.record_tabular('MeanKLBefore', mean_kl_before)  # this now won't be 0!
-            logger.record_tabular('MeanKL', mean_kl)
+            logger.logkv('MeanKLBefore', mean_kl_before)  # this now won't be 0!
+            logger.logkv('MeanKL', mean_kl)
 
-            logger.record_tabular('LossBefore', loss_before)
-            logger.record_tabular('LossAfter', loss_after)
-            logger.record_tabular('dLoss', loss_before - loss_after)
+            logger.logkv('LossBefore', loss_before)
+            logger.logkv('LossAfter', loss_after)
+            logger.logkv('dLoss', loss_before - loss_after)

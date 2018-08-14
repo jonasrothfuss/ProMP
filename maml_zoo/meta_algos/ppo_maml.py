@@ -103,6 +103,7 @@ class MAMLPPO(MAMLAlgo):
                                            for i in range(self.meta_batch_size)) for j in
                                       range(self.num_inner_grad_steps))
 
+
             anneal_ph = tf.placeholder(tf.float32, shape=[], name='clip_ph')
 
             outer_kl_list = []
@@ -197,6 +198,8 @@ class MAMLPPO(MAMLAlgo):
 
         kl_coeff_vars_list = sum(kl_coeff_vars_list, [])
         extra_inputs = tuple(kl_coeff_vars_list) + (anneal_ph,)
+        input_list = tuple(input_list)
+
         self.optimizer.build_graph(
             loss=meta_obj,
             target=self.policy,
@@ -270,9 +273,9 @@ class MAMLPPO(MAMLAlgo):
                     self.outer_kl_coeff[i] *= 2
 
         if log:
-            logger.record_tabular('LossBefore', loss_before)
-            logger.record_tabular('LossAfter', loss_after)
-            logger.record_tabular('dLoss', loss_before - loss_after)
-            logger.record_tabular('klDiff', np.mean(inner_kls))
-            logger.record_tabular('klCoeff', np.mean(self.kl_coeff))
-            if not self.clip_outer: logger.record_tabular('outerklDiff', np.mean(outer_kls))
+            logger.logkv('LossBefore', loss_before)
+            logger.logkv('LossAfter', loss_after)
+            logger.logkv('dLoss', loss_before - loss_after)
+            logger.logkv('klDiff', np.mean(inner_kls))
+            logger.logkv('klCoeff', np.mean(self.kl_coeff))
+            if not self.clip_outer: logger.logkv('outerklDiff', np.mean(outer_kls))

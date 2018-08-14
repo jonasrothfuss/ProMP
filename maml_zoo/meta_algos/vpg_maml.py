@@ -167,7 +167,7 @@ class MAMLVPG(MAMLAlgo):
         loss_after = self.optimizer.loss(input_list)
 
         if log:
-            logger.record_tabular('LossBefore', loss_before)
-            logger.record_tabular('LossAfter', loss_after)
-            logger.record_tabular('dLoss', loss_before - loss_after)
-            logger.record_tabular('klDiff', np.mean(inner_kls))
+            logger.logkv('LossBefore', loss_before)
+            logger.logkv('LossAfter', loss_after)
+            logger.logkv('dLoss', loss_before - loss_after)
+            logger.logkv('klDiff', np.mean(inner_kls))

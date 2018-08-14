@@ -130,8 +130,8 @@ class MAMLSampler(Sampler):
             obses = next_obses
         pbar.stop()
 
-        logger.record_tabular(log_prefix+"PolicyExecTime", policy_time)
-        logger.record_tabular(log_prefix+"EnvExecTime", env_time)
-        logger.record_tabular(log_prefix+"ProcessExecTime", process_time)
+        logger.logkv(log_prefix+"PolicyExecTime", policy_time)
+        logger.logkv(log_prefix+"EnvExecTime", env_time)
+        logger.logkv(log_prefix+"ProcessExecTime", process_time)
 
         return paths
