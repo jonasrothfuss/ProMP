@@ -13,6 +13,8 @@ class MAMLPPO(MAMLAlgo):
     """
     def __init__(
             self,
+            meta_batch_size,
+            num_inner_grad_steps,
             inner_lr,
             learning_rate,
             max_epochs,
@@ -49,13 +51,16 @@ class MAMLPPO(MAMLAlgo):
         """
         super(MAMLPPO, self).__init__(inner_lr, entropy_bonus)
         self.optimizer = MAMLPPOOptimizer(learning_rate=learning_rate, max_epochs=max_epochs, num_minibatches=num_minibatches)
+        self.num_inner_grad_steps = num_inner_grad_steps
+        self.meta_batch_size = meta_batch_size
         self.clip_eps = clip_eps
         self.clip_outer = clip_outer
         self.target_outer_step = target_outer_step
         self.target_inner_step = target_inner_step
         self.adaptive_outer_kl_penalty = adaptive_outer_kl_penalty
         self.adaptive_inner_kl_penalty = adaptive_inner_kl_penalty
-        self.outer_kl_coeff = [init_outer_kl_penalty] * self.meta_batch_size
+        self.inner_kl_coeff = [init_inner_kl_penalty] * meta_batch_size * num_inner_grad_steps
+        self.outer_kl_coeff = [init_outer_kl_penalty] * meta_batch_size
         self.anneal_coeff = 1
         self.anneal_factor = anneal_factor
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']
@@ -82,9 +87,6 @@ class MAMLPPO(MAMLAlgo):
                 update_init_dist_sym
         set objectives for optimizer
         """
-        self.meta_batch_size = meta_batch_size
-        self.num_inner_grad_steps = num_inner_grad_steps
-        self.kl_coeff = [init_inner_kl_penalty] * self.meta_batch_size * self.num_inner_grad_steps
         self.policy = policy
         self.policies_params_ph = policy.policies_params_ph
         self.policy_params = policy.policy_params
@@ -126,16 +128,11 @@ class MAMLPPO(MAMLAlgo):
             # Create objective for gradient step
             # TODO: Probably it'd be faster if we did this with a tf.map
             for i in range(self.meta_batch_size):
-                if self.entropy_bonus > 0:
-                    entropy = self.entropy_bonus * tf.reduce_mean(dist.entropy_sym(distribution_info_vars[i]))
-                else:  # Save a computation
-                    entropy = 0
+                output_inner_build = self._build_inner_objective(obs_phs[i], action_phs[i],
+                                                                 adv_phs[i], dist_info_phs[i],
+                                                                 distribution_info_vars[i], current_policy_params[i])
 
-                kl_loss = tf.reduce_mean(dist.kl_sym(dist_info_phs[i], distribution_info_vars[i]))
-                likelihood_ratio = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], distribution_info_vars[i])
-                surr_loss = - tf.reduce_mean(likelihood_ratio * adv_phs[i])
-
-                dist_info_var, adapted_params_var = self.adapt_sym(surr_objs[i], obs_phs[i], current_policy_params[i])
+                kl_loss, entropy, surr_loss, dist_info_var, adapted_params_var = output_inner_build
 
                 adapted_policy_dist_info_vars.append(dist_info_var)
                 adapted_policy_params.append(adapted_params_var)
@@ -182,9 +179,23 @@ class MAMLPPO(MAMLAlgo):
             outer_kl=outer_kls,
         )
 
+    def _build_inner_objective(self, obs_ph, action_ph, adv_ph, dist_info_ph, distribution_info_var,
+                               current_policy_params):
+        if self.entropy_bonus > 0:
+            entropy = self.entropy_bonus * tf.reduce_mean(self.dist.entropy_sym(distribution_info_var))
+        else:  # Save a computation
+            entropy = 0
+
+        kl_loss = tf.reduce_mean(self.dist.kl_sym(dist_info_ph, distribution_info_var))
+        likelihood_ratio = self.dist.likelihood_ratio_sym(action_ph, dist_info_ph, distribution_info_var)
+        surr_loss = - tf.reduce_mean(likelihood_ratio * adv_ph)
+
+        dist_info_var, adapted_params_var = self.adapt_sym(surr_loss, obs_ph, current_policy_params)
+
+        return kl_loss, entropy, surr_loss, dist_info_var, adapted_params_var
+
     def _build_outer_objective(self, kl_penalties, inner_kl_coeffs, entropies_bonus, action_ph,
                                adv_ph, dist_info_ph, distribution_info_var, anneal_ph, outer_kl_coeffs):
-
 
         kl_penalty = sum(list(kl_penalties[j] * inner_kl_coeffs[j] for j in range(self.num_inner_grad_steps)))
         entropy_bonus = sum(list(entropies_bonus[j] for j in range(self.num_inner_grad_steps)))
@@ -203,6 +214,7 @@ class MAMLPPO(MAMLAlgo):
             outer_kl_penalty = outer_kl_coeffs[0] * outer_kl
             surr_obj = - tf.reduce_mean(likelihood_ratio * adv_ph) - entropy_bonus + \
                        kl_penalty + outer_kl_penalty
+
         return surr_obj, outer_kl
 
     def optimize_policy(self, all_samples_data, log=True):
