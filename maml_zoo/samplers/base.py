@@ -103,8 +103,6 @@ class SampleProcessor(object):
         assert set(samples_data.keys()) >= set(['observations', 'actions', 'rewards', 'advantages', 'returns'])
         return samples_data
 
-
-
     """ helper functions """
 
     def _compute_samples_data(self, paths):

@@ -1,16 +1,16 @@
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
-from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirec # Not yet implemented
+from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.meta_algos.ppo_maml import MAMLPPO
 from maml_zoo.meta_trainer import Trainer
 from maml_zoo.samplers.maml_sampler import MAMLSampler
 from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
-from maml_zoo.policies. # todo
+from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 
 baseline = LinearFeatureBaseline()
 
-env = HalfCheetahRandDirec() # Wrappers? normalization?
+env = HalfCheetahRandDirecEnv() # Wrappers? normalization?
 
 sampler = MAMLSampler(
 
@@ -24,7 +24,7 @@ sample_processor = MAMLSampleProcessor(
         positive_adv=False,
 	)
 
-policy = MAMLGaussianMLPPolicy(
+policy = MetaGaussianMLPPolicy(
 
 	)
 
