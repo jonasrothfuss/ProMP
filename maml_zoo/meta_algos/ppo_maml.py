@@ -2,8 +2,6 @@ import tensorflow as tf
 import numpy as np
 from maml_zoo.logger import logger
 from maml_zoo.meta_algos.base import MAMLAlgo
-from maml_zoo.utils.utils import extract
-
 from maml_zoo.optimizers.maml_first_order_optimizer import MAMLPPOOptimizer
 
 
@@ -70,7 +68,7 @@ class MAMLPPO(MAMLAlgo):
         self.step_sizes = None
         self.dist = None
 
-    def build_graph(self, policy, meta_batch_size, num_inner_grad_steps):
+    def build_graph(self, policy, env, meta_batch_size, num_inner_grad_steps):
         """
         Creates the computation graph
         Args:
@@ -88,6 +86,7 @@ class MAMLPPO(MAMLAlgo):
         set objectives for optimizer
         """
         self.policy = policy
+        self.env = env
         self.policies_params_ph = policy.policies_params_ph
         self.policy_params = policy.policy_params
         self.dist = dist = policy.distribution
@@ -231,7 +230,7 @@ class MAMLPPO(MAMLAlgo):
 
         input_list = self._extract_input_list(all_samples_data, self._optimization_keys)
 
-        extra_inputs = tuple(self.kl_coeff)
+        extra_inputs = tuple(self.inner_kl_coeff)
         if not self.clip_outer:
             extra_inputs += tuple(self.outer_kl_coeff)
 
@@ -250,7 +249,7 @@ class MAMLPPO(MAMLAlgo):
         inner_kls = self.optimizer.inner_kl(input_list, extra_inputs=extra_inputs)
         if self.adaptive_inner_kl_penalty:
             if log: logger.log("Updating inner KL loss coefficients")
-            self._adapt_kl_coeff(self.kl_coeff, inner_kls, self.target_inner_step)
+            self._adapt_kl_coeff(self.inner_kl_coeff, inner_kls, self.target_inner_step)
 
         outer_kls = self.optimizer.outer_kl(input_list, extra_inputs=extra_inputs)
         if self.adaptive_outer_kl_penalty:
@@ -262,7 +261,7 @@ class MAMLPPO(MAMLAlgo):
             logger.logkv('LossAfter', loss_after)
             logger.logkv('dLoss', loss_before - loss_after)
             logger.logkv('klDiff', np.mean(inner_kls))
-            logger.logkv('klCoeff', np.mean(self.kl_coeff))
+            logger.logkv('klCoeff', np.mean(self.inner_kl_coeff))
             if not self.clip_outer: logger.logkv('outerklDiff', np.mean(outer_kls))
 
     def _adapt_kl_coeff(self, kl_params, kl_values, kl_target):
@@ -281,9 +280,9 @@ class MAMLPPO(MAMLAlgo):
             for key, param in self.policy_params.items():
                 shape = param.get_shape().as_list()
                 init_stepsize = np.ones(shape, dtype=np.float32) * self.inner_lr
-                step_sizes[key + "_step_size"] = tf.Variable(initial_value=init_stepsize,
-                                                             name='%s_step_size' % key,
-                                                             dtype=tf.float32)
+                step_sizes[key] = tf.Variable(initial_value=init_stepsize,
+                                              name='%s_step_size' % key,
+                                              dtype=tf.float32)
 
             # Inner KL coeffs
             inner_kl_coeffs = [list(tf.placeholder(tf.float32, shape=[], name='kl_%s_%s' % (j, i))
@@ -297,6 +296,7 @@ class MAMLPPO(MAMLAlgo):
             outer_kl_coeffs = [list() for _ in range(self.meta_batch_size)]
             if not self.clip_outer:
                 outer_kl_coeffs = [tf.placeholder(tf.float32, shape=[], name='kl_outer_%s' % i)
-                                        for i in range(self.meta_batch_size)]
+                                   for i in range(self.meta_batch_size)]
+
         return step_sizes, inner_kl_coeffs, anneal_ph, outer_kl_coeffs
 

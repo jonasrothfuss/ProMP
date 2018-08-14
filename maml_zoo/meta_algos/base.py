@@ -25,7 +25,7 @@ class Algo(object):
         self.policy = None
         self._optimization_keys = None
 
-    def build_graph(self, policy, meta_batch_size):
+    def build_graph(self, policy, env, *args, **kwargs):
         """
         Creates meta-learning computation graph
 
@@ -140,7 +140,7 @@ class MAMLAlgo(Algo):
         self.step_sizes = None
         self.policies_params_ph = None
 
-    def build_graph(self, policy, meta_batch_size, num_inner_grad_steps):
+    def build_graph(self, policy, env, meta_batch_size, num_inner_grad_steps):
         raise NotImplementedError
 
     def make_input_placeholders(self, prefix='', scope=''):
