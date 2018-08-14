@@ -22,16 +22,18 @@ DEBUG = 10
 INFO = 20
 WARN = 30
 ERROR = 40
-
 DISABLED = 50
+
 
 class KVWriter(object):
     def writekvs(self, kvs):
         raise NotImplementedError
 
+
 class SeqWriter(object):
     def writeseq(self, seq):
         raise NotImplementedError
+
 
 class HumanOutputFormat(KVWriter, SeqWriter):
     def __init__(self, filename_or_file):
@@ -90,6 +92,7 @@ class HumanOutputFormat(KVWriter, SeqWriter):
         if self.own_file:
             self.file.close()
 
+
 class JSONOutputFormat(KVWriter):
     def __init__(self, filename):
         self.file = open(filename, 'wt')
@@ -104,6 +107,7 @@ class JSONOutputFormat(KVWriter):
 
     def close(self):
         self.file.close()
+
 
 class CSVOutputFormat(KVWriter):
     def __init__(self, filename):
@@ -176,6 +180,7 @@ class TensorBoardOutputFormat(KVWriter):
             self.writer.Close()
             self.writer = None
 
+
 def make_output_format(format, ev_dir, log_suffix=''):
     os.makedirs(ev_dir, exist_ok=True)
     if format == 'stdout':
@@ -195,6 +200,7 @@ def make_output_format(format, ev_dir, log_suffix=''):
 # API
 # ================================================================
 
+
 def logkv(key, val):
     """
     Log a value of some diagnostic
@@ -203,11 +209,13 @@ def logkv(key, val):
     """
     Logger.CURRENT.logkv(key, val)
 
+
 def logkv_mean(key, val):
     """
     The same as logkv(), but if called many times, values averaged.
     """
     Logger.CURRENT.logkv_mean(key, val)
+
 
 def logkvs(d):
     """
@@ -215,6 +223,7 @@ def logkvs(d):
     """
     for (k, v) in d.items():
         logkv(k, v)
+
 
 def dumpkvs():
     """
@@ -224,6 +233,7 @@ def dumpkvs():
                 the level argument here, don't print to stdout.
     """
     Logger.CURRENT.dumpkvs()
+
 
 def getkvs():
     return Logger.CURRENT.name2val
@@ -235,14 +245,18 @@ def log(*args, level=INFO):
     """
     Logger.CURRENT.log(*args, level=level)
 
+
 def debug(*args):
     log(*args, level=DEBUG)
+
 
 def info(*args):
     log(*args, level=INFO)
 
+
 def warn(*args):
     log(*args, level=WARN)
+
 
 def error(*args):
     log(*args, level=ERROR)
@@ -254,6 +268,7 @@ def set_level(level):
     """
     Logger.CURRENT.set_level(level)
 
+
 def get_dir():
     """
     Get directory that log files are being written to.
@@ -261,11 +276,13 @@ def get_dir():
     """
     return Logger.CURRENT.get_dir()
 
+
 def save_itr_params(*args):
     return Logger.CURRENT.save_itr_params(*args)
 
 record_tabular = logkv
 dump_tabular = dumpkvs
+
 
 class ProfileKV:
     """
@@ -380,6 +397,7 @@ class Logger(object):
 
 Logger.DEFAULT = Logger.CURRENT = Logger(dir=None, output_formats=[HumanOutputFormat(sys.stdout)])
 
+
 def configure(dir=None, format_strs=None, snapshot_mode='last', snapshot_gap=1):
     if dir is None:
         dir = os.getenv('OPENAI_LOGDIR')
@@ -408,20 +426,24 @@ def configure(dir=None, format_strs=None, snapshot_mode='last', snapshot_gap=1):
     Logger.CURRENT = Logger(dir=dir, output_formats=output_formats, snapshot_mode=snapshot_mode, snapshot_gap=snapshot_gap)
     log('Logging to %s'%dir)
 
+
 def reset():
     if Logger.CURRENT is not Logger.DEFAULT:
         Logger.CURRENT.close()
         Logger.CURRENT = Logger.DEFAULT
         log('Reset logger')
 
+
 class scoped_configure(object):
     def __init__(self, dir=None, format_strs=None):
         self.dir = dir
         self.format_strs = format_strs
         self.prevlogger = None
+
     def __enter__(self):
         self.prevlogger = Logger.CURRENT
         configure(dir=self.dir, format_strs=self.format_strs)
+
     def __exit__(self, *args):
         Logger.CURRENT.close()
         Logger.CURRENT = self.prevlogger
@@ -455,6 +477,7 @@ def _demo():
 
     logkv("a", "longasslongasslongasslongasslongasslongassvalue")
     dumpkvs()
+
 
 if __name__ == "__main__":
     _demo()
