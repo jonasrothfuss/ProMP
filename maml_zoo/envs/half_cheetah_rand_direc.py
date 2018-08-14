@@ -1,16 +1,16 @@
 import numpy as np
 from maml_zoo.envs.base import MetaEnv
 from maml_zoo.logger import logger
-from gym import utils
+import gym
 from gym.envs.mujoco import mujoco_env
 
-class HalfCheetahEnvRandDirec(MetaEnv, utils.EzPickle):
+class HalfCheetahEnvRandDirec(MetaEnv, gym.utils.EzPickle):
 
     def __init__(self, goal_vel=None):
         self.goal_vel = goal_vel
         self.goal_direction = 1.0
         mujoco_env.MujocoEnv.__init__(self, 'half_cheetah.xml', 5)
-        utils.EzPickle.__init__(self)
+        gym.utils.EzPickle.__init__(self, goal_vel)
 
     def sample_tasks(self, n_tasks):
         # for fwd/bwd env, goal direc is backwards if < 1.0, forwards if > 1.0
@@ -31,7 +31,7 @@ class HalfCheetahEnvRandDirec(MetaEnv, utils.EzPickle):
         """
         return self.goal_direction
 
-    def _step(self, action):
+    def step(self, action):
         xposbefore = self.model.data.qpos[0, 0]
         self.do_simulation(action, self.frame_skip)
         xposafter = self.model.data.qpos[0, 0]
