@@ -20,7 +20,7 @@ def extract(x, *keys):
         raise NotImplementedError
 
 
-def center_advantages(advantages):
+def normalize_advantages(advantages):
     return (advantages - np.mean(advantages)) / (advantages.std() + 1e-8)
 
 

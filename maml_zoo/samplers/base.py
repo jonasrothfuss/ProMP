@@ -1,24 +1,32 @@
+from maml_zoo.utils import utils
+from maml_zoo.logger import logger
+
 import numpy as np
 
 class Sampler(object):
-    def __init__(
-            self,
-            batch_size,
-            max_path_length,
-            ):
-        """
-        Args:
-            env (Env) : 
-            policy (Policy) : 
-            batch_size (int) : number of trajectories per task
-            max_path_length (int) : max number of steps per trajectory
-        """
+    """
+    Sampler interface
+
+    Args:
+      batch_size (int) : number of trajectories per task
+      max_path_length (int) : max number of steps per trajectory
+    """
+
+    def __init__(self, batch_size, max_path_length):
         self.env = None
         self.policy = None
         self.batch_size = batch_size
         self.max_path_length = max_path_length
 
     def build_sampler(self, env, policy):
+        """
+        builds the sampler
+
+        Args:
+            env (gym.Env) : environment object
+            policy (maml_zoo.policies.policy) : policy object
+        """
+        assert hasattr(env, 'env_spec') and hasattr(env, 'reset') and hasattr(env, 'step')
         self.env = env
         self.env_spec = env.env_spec
         self.policy = policy
@@ -26,45 +34,138 @@ class Sampler(object):
     def obtain_samples(self):
         """
         Collect batch_size trajectories
+
         Returns: 
             (list) : A list of paths.
         """
         raise NotImplementedError
 
 class SampleProcessor(object):
+    """
+    Sample processor interface
+        - optionally fits a reward baseline
+        - performs Generalized Advantage Estimation to provide advantages (see Schulman et al. 2015 - https://arxiv.org/abs/1506.02438)
+
+    Args:
+        discount (float) : reward discount factor
+        gae_lambda (float) : Generalized Advantage Estimation lambda
+        baseline (Baseline) : a reward baseline object
+        normalize_adv (bool) : indicates whether to normalize the estimated advantages (zero mean and unit std)
+        positive_adv (bool) : indicates whether to shift the (normalized) advantages so that they are all positive
+    """
+
     def __init__(
-            self, 
+            self,
             discount=0.99,
             gae_lambda=1,
-            center_adv=False,
+            baseline=None,
+            normalize_adv=False,
             positive_adv=False,
             ):
-        """ 
-        Args:
-            discount (float) :
-            gae_lambda (float) : 
-            center_adv (bool) : 
-            positive_adv (bool) : 
-        """
+
+        assert 0 <= discount <= 1.0, 'discount factor must be in [0,1]'
+        assert 0 <= gae_lambda <= 1.0, 'gae_lambda must be in [0,1]'
+        assert hasattr(baseline, 'fit') and hasattr(baseline, 'predict')
+
         self.discount = discount
         self.gae_lambda = gae_lambda
-        self.center_adv = center_adv
+        self.normalize_adv = normalize_adv
         self.positive_adv = positive_adv
-        self.baseline = None
-
-    def build_sample_processor(self, baseline):
-        """
-        Args:
-            baseline (Baseline) : 
-        """
         self.baseline = baseline
 
-    def process_samples(self, paths):
+    def process_samples(self, paths, log=False, log_prefix=''):
         """
-        Return processed sample data (typically a dictionary of concatenated tensors) based on the collected paths.
+        Processes sampled paths. This involves:
+            - computing discounted rewards (returns)
+            - fitting baseline estimator using the path returns and predicting the return baselines
+            - estimating the advantages using GAE (+ advantage normalization id desired)
+            - stacking the path data
+            - logging statistics of the paths
+
         Args:
-            paths (list): A list of collected paths.
+            paths (list): A list of paths of size (batch_size) x [5] x (max_path_length)
+            log (boolean): indicates whether to log
+            log_prefix (str): prefix for the logging keys
+
         Returns:
-            (list) : Processed sample data.
+            (dict) : Processed sample data of size [7] x (batch_size x max_path_length)
         """
-        raise NotImplementedError
+        assert type(paths) == list, 'paths must be a list'
+        assert set(paths[0].keys()) >= set(('observations', 'actions', 'rewards'))
+        assert self.baseline, 'baseline must be specified - use self.build_sample_processor(baseline_obj)'
+
+        # 1) compute discounted rewards (returns)
+        for idx, path in enumerate(paths):
+            path["returns"] = utils.discount_cumsum(path["rewards"], self.discount)
+
+        # 2) fit baseline estimator using the path returns and predict the return baselines
+        self.baseline.fit(paths)
+        all_path_baselines = [self.baseline.predict(path) for path in paths]
+
+        # 3) compute advantages
+        paths = self._compute_advantages(paths, all_path_baselines)
+
+        # 4) stack path data
+        observations, actions, rewards, returns, advantages, env_infos, agent_infos = self._stack_path_data(paths)
+
+        # 5) if desired normalize / shift advantages
+        if self.normalize_adv:
+            advantages = utils.normalize_advantages(advantages)
+        if self.positive_adv:
+            advantages = utils.shift_advantages_to_positive(advantages)
+
+        # 6) create samples_data object
+        samples_data = dict(
+            observations=observations,
+            actions=actions,
+            rewards=rewards,
+            returns=returns,
+            advantages=advantages,
+            env_infos=env_infos,
+            agent_infos=agent_infos,
+        )
+
+        # 7) log statistics if desired
+        self._log_path_stats(paths, log=log, log_prefix='')
+
+        assert set(samples_data.keys()) >= set(['observations', 'actions', 'rewards', 'advantages', 'returns'])
+        return samples_data
+
+    """ local helper functions """
+
+    def _log_path_stats(self, paths, log=False, log_prefix=''):
+        # compute log stats
+        average_discounted_return = np.mean([path["returns"][0] for path in paths])
+        undiscounted_returns = [sum(path["rewards"]) for path in paths]
+
+        if log == 'reward':
+            logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
+        elif log == 'all' or log is True:
+            logger.record_tabular(log_prefix + 'AverageDiscountedReturn', average_discounted_return)
+            logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
+            logger.record_tabular(log_prefix + 'NumTrajs', len(paths))
+            logger.record_tabular(log_prefix + 'StdReturn', np.std(undiscounted_returns))
+            logger.record_tabular(log_prefix + 'MaxReturn', np.max(undiscounted_returns))
+            logger.record_tabular(log_prefix + 'MinReturn', np.min(undiscounted_returns))
+
+    def _compute_advantages(self, paths, all_path_baselines):
+        assert len(paths) == len(all_path_baselines)
+
+        for idx, path in enumerate(paths):
+            path_baselines = np.append(all_path_baselines[idx], 0)
+            deltas = path["rewards"] + \
+                     self.discount * path_baselines[1:] - \
+                     path_baselines[:-1]
+            path["advantages"] = utils.discount_cumsum(
+                deltas, self.discount * self.gae_lambda)
+        return paths
+
+    def _stack_path_data(self, paths):
+        observations = np.concatenate([path["observations"] for path in paths])
+        actions = np.concatenate([path["actions"] for path in paths])
+        rewards = np.concatenate([path["rewards"] for path in paths])
+        returns = np.concatenate([path["returns"] for path in paths])
+        advantages = np.concatenate([path["advantages"] for path in paths])
+        env_infos = utils.concat_tensor_dict_list([path["env_infos"] for path in paths])
+        agent_infos = utils.concat_tensor_dict_list([path["agent_infos"] for path in paths])
+        return observations, actions, rewards, returns, advantages, env_infos, agent_infos

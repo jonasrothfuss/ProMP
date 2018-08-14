@@ -4,86 +4,67 @@ from maml_zoo.logger import logger
 import numpy as np
 
 class MAMLSampleProcessor(SampleProcessor):
-    def process_samples(self, paths, log=False, log_prefix=''):
+
+    def process_samples(self, paths_meta_batch, log=False, log_prefix=''):
         """
-        Return processed sample data (typically a dictionary of concatenated tensors) based on the collected paths.
+        Processes sampled paths. This involves:
+            - computing discounted rewards (returns)
+            - fitting baseline estimator using the path returns and predicting the return baselines
+            - estimating the advantages using GAE (+ advantage normalization id desired)
+            - stacking the path data
+            - logging statistics of the paths
+
         Args:
-            paths (list): A list of paths of size (batch_size) x [5] x (max_path_length)
+            paths (dict): A list of dict of lists, size: [meta_batch_size] x (batch_size) x [5] x (max_path_length)
+            log (boolean): indicates whether to log
+            log_prefix (str): prefix for the logging keys
+
         Returns:
-            (dict) : Processed sample data of size [7] x (batch_size x max_path_length)
+            (dict of dicts) : Processed sample data among the meta-batch; size: [meta_batch_size] x [7] x (batch_size x max_path_length)
         """
-        baselines = []
-        returns = []
+        assert type(paths_meta_batch) == dict, 'paths must be a list'
+        assert self.baseline, 'baseline must be specified - use self.build_sample_processor(baseline_obj)'
 
-        for idx, path in enumerate(paths):
-            path["returns"] = utils.discount_cumsum(path["rewards"], self.discount)
-        
-        if log: logger.log("fitting baseline...")
-        self.baseline.fit(paths)
-        if log: logger.log("fitted")
+        samples_data_meta_batch = {}
+        all_paths = []
+        for meta_task, paths in paths_meta_batch.items():
+            # 1) compute discounted rewards (returns)
+            for idx, path in enumerate(paths):
+                path["returns"] = utils.discount_cumsum(path["rewards"], self.discount)
 
-        all_path_baselines = [self.baseline.predict(path) for path in paths]
+            # 2) fit baseline estimator using the path returns and predict the return baselines
+            self.baseline.fit(paths)
+            all_path_baselines = [self.baseline.predict(path) for path in paths]
 
-        for idx, path in enumerate(paths):
-            path_baselines = np.append(all_path_baselines[idx], 0)
-            deltas = path["rewards"] + \
-                     self.discount * path_baselines[1:] - \
-                     path_baselines[:-1]
-            path["advantages"] = utils.discount_cumsum(
-                deltas, self.discount * self.gae_lambda)
-            baselines.append(path_baselines[:-1])
-            returns.append(path["returns"])
+            # 3) compute advantages
+            paths = self._compute_advantages(paths, all_path_baselines)
 
-        observations = np.concatenate([path["observations"] for path in paths])
-        actions = np.concatenate([path["actions"] for path in paths])
-        rewards = np.concatenate([path["rewards"] for path in paths])
-        returns = np.concatenate([path["returns"] for path in paths])
-        advantages = np.concatenate([path["advantages"] for path in paths])
-        env_infos = utils.concat_tensor_dict_list([path["env_infos"] for path in paths])
-        agent_infos = utils.concat_tensor_dict_list([path["agent_infos"] for path in paths])
+            # 4) stack path data
+            observations, actions, rewards, returns, advantages, env_infos, agent_infos = self._stack_path_data(paths)
 
-        if self.center_adv:
-            advantages = utils.center_advantages(advantages)
+            # 5) if desired normalize / shift advantages
+            if self.normalize_adv:
+                advantages = utils.normalize_advantages(advantages)
+            if self.positive_adv:
+                advantages = utils.shift_advantages_to_positive(advantages)
 
-        if self.positive_adv:
-            advantages = utils.shift_advantages_to_positive(advantages)
+            # 6) create samples_data object
+            samples_data = dict(
+                observations=observations,
+                actions=actions,
+                rewards=rewards,
+                returns=returns,
+                advantages=advantages,
+                env_infos=env_infos,
+                agent_infos=agent_infos,
+            )
+            samples_data_meta_batch[meta_task] = samples_data
+            all_paths.extend(paths)
 
-        average_discounted_return = \
-            np.mean([path["returns"][0] for path in paths])
 
-        undiscounted_returns = [sum(path["rewards"]) for path in paths]
+        # 7) log statistics if desired
+        self._log_path_stats(all_paths, log=log, log_prefix='')
 
-        samples_data = dict(
-            observations=observations,
-            actions=actions,
-            rewards=rewards,
-            returns=returns,
-            advantages=advantages,
-            env_infos=env_infos,
-            agent_infos=agent_infos,
-            # paths=paths,
-        )
-
-        # ent = np.mean(self.policy.distribution.entropy(agent_infos)) # Todo: give access to policy?
-
-        ev = utils.explained_variance_1d(
-            np.concatenate(baselines),
-            returns
-        )
-
-        # Todo: Log for all paths
-        if log == 'reward':
-            logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
-        elif log == 'all' or log is True:
-            logger.record_tabular(log_prefix + 'AverageDiscountedReturn',
-                                  average_discounted_return)
-            logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
-            logger.record_tabular(log_prefix + 'ExplainedVariance', ev)
-            logger.record_tabular(log_prefix + 'NumTrajs', len(paths))
-            logger.record_tabular(log_prefix + 'Entropy', ent)
-            logger.record_tabular(log_prefix + 'Perplexity', np.exp(ent))
-            logger.record_tabular(log_prefix + 'StdReturn', np.std(undiscounted_returns))
-            logger.record_tabular(log_prefix + 'MaxReturn', np.max(undiscounted_returns))
-            logger.record_tabular(log_prefix + 'MinReturn', np.min(undiscounted_returns))
-
-        return samples_data
+        assert all([set(samples_data.keys()) >= set(('observations', 'actions', 'rewards', 'advantages', 'returns'))
+                for samples_data in samples_data_meta_batch.values()])
+        return samples_data_meta_batch
