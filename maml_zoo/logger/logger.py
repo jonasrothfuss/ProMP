@@ -1,352 +1,460 @@
-from enum import Enum
+"""
+Code modified from https://github.com/openai/baselines/blob/master/baselines/logger.py
+Copyright (c) 2017 OpenAI (http://openai.com)
+"""
 
-from maml_zoo.logger.tabulate import tabulate
-from maml_zoo.logger.console import mkdir_p, colorize
-from maml_zoo.logger.autoargs import get_all_parameters
-from contextlib import contextmanager
-import numpy as np
 import os
-import os.path as osp
 import sys
-import datetime
-import dateutil.tz
-import csv
-import joblib
+import shutil
+import os.path as osp
 import json
-import pickle
-import base64
+import time
+import datetime
+import tempfile
+import joblib
+from collections import defaultdict
 
-_prefixes = []
-_prefix_str = ''
+LOG_OUTPUT_FORMATS     = ['stdout', 'log', 'csv']
+LOG_OUTPUT_FORMATS_MPI = ['log']
+# Also valid: json, tensorboard
 
-_tabular_prefixes = []
-_tabular_prefix_str = ''
+DEBUG = 10
+INFO = 20
+WARN = 30
+ERROR = 40
 
-_tabular = []
+DISABLED = 50
 
-_text_outputs = []
-_tabular_outputs = []
+class KVWriter(object):
+    def writekvs(self, kvs):
+        raise NotImplementedError
 
-_text_fds = {}
-_tabular_fds = {}
-_tabular_header_written = set()
+class SeqWriter(object):
+    def writeseq(self, seq):
+        raise NotImplementedError
 
-_snapshot_dir = None
-_snapshot_mode = 'all'
-_snapshot_gap = 1
-
-_log_tabular_only = False
-_header_printed = False
-
-
-def _add_output(file_name, arr, fds, mode='a'):
-    if file_name not in arr:
-        mkdir_p(os.path.dirname(file_name))
-        arr.append(file_name)
-        fds[file_name] = open(file_name, mode)
-
-
-def _remove_output(file_name, arr, fds):
-    if file_name in arr:
-        fds[file_name].close()
-        del fds[file_name]
-        arr.remove(file_name)
-
-
-def push_prefix(prefix):
-    _prefixes.append(prefix)
-    global _prefix_str
-    _prefix_str = ''.join(_prefixes)
-
-
-def add_text_output(file_name):
-    _add_output(file_name, _text_outputs, _text_fds, mode='a')
-
-
-def remove_text_output(file_name):
-    _remove_output(file_name, _text_outputs, _text_fds)
-
-
-def add_tabular_output(file_name):
-    _add_output(file_name, _tabular_outputs, _tabular_fds, mode='w')
-
-
-def remove_tabular_output(file_name):
-    if _tabular_fds[file_name] in _tabular_header_written:
-        _tabular_header_written.remove(_tabular_fds[file_name])
-    _remove_output(file_name, _tabular_outputs, _tabular_fds)
-
-
-def set_snapshot_dir(dir_name):
-    global _snapshot_dir
-    _snapshot_dir = dir_name
-
-
-def get_snapshot_dir():
-    return _snapshot_dir
-
-
-def get_snapshot_mode():
-    return _snapshot_mode
-
-
-def set_snapshot_mode(mode):
-    global _snapshot_mode
-    _snapshot_mode = mode
-
-def get_snapshot_gap():
-    return _snapshot_gap
-
-def set_snapshot_gap(gap):
-    global _snapshot_gap
-    _snapshot_gap = gap
-
-def set_log_tabular_only(log_tabular_only):
-    global _log_tabular_only
-    _log_tabular_only = log_tabular_only
-
-
-def get_log_tabular_only():
-    return _log_tabular_only
-
-
-def log(s, with_prefix=True, with_timestamp=True, color=None):
-    out = s
-    if with_prefix:
-        out = _prefix_str + out
-    if with_timestamp:
-        now = datetime.datetime.now(dateutil.tz.tzlocal())
-        timestamp = now.strftime('%Y-%m-%d %H:%M:%S.%f %Z')
-        out = "%s | %s" % (timestamp, out)
-    if color is not None:
-        out = colorize(out, color)
-    if not _log_tabular_only:
-        # Also log to stdout
-        print(out)
-        for fd in list(_text_fds.values()):
-            fd.write(out + '\n')
-            fd.flush()
-        sys.stdout.flush()
-
-
-def record_tabular(key, val):
-    _tabular.append((_tabular_prefix_str + str(key), str(val)))
-
-
-def push_tabular_prefix(key):
-    _tabular_prefixes.append(key)
-    global _tabular_prefix_str
-    _tabular_prefix_str = ''.join(_tabular_prefixes)
-
-
-def pop_tabular_prefix():
-    del _tabular_prefixes[-1]
-    global _tabular_prefix_str
-    _tabular_prefix_str = ''.join(_tabular_prefixes)
-
-
-@contextmanager
-def prefix(key):
-    push_prefix(key)
-    try:
-        yield
-    finally:
-        pop_prefix()
-
-
-@contextmanager
-def tabular_prefix(key):
-    push_tabular_prefix(key)
-    yield
-    pop_tabular_prefix()
-
-
-class TerminalTablePrinter(object):
-    def __init__(self):
-        self.headers = None
-        self.tabulars = []
-
-    def print_tabular(self, new_tabular):
-        if self.headers is None:
-            self.headers = [x[0] for x in new_tabular]
+class HumanOutputFormat(KVWriter, SeqWriter):
+    def __init__(self, filename_or_file):
+        if isinstance(filename_or_file, str):
+            self.file = open(filename_or_file, 'wt')
+            self.own_file = True
         else:
-            assert len(self.headers) == len(new_tabular)
-        self.tabulars.append([x[1] for x in new_tabular])
-        self.refresh()
+            assert hasattr(filename_or_file, 'read'), 'expected file or str, got %s'%filename_or_file
+            self.file = filename_or_file
+            self.own_file = False
 
-    def refresh(self):
-        import os
-        rows, columns = os.popen('stty size', 'r').read().split()
-        tabulars = self.tabulars[-(int(rows) - 3):]
-        sys.stdout.write("\x1b[2J\x1b[H")
-        sys.stdout.write(tabulate(tabulars, self.headers))
-        sys.stdout.write("\n")
+    def writekvs(self, kvs):
+        # Create strings for printing
+        key2str = {}
+        for (key, val) in sorted(kvs.items()):
+            if isinstance(val, float):
+                valstr = '%-8.3g' % (val,)
+            else:
+                valstr = str(val)
+            key2str[self._truncate(key)] = self._truncate(valstr)
 
-
-table_printer = TerminalTablePrinter()
-
-
-def dump_tabular(*args, **kwargs):
-    wh = kwargs.pop("write_header", None)
-    if len(_tabular) > 0:
-        if _log_tabular_only:
-            table_printer.print_tabular(_tabular)
+        # Find max widths
+        if len(key2str) == 0:
+            print('WARNING: tried to write empty key-value dict')
+            return
         else:
-            for line in tabulate(_tabular).split('\n'):
-                log(line, *args, **kwargs)
-        tabular_dict = dict(_tabular)
-        # Also write to the csv files
-        # This assumes that the keys in each iteration won't change!
-        for tabular_fd in list(_tabular_fds.values()):
-            writer = csv.DictWriter(tabular_fd, fieldnames=list(tabular_dict.keys()))
-            if wh or (wh is None and tabular_fd not in _tabular_header_written):
-                writer.writeheader()
-                _tabular_header_written.add(tabular_fd)
-            writer.writerow(tabular_dict)
-            tabular_fd.flush()
-        del _tabular[:]
+            keywidth = max(map(len, key2str.keys()))
+            valwidth = max(map(len, key2str.values()))
+
+        # Write out the data
+        dashes = '-' * (keywidth + valwidth + 7)
+        lines = [dashes]
+        for (key, val) in sorted(key2str.items()):
+            lines.append('| %s%s | %s%s |' % (
+                key,
+                ' ' * (keywidth - len(key)),
+                val,
+                ' ' * (valwidth - len(val)),
+            ))
+        lines.append(dashes)
+        self.file.write('\n'.join(lines) + '\n')
+
+        # Flush the output to the file
+        self.file.flush()
+
+    def _truncate(self, s):
+        return s[:20] + '...' if len(s) > 23 else s
+
+    def writeseq(self, seq):
+        for arg in seq:
+            self.file.write(arg)
+        self.file.write('\n')
+        self.file.flush()
+
+    def close(self):
+        if self.own_file:
+            self.file.close()
+
+class JSONOutputFormat(KVWriter):
+    def __init__(self, filename):
+        self.file = open(filename, 'wt')
+
+    def writekvs(self, kvs):
+        for k, v in sorted(kvs.items()):
+            if hasattr(v, 'dtype'):
+                v = v.tolist()
+                kvs[k] = float(v)
+        self.file.write(json.dumps(kvs) + '\n')
+        self.file.flush()
+
+    def close(self):
+        self.file.close()
+
+class CSVOutputFormat(KVWriter):
+    def __init__(self, filename):
+        self.file = open(filename, 'w+t')
+        self.keys = []
+        self.sep = ','
+
+    def writekvs(self, kvs):
+        # Add our current row to the history
+        extra_keys = kvs.keys() - self.keys
+        if extra_keys:
+            self.keys.extend(extra_keys)
+            self.file.seek(0)
+            lines = self.file.readlines()
+            self.file.seek(0)
+            for (i, k) in enumerate(self.keys):
+                if i > 0:
+                    self.file.write(',')
+                self.file.write(k)
+            self.file.write('\n')
+            for line in lines[1:]:
+                self.file.write(line[:-1])
+                self.file.write(self.sep * len(extra_keys))
+                self.file.write('\n')
+        for (i, k) in enumerate(self.keys):
+            if i > 0:
+                self.file.write(',')
+            v = kvs.get(k)
+            if v is not None:
+                self.file.write(str(v))
+        self.file.write('\n')
+        self.file.flush()
+
+    def close(self):
+        self.file.close()
 
 
-def pop_prefix():
-    del _prefixes[-1]
-    global _prefix_str
-    _prefix_str = ''.join(_prefixes)
+class TensorBoardOutputFormat(KVWriter):
+    """
+    Dumps key/value pairs into TensorBoard's numeric format.
+    """
+    def __init__(self, dir):
+        os.makedirs(dir, exist_ok=True)
+        self.dir = dir
+        self.step = 1
+        prefix = 'events'
+        path = osp.join(osp.abspath(dir), prefix)
+        import tensorflow as tf
+        from tensorflow.python import pywrap_tensorflow
+        from tensorflow.core.util import event_pb2
+        from tensorflow.python.util import compat
+        self.tf = tf
+        self.event_pb2 = event_pb2
+        self.pywrap_tensorflow = pywrap_tensorflow
+        self.writer = pywrap_tensorflow.EventsWriter(compat.as_bytes(path))
 
+    def writekvs(self, kvs):
+        def summary_val(k, v):
+            kwargs = {'tag': k, 'simple_value': float(v)}
+            return self.tf.Summary.Value(**kwargs)
+        summary = self.tf.Summary(value=[summary_val(k, v) for k, v in kvs.items()])
+        event = self.event_pb2.Event(wall_time=time.time(), summary=summary)
+        event.step = self.step # is there any reason why you'd want to specify the step?
+        self.writer.WriteEvent(event)
+        self.writer.Flush()
+        self.step += 1
 
-def save_itr_params(itr, params):
-    if _snapshot_dir:
-        if _snapshot_mode == 'all':
-            file_name = osp.join(_snapshot_dir, 'itr_%d.pkl' % itr)
-            joblib.dump(params, file_name, compress=3)
-        elif _snapshot_mode == 'last':
-            # override previous params
-            file_name = osp.join(_snapshot_dir, 'params.pkl')
-            joblib.dump(params, file_name, compress=3)
-        elif _snapshot_mode == "gap":
-            if itr % _snapshot_gap == 0:
-                file_name = osp.join(_snapshot_dir, 'itr_%d.pkl' % itr)
-                joblib.dump(params, file_name, compress=3)
-        elif _snapshot_mode == 'last_gap':
-            if itr % _snapshot_gap == 0:
-                file_name = osp.join(_snapshot_dir, 'params.pkl')
-                joblib.dump(params, file_name, compress=3)
-        elif _snapshot_mode == 'none':
-            pass
-        else:
-            raise NotImplementedError
+    def close(self):
+        if self.writer:
+            self.writer.Close()
+            self.writer = None
 
-
-def log_parameters(log_file, args, classes):
-    log_params = {}
-    for param_name, param_value in args.__dict__.items():
-        if any([param_name.startswith(x) for x in list(classes.keys())]):
-            continue
-        log_params[param_name] = param_value
-    for name, cls in classes.items():
-        if isinstance(cls, type):
-            params = get_all_parameters(cls, args)
-            params["_name"] = getattr(args, name)
-            log_params[name] = params
-        else:
-            log_params[name] = getattr(cls, "__kwargs", dict())
-            log_params[name]["_name"] = cls.__module__ + "." + cls.__class__.__name__
-    mkdir_p(os.path.dirname(log_file))
-    with open(log_file, "w") as f:
-        json.dump(log_params, f, indent=2, sort_keys=True)
-
-
-def stub_to_json(stub_sth):
-    from rllab.misc import instrument
-    if isinstance(stub_sth, instrument.StubObject):
-        assert len(stub_sth.args) == 0
-        data = dict()
-        for k, v in stub_sth.kwargs.items():
-            data[k] = stub_to_json(v)
-        data["_name"] = stub_sth.proxy_class.__module__ + "." + stub_sth.proxy_class.__name__
-        return data
-    elif isinstance(stub_sth, instrument.StubAttr):
-        return dict(
-            obj=stub_to_json(stub_sth.obj),
-            attr=stub_to_json(stub_sth.attr_name)
-        )
-    elif isinstance(stub_sth, instrument.StubMethodCall):
-        return dict(
-            obj=stub_to_json(stub_sth.obj),
-            method_name=stub_to_json(stub_sth.method_name),
-            args=stub_to_json(stub_sth.args),
-            kwargs=stub_to_json(stub_sth.kwargs),
-        )
-    elif isinstance(stub_sth, instrument.BinaryOp):
-        return "binary_op"
-    elif isinstance(stub_sth, instrument.StubClass):
-        return stub_sth.proxy_class.__module__ + "." + stub_sth.proxy_class.__name__
-    elif isinstance(stub_sth, dict):
-        return {stub_to_json(k): stub_to_json(v) for k, v in stub_sth.items()}
-    elif isinstance(stub_sth, (list, tuple)):
-        return list(map(stub_to_json, stub_sth))
-    elif type(stub_sth) == type(lambda: None):
-        if stub_sth.__module__ is not None:
-            return stub_sth.__module__ + "." + stub_sth.__name__
-        return stub_sth.__name__
-    elif "theano" in str(type(stub_sth)):
-        return repr(stub_sth)
-    return stub_sth
-
-
-class MyEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, type):
-            return {'$class': o.__module__ + "." + o.__name__}
-        elif isinstance(o, Enum):
-            return {'$enum': o.__module__ + "." + o.__class__.__name__ + '.' + o.name}
-        return json.JSONEncoder.default(self, o)
-
-
-def log_parameters_lite(log_file, args):
-    log_params = {}
-    for param_name, param_value in args.__dict__.items():
-        log_params[param_name] = param_value
-    if args.args_data is not None:
-        stub_method = pickle.loads(base64.b64decode(args.args_data))
-        method_args = stub_method.kwargs
-        log_params["json_args"] = dict()
-        for k, v in list(method_args.items()):
-            log_params["json_args"][k] = stub_to_json(v)
-        kwargs = stub_method.obj.kwargs
-        for k in ["baseline", "env", "policy"]:
-            if k in kwargs:
-                log_params["json_args"][k] = stub_to_json(kwargs.pop(k))
-        log_params["json_args"]["algo"] = stub_to_json(stub_method.obj)
-    mkdir_p(os.path.dirname(log_file))
-    with open(log_file, "w") as f:
-        json.dump(log_params, f, indent=2, sort_keys=True, cls=MyEncoder)
-
-
-def log_variant(log_file, variant_data):
-    mkdir_p(os.path.dirname(log_file))
-    if hasattr(variant_data, "dump"):
-        variant_data = variant_data.dump()
-    variant_json = stub_to_json(variant_data)
-    with open(log_file, "w") as f:
-        json.dump(variant_json, f, indent=2, sort_keys=True, cls=MyEncoder)
-
-
-def record_tabular_misc_stat(key, values, placement='back'):
-    if placement == 'front':
-        prefix = ""
-        suffix = key
+def make_output_format(format, ev_dir, log_suffix=''):
+    os.makedirs(ev_dir, exist_ok=True)
+    if format == 'stdout':
+        return HumanOutputFormat(sys.stdout)
+    elif format == 'log':
+        return HumanOutputFormat(osp.join(ev_dir, 'log%s.txt' % log_suffix))
+    elif format == 'json':
+        return JSONOutputFormat(osp.join(ev_dir, 'progress%s.json' % log_suffix))
+    elif format == 'csv':
+        return CSVOutputFormat(osp.join(ev_dir, 'progress%s.csv' % log_suffix))
+    elif format == 'tensorboard':
+        return TensorBoardOutputFormat(osp.join(ev_dir, 'tb%s' % log_suffix))
     else:
-        prefix = key
-        suffix = ""
-    if len(values) > 0:
-        record_tabular(prefix + "Average" + suffix, np.average(values))
-        record_tabular(prefix + "Std" + suffix, np.std(values))
-        record_tabular(prefix + "Median" + suffix, np.median(values))
-        record_tabular(prefix + "Min" + suffix, np.min(values))
-        record_tabular(prefix + "Max" + suffix, np.max(values))
-    else:
-        record_tabular(prefix + "Average" + suffix, np.nan)
-        record_tabular(prefix + "Std" + suffix, np.nan)
-        record_tabular(prefix + "Median" + suffix, np.nan)
-        record_tabular(prefix + "Min" + suffix, np.nan)
-        record_tabular(prefix + "Max" + suffix, np.nan)
+        raise ValueError('Unknown format specified: %s' % (format,))
+
+# ================================================================
+# API
+# ================================================================
+
+def logkv(key, val):
+    """
+    Log a value of some diagnostic
+    Call this once for each diagnostic quantity, each iteration
+    If called many times, last value will be used.
+    """
+    Logger.CURRENT.logkv(key, val)
+
+def logkv_mean(key, val):
+    """
+    The same as logkv(), but if called many times, values averaged.
+    """
+    Logger.CURRENT.logkv_mean(key, val)
+
+def logkvs(d):
+    """
+    Log a dictionary of key-value pairs
+    """
+    for (k, v) in d.items():
+        logkv(k, v)
+
+def dumpkvs():
+    """
+    Write all of the diagnostics from the current iteration
+
+    level: int. (see logger.py docs) If the global logger level is higher than
+                the level argument here, don't print to stdout.
+    """
+    Logger.CURRENT.dumpkvs()
+
+def getkvs():
+    return Logger.CURRENT.name2val
+
+
+def log(*args, level=INFO):
+    """
+    Write the sequence of args, with no separators, to the console and output files (if you've configured an output file).
+    """
+    Logger.CURRENT.log(*args, level=level)
+
+def debug(*args):
+    log(*args, level=DEBUG)
+
+def info(*args):
+    log(*args, level=INFO)
+
+def warn(*args):
+    log(*args, level=WARN)
+
+def error(*args):
+    log(*args, level=ERROR)
+
+
+def set_level(level):
+    """
+    Set logging threshold on current logger.
+    """
+    Logger.CURRENT.set_level(level)
+
+def get_dir():
+    """
+    Get directory that log files are being written to.
+    will be None if there is no output directory (i.e., if you didn't call start)
+    """
+    return Logger.CURRENT.get_dir()
+
+def save_itr_params(*args):
+    return Logger.CURRENT.save_itr_params(*args)
+
+record_tabular = logkv
+dump_tabular = dumpkvs
+
+class ProfileKV:
+    """
+    Usage:
+    with logger.ProfileKV("interesting_scope"):
+        code
+    """
+    def __init__(self, n):
+        self.n = "wait_" + n
+    def __enter__(self):
+        self.t1 = time.time()
+    def __exit__(self ,type, value, traceback):
+        Logger.CURRENT.name2val[self.n] += time.time() - self.t1
+
+def profile(n):
+    """
+    Usage:
+    @profile("my_func")
+    def my_func(): code
+    """
+    def decorator_with_name(func):
+        def func_wrapper(*args, **kwargs):
+            with ProfileKV(n):
+                return func(*args, **kwargs)
+        return func_wrapper
+    return decorator_with_name
+
+
+# ================================================================
+# Backend
+# ================================================================
+
+class Logger(object):
+    DEFAULT = None  # A logger with no output files. (See right below class definition)
+                    # So that you can still log to the terminal without setting up any output files
+    CURRENT = None  # Current logger being used by the free functions above
+
+    def __init__(self, dir, output_formats, snapshot_mode='last', snapshot_gap=1):
+        self.name2val = defaultdict(float)  # values this iteration
+        self.name2cnt = defaultdict(int)
+        self.level = INFO
+        self.dir = dir
+        self.output_formats = output_formats
+        self.snapshot_mode = snapshot_mode
+        self.snapshot_gap = snapshot_gap
+
+    # Logging API, forwarded
+    # ----------------------------------------
+    def logkv(self, key, val):
+        self.name2val[key] = val
+
+    def logkv_mean(self, key, val):
+        if val is None:
+            self.name2val[key] = None
+            return
+        oldval, cnt = self.name2val[key], self.name2cnt[key]
+        self.name2val[key] = oldval*cnt/(cnt+1) + val/(cnt+1)
+        self.name2cnt[key] = cnt + 1
+
+    def dumpkvs(self):
+        if self.level == DISABLED: return
+        for fmt in self.output_formats:
+            if isinstance(fmt, KVWriter):
+                fmt.writekvs(self.name2val)
+        self.name2val.clear()
+        self.name2cnt.clear()
+
+    def log(self, *args, level=INFO):
+        if self.level <= level:
+            self._do_log(args)
+
+    # Configuration
+    # ----------------------------------------
+    def set_level(self, level):
+        self.level = level
+
+    def get_dir(self):
+        return self.dir
+
+    def close(self):
+        for fmt in self.output_formats:
+            fmt.close()
+
+    # Misc
+    # ----------------------------------------
+    def _do_log(self, args):
+        for fmt in self.output_formats:
+            if isinstance(fmt, SeqWriter):
+                fmt.writeseq(map(str, args))
+
+    def save_itr_params(self, itr):
+        if self.dir:
+            if self.snapshot_mode == 'all':
+                file_name = osp.join(self.dir, 'itr_%d.pkl' % itr)
+                joblib.dump(params, file_name, compress=3)
+            elif self.snapshot_mode == 'last':
+                # override previous params
+                file_name = osp.join(self.dir, 'params.pkl')
+                joblib.dump(params, file_name, compress=3)
+            elif self.snapshot_mode == "gap":
+                if itr % self.snapshot_gap == 0:
+                    file_name = osp.join(self.dir, 'itr_%d.pkl' % itr)
+                    joblib.dump(params, file_name, compress=3)
+            elif self.snapshot_mode == 'last_gap':
+                if itr % self.snapshot_gap == 0:
+                    file_name = osp.join(self.dir, 'params.pkl')
+                    joblib.dump(params, file_name, compress=3)
+            elif self.snapshot_mode == 'none':
+                pass
+            else:
+                raise NotImplementedError
+
+Logger.DEFAULT = Logger.CURRENT = Logger(dir=None, output_formats=[HumanOutputFormat(sys.stdout)])
+
+def configure(dir=None, format_strs=None, snapshot_mode='last', snapshot_gap=1):
+    if dir is None:
+        dir = os.getenv('OPENAI_LOGDIR')
+    if dir is None:
+        dir = osp.join(tempfile.gettempdir(),
+            datetime.datetime.now().strftime("openai-%Y-%m-%d-%H-%M-%S-%f"))
+    assert isinstance(dir, str)
+    os.makedirs(dir, exist_ok=True)
+
+    log_suffix = ''
+    from mpi4py import MPI
+    rank = MPI.COMM_WORLD.Get_rank()
+    if rank > 0:
+        log_suffix = "-rank%03i" % rank
+
+    if format_strs is None:
+        strs, strs_mpi = os.getenv('OPENAI_LOG_FORMAT'), os.getenv('OPENAI_LOG_FORMAT_MPI')
+        format_strs = strs_mpi if rank>0 else strs
+        if format_strs is not None:
+            format_strs = format_strs.split(',')
+        else:
+            format_strs = LOG_OUTPUT_FORMATS_MPI if rank>0 else LOG_OUTPUT_FORMATS
+
+    output_formats = [make_output_format(f, dir, log_suffix) for f in format_strs]
+
+    Logger.CURRENT = Logger(dir=dir, output_formats=output_formats, snapshot_mode=snapshot_mode, snapshot_gap=snapshot_gap)
+    log('Logging to %s'%dir)
+
+def reset():
+    if Logger.CURRENT is not Logger.DEFAULT:
+        Logger.CURRENT.close()
+        Logger.CURRENT = Logger.DEFAULT
+        log('Reset logger')
+
+class scoped_configure(object):
+    def __init__(self, dir=None, format_strs=None):
+        self.dir = dir
+        self.format_strs = format_strs
+        self.prevlogger = None
+    def __enter__(self):
+        self.prevlogger = Logger.CURRENT
+        configure(dir=self.dir, format_strs=self.format_strs)
+    def __exit__(self, *args):
+        Logger.CURRENT.close()
+        Logger.CURRENT = self.prevlogger
+
+# ================================================================
+
+def _demo():
+    info("hi")
+    debug("shouldn't appear")
+    set_level(DEBUG)
+    debug("should appear")
+    dir = "/tmp/testlogging"
+    if os.path.exists(dir):
+        shutil.rmtree(dir)
+    configure(dir=dir, format_strs=['stdout', 'log', 'csv'])
+    logkv("a", 3)
+    logkv("b", 2.5)
+    dumpkvs()
+    logkv("b", -2.5)
+    logkv("a", 5.5)
+    dumpkvs()
+    info("^^^ should see a = 5.5")
+    logkv_mean("b", -22.5)
+    logkv_mean("b", -44.4)
+    logkv("a", 5.5)
+    dumpkvs()
+    info("^^^ should see b = 33.3")
+
+    logkv("b", -2.5)
+    dumpkvs()
+
+    logkv("a", "longasslongasslongasslongasslongasslongassvalue")
+    dumpkvs()
+
+if __name__ == "__main__":
+    _demo()

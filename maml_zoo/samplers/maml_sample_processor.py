@@ -73,17 +73,17 @@ class MAMLSampleProcessor(SampleProcessor):
 
         # Todo: Log for all paths
         if log == 'reward':
-            logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
+            logger.logkv(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
         elif log == 'all' or log is True:
-            logger.record_tabular(log_prefix + 'AverageDiscountedReturn',
+            logger.logkv(log_prefix + 'AverageDiscountedReturn',
                                   average_discounted_return)
-            logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
-            logger.record_tabular(log_prefix + 'ExplainedVariance', ev)
-            logger.record_tabular(log_prefix + 'NumTrajs', len(paths))
-            logger.record_tabular(log_prefix + 'Entropy', ent)
-            logger.record_tabular(log_prefix + 'Perplexity', np.exp(ent))
-            logger.record_tabular(log_prefix + 'StdReturn', np.std(undiscounted_returns))
-            logger.record_tabular(log_prefix + 'MaxReturn', np.max(undiscounted_returns))
-            logger.record_tabular(log_prefix + 'MinReturn', np.min(undiscounted_returns))
+            logger.logkv(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
+            logger.logkv(log_prefix + 'ExplainedVariance', ev)
+            logger.logkv(log_prefix + 'NumTrajs', len(paths))
+            logger.logkv(log_prefix + 'Entropy', ent)
+            logger.logkv(log_prefix + 'Perplexity', np.exp(ent))
+            logger.logkv(log_prefix + 'StdReturn', np.std(undiscounted_returns))
+            logger.logkv(log_prefix + 'MaxReturn', np.max(undiscounted_returns))
+            logger.logkv(log_prefix + 'MinReturn', np.min(undiscounted_returns))
 
         return samples_data

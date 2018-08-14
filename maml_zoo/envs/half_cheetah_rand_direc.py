@@ -59,7 +59,7 @@ class HalfCheetahEnvRandDirec(MetaEnv, gym.utils.EzPickle):
             path["observations"][-1][-3] - path["observations"][0][-3]
             for path in paths
         ]
-        logger.record_tabular(prefix+'AverageForwardProgress', np.mean(progs))
-        logger.record_tabular(prefix+'MaxForwardProgress', np.max(progs))
-        logger.record_tabular(prefix+'MinForwardProgress', np.min(progs))
-        logger.record_tabular(prefix+'StdForwardProgress', np.std(progs))   
+        logger.logkv(prefix+'AverageForwardProgress', np.mean(progs))
+        logger.logkv(prefix+'MaxForwardProgress', np.max(progs))
+        logger.logkv(prefix+'MinForwardProgress', np.min(progs))
+        logger.logkv(prefix+'StdForwardProgress', np.std(progs))   

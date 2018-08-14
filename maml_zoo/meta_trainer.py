@@ -48,7 +48,7 @@ class Trainer(object):
             policy.build_graph(env)
             sampler.build_sampler(env, policy, meta_batch_size)
             # Sample processor here?
-            algo.build_graph(policy, meta_batch_size)
+            algo.build_graph(policy, meta_batch_size, num_grad_updates)
             
             # initialize uninitialized vars  (only initialize vars that were not loaded)
             uninit_vars = [var for var in tf.global_variables() if not sess.run(tf.is_variable_initialized(var))]
@@ -123,22 +123,22 @@ class Trainer(object):
 
                     """ ------------------- Logging Stuff --------------------------"""
 
-                    logger.record_tabular('Time-OuterStep', time.time() - time_outer_step_start)
-                    logger.record_tabular('Time-TotalInner', total_inner_time)
-                    logger.record_tabular('Time-InnerStep', np.sum(list_inner_step_time))
-                    logger.record_tabular('Time-SampleProc', np.sum(list_proc_samples_time))
-                    logger.record_tabular('Time-Sampling', np.sum(list_sampling_time))
+                    logger.logkv('Time-OuterStep', time.time() - time_outer_step_start)
+                    logger.logkv('Time-TotalInner', total_inner_time)
+                    logger.logkv('Time-InnerStep', np.sum(list_inner_step_time))
+                    logger.logkv('Time-SampleProc', np.sum(list_proc_samples_time))
+                    logger.logkv('Time-Sampling', np.sum(list_sampling_time))
 
                     logger.log("Saving snapshot...")
                     params = self.get_itr_snapshot(itr)  # , **kwargs)
                     logger.save_itr_params(itr, params)
                     logger.log("Saved")
 
-                    logger.record_tabular('Time', time.time() - start_time)
-                    logger.record_tabular('ItrTime', time.time() - itr_start_time)
-                    logger.record_tabular('Time-MAMLSteps', time.time() - time_maml_opt_start)
+                    logger.logkv('Time', time.time() - start_time)
+                    logger.logkv('ItrTime', time.time() - itr_start_time)
+                    logger.logkv('Time-MAMLSteps', time.time() - time_maml_opt_start)
 
-                    logger.dump_tabular(with_prefix=False)
+                    logger.dumpkvs()
 
     def get_itr_snapshot(self, itr):
         """
