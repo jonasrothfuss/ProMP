@@ -1,7 +1,4 @@
 from maml_zoo.samplers.base import SampleProcessor
-from maml_zoo.utils import utils
-from maml_zoo.logger import logger
-import numpy as np
 
 class MAMLSampleProcessor(SampleProcessor):
 
@@ -28,39 +25,12 @@ class MAMLSampleProcessor(SampleProcessor):
         samples_data_meta_batch = {}
         all_paths = []
         for meta_task, paths in paths_meta_batch.items():
-            # 1) compute discounted rewards (returns)
-            for idx, path in enumerate(paths):
-                path["returns"] = utils.discount_cumsum(path["rewards"], self.discount)
 
-            # 2) fit baseline estimator using the path returns and predict the return baselines
-            self.baseline.fit(paths)
-            all_path_baselines = [self.baseline.predict(path) for path in paths]
+            # fits baseline, compute advantages and stack path data
+            samples_data, paths = self._compute_samples_data(paths)
 
-            # 3) compute advantages
-            paths = self._compute_advantages(paths, all_path_baselines)
-
-            # 4) stack path data
-            observations, actions, rewards, returns, advantages, env_infos, agent_infos = self._stack_path_data(paths)
-
-            # 5) if desired normalize / shift advantages
-            if self.normalize_adv:
-                advantages = utils.normalize_advantages(advantages)
-            if self.positive_adv:
-                advantages = utils.shift_advantages_to_positive(advantages)
-
-            # 6) create samples_data object
-            samples_data = dict(
-                observations=observations,
-                actions=actions,
-                rewards=rewards,
-                returns=returns,
-                advantages=advantages,
-                env_infos=env_infos,
-                agent_infos=agent_infos,
-            )
             samples_data_meta_batch[meta_task] = samples_data
             all_paths.extend(paths)
-
 
         # 7) log statistics if desired
         self._log_path_stats(all_paths, log=log, log_prefix='')

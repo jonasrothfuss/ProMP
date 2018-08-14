@@ -356,7 +356,7 @@ class Logger(object):
             if isinstance(fmt, SeqWriter):
                 fmt.writeseq(map(str, args))
 
-    def save_itr_params(self, itr):
+    def save_itr_params(self, itr, params):
         if self.dir:
             if self.snapshot_mode == 'all':
                 file_name = osp.join(self.dir, 'itr_%d.pkl' % itr)

@@ -94,6 +94,21 @@ class SampleProcessor(object):
         assert set(paths[0].keys()) >= set(('observations', 'actions', 'rewards'))
         assert self.baseline, 'baseline must be specified - use self.build_sample_processor(baseline_obj)'
 
+        # fits baseline, compute advantages and stack path data
+        samples_data, paths = self._compute_samples_data(paths)
+
+        # 7) log statistics if desired
+        self._log_path_stats(paths, log=log, log_prefix='')
+
+        assert set(samples_data.keys()) >= set(['observations', 'actions', 'rewards', 'advantages', 'returns'])
+        return samples_data
+
+
+
+    """ helper functions """
+
+    def _compute_samples_data(self, paths):
+        assert type(paths) == list
         # 1) compute discounted rewards (returns)
         for idx, path in enumerate(paths):
             path["returns"] = utils.discount_cumsum(path["rewards"], self.discount)
@@ -124,14 +139,7 @@ class SampleProcessor(object):
             env_infos=env_infos,
             agent_infos=agent_infos,
         )
-
-        # 7) log statistics if desired
-        self._log_path_stats(paths, log=log, log_prefix='')
-
-        assert set(samples_data.keys()) >= set(['observations', 'actions', 'rewards', 'advantages', 'returns'])
-        return samples_data
-
-    """ local helper functions """
+        return samples_data, paths
 
     def _log_path_stats(self, paths, log=False, log_prefix=''):
         # compute log stats
@@ -169,3 +177,4 @@ class SampleProcessor(object):
         env_infos = utils.concat_tensor_dict_list([path["env_infos"] for path in paths])
         agent_infos = utils.concat_tensor_dict_list([path["agent_infos"] for path in paths])
         return observations, actions, rewards, returns, advantages, env_infos, agent_infos
+
