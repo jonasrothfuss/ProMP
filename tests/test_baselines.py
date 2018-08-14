@@ -57,8 +57,7 @@ class TestBaseline(unittest.TestCase):
         self.batch_size = 10
         self.path_length = 100
         self.linear = LinearFeatureBaseline()
-        self.sampler = MAMLSampler(self.batch_size, self.path_length, parallel=True)
-        self.sampler.build_sampler(self.random_env, self.random_policy, self.meta_batch_size, )
+        self.sampler = MAMLSampler(self.random_env, self.random_policy, self.batch_size, self.meta_batch_size, self.path_length, parallel=True)
 
     def testFit(self):
         paths = self.sampler.obtain_samples()
