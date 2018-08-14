@@ -197,6 +197,8 @@ class MAMLPPO(MAMLAlgo):
 
         kl_coeff_vars_list = sum(kl_coeff_vars_list, [])
         extra_inputs = tuple(kl_coeff_vars_list) + (anneal_ph,)
+        input_list = tuple(input_list)
+
         self.optimizer.build_graph(
             loss=meta_obj,
             target=self.policy,
