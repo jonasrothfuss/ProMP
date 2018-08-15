@@ -17,6 +17,7 @@ class LinearFeatureBaseline(Baseline):
 
     """
     def __init__(self, reg_coeff=1e-5):
+        super(LinearFeatureBaseline, self).__init__()
         Serializable.quick_init(self, locals())
         self._coeffs = None
         self._reg_coeff = reg_coeff
