@@ -13,15 +13,15 @@ class MAMLSampleProcessor(SampleProcessor):
             - logging statistics of the paths
 
         Args:
-            paths (dict): A list of dict of lists, size: [meta_batch_size] x (batch_size) x [5] x (max_path_length)
+            paths_meta_batch (dict): A list of dict of lists, size: [meta_batch_size] x (batch_size) x [5] x (max_path_length)
             log (boolean): indicates whether to log
             log_prefix (str): prefix for the logging keys
 
         Returns:
             (dict of dicts) : Processed sample data among the meta-batch; size: [meta_batch_size] x [7] x (batch_size x max_path_length)
         """
-        assert type(paths_meta_batch) == dict, 'paths must be a dict'
-        assert self.baseline, 'baseline must be specified - use self.build_sample_processor(baseline_obj)'
+        assert isinstance(paths_meta_batch, dict), 'paths must be a dict'
+        assert self.baseline, 'baseline must be specified'
 
         samples_data_meta_batch = {}
         all_paths = []
@@ -36,6 +36,6 @@ class MAMLSampleProcessor(SampleProcessor):
         # 7) log statistics if desired
         self._log_path_stats(all_paths, log=log, log_prefix='')
 
-        assert all([set(samples_data.keys()) >= set(('observations', 'actions', 'rewards', 'advantages', 'returns'))
-                for samples_data in samples_data_meta_batch.values()])
+        assert all([samples_data.keys() >= {'observations', 'actions', 'rewards', 'advantages', 'returns'}
+                    for samples_data in samples_data_meta_batch.values()])
         return samples_data_meta_batch

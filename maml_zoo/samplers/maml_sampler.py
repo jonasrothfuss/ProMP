@@ -46,7 +46,6 @@ class MAMLSampler(Sampler):
         else:
             self.vec_env = MAMLIterativeEnvExecutor(env, self.meta_batch_size, self.envs_per_task, self.max_path_length)
 
-
     def update_tasks(self):
         """
         Samples a new goal for each meta task
@@ -144,6 +143,7 @@ class MAMLSampler(Sampler):
 
         assert len(agent_infos) == self.meta_batch_size * self.envs_per_task == len(env_infos)
         return agent_infos, env_infos
+
 
 def _get_empty_running_paths_dict():
     return dict(observations=[], actions=[], rewards=[], env_infos=[], agent_infos=[])

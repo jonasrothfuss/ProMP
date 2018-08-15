@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 import time
 from maml_zoo.logger import logger
-# import maml_zoo.utils.plotter as plotter
+
 
 class Trainer(object):
     """
@@ -23,6 +23,7 @@ class Trainer(object):
     def __init__(
             self,
             algo,
+            env,
             sampler,
             sample_processor,
             policy,
@@ -32,8 +33,10 @@ class Trainer(object):
             sess=None,
             ):
         self.algo = algo
+        self.env = env
         self.sampler = sampler
         self.sample_processor = sample_processor
+        self.baseline = sample_processor.baseline
         self.policy = policy
         self.n_itr = n_itr
         self.start_itr = start_itr
@@ -59,11 +62,10 @@ class Trainer(object):
                 sampler.update_goals()
         """
         with self.sess.as_default():
-            self.algo.build_graph()
             start_time = time.time()
             for itr in range(self.start_itr, self.n_itr):
                 itr_start_time = time.time()
-                # with logger.prefix('itr #%d | ' % itr): Todo: reimplement?
+                logger.log("------------- Iteration %d -------------" % itr)
                 logger.log("Sampling set of tasks/goals for this meta-batch...")
 
                 self.sampler.update_tasks()
@@ -90,10 +92,6 @@ class Trainer(object):
                     samples_data = self.sample_processor.process_samples(paths, log=False)
                     all_samples_data.append(samples_data)
                     list_proc_samples_time.append(time.time() - time_proc_samples_start)
-
-                    # for logging purposes
-                    # logger.log("Logging diagnostics...")
-                    # self.log_diagnostics(flatten_list(paths.values()), prefix=str(step))
 
                     """ ------------------- Inner Policy Update --------------------"""
 
@@ -131,6 +129,8 @@ class Trainer(object):
 
                 logger.dumpkvs()
 
+        logger.log("Training finished")
+
     def get_itr_snapshot(self, itr):
         """
         Gets the current policy and env for storage
@@ -138,6 +138,7 @@ class Trainer(object):
         return dict(itr=itr, policy=self.policy, env=self.env)
 
     def log_diagnostics(self, paths, prefix):
+        # TODO: we aren't using it so far
         self.env.log_diagnostics(paths, prefix)
         self.policy.log_diagnostics(paths, prefix)
         self.baseline.log_diagnostics(paths)
