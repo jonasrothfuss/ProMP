@@ -1,8 +1,11 @@
+from maml_zoo.utils.utils import remove_scope_from_name
+from maml_zoo.utils import Serializable
+
 import tensorflow as tf
 from collections import OrderedDict
-from maml_zoo.utils.utils import remove_scope_from_name
 
-class Policy(object):
+
+class Policy(Serializable):
     """
     A container for storing the current pre and post update policies
     Also provides functions for executing and updating policy parameters
@@ -12,6 +15,8 @@ class Policy(object):
         policy is stored in numpy arrays and executed through tf.placeholders
 
     Args:
+        obs_dim (int): dimensionality of the observation space -> specifies the input size of the policy
+        action_dim (int): dimensionality of the action space -> specifies the output size of the policy
         name (str) : Name used for scoping variables in policy
         hidden_sizes (tuple) : size of hidden layers of network
         learn_std (bool) : whether to learn variance of network output
@@ -19,6 +24,8 @@ class Policy(object):
         output_nonlinearity (Operation) : nonlinearity used after the final layer of network
     """
     def __init__(self,
+                 obs_dim,
+                 action_dim,
                  name='policy',
                  hidden_sizes=(32, 32),
                  learn_std=True,
@@ -26,6 +33,8 @@ class Policy(object):
                  output_nonlinearity=None,
                  **kwargs
                  ):
+        Serializable.quick_init(self, locals())
+
         self.param_assign_ops = None
         self.param_assign_placeholders = None
 
@@ -105,12 +114,15 @@ class Policy(object):
         """
         raise NotImplementedError
 
+
+    """ --- methods for serialization --- """
+
     def get_params(self):
         """
         Get the tf.Variables representing the trainable weights of the network (symbolic)
 
         Returns:
-            (list) : list of all trainable Variables
+            (dict) : a dict of all trainable Variables
         """
         return self.policy_params
 
@@ -143,20 +155,17 @@ class Policy(object):
         tf.get_default_session().run(assign_ops, feed_dict=feed_dict)
 
 
-    def _create_getter_setter(self):
-        """
-        Creates the variables necessary for get_params and set_params. Call once during graph creation
-        UNUSED
-        """
-        self.params = tf.variables(scope=self.name)
-        param_values = tf.get_default_session().run(self.policy_params)
-        self.param_assign_placeholders = []
-        self.param_assign_ops = []
-        for param in self.params:
-            assign_placeholder = tf.placeholder(dtype=param.dtype.base_dtype)
-            assign_op = tf.assign(param, assign_placeholder)
-            self.param_assign_placeholders.append(assign_placeholder)
-            self.param_assign_ops.append(assign_op)
+    def __getstate__(self):
+        state = {
+            'init_args': Serializable.__getstate__(self),
+            'network_params': self.get_param_values()
+        }
+        return state
+
+    def __setstate__(self, state):
+        Serializable.__setstate__(self, state['init_args'])
+        tf.get_default_session().run(tf.global_variables_initializer())
+        self.set_params(state['network_params'])
 
 
 class MetaPolicy(Policy):
@@ -220,3 +229,4 @@ class MetaPolicy(Policy):
         """
         self.policies_params_vals = updated_policies_parameters
         self._pre_update_mode = False
+

@@ -15,8 +15,8 @@ class DummySpace(object):
 
 class DummyEnv(object):
     def __init__(self, obs_dim, act_dim):
-        self._observation_space = gym.spaces.Box(low=-np.ones(obs_dim), high=np.ones(obs_dim))
-        self._action_space = gym.spaces.Box(low=-np.ones(act_dim), high=np.ones(act_dim))
+        self._observation_space = gym.spaces.Box(low=-np.ones(obs_dim), high=np.ones(obs_dim), dtype=np.float32)
+        self._action_space = gym.spaces.Box(low=-np.ones(act_dim), high=np.ones(act_dim), dtype=np.float32)
 
     @property
     def observation_space(self):
@@ -42,8 +42,11 @@ class TestPolicy(unittest.TestCase):
 
     def test_output_sym(self):
         with tf.Session() as sess:
-            self.env = DummyEnv(23, 7)
-            self.policy = GaussianMLPPolicy(env=self.env,
+            obs_dim = 23
+            action_dim = 7
+            self.env = DummyEnv(obs_dim, action_dim)
+            self.policy = GaussianMLPPolicy(obs_dim,
+                                            action_dim,
                                             name='test_policy_output_sym',
                                             hidden_sizes=(64, 64))
 
@@ -55,7 +58,7 @@ class TestPolicy(unittest.TestCase):
 
             n_obs = self.env.get_obs(n=100)
             action, agent_infos = self.policy.get_actions(n_obs)
-            agent_infos_output_sym = sess.run(output_sym_1, feed_dict={obs_ph_1: n_obs})
+            agent_infos_output_sym = sess.run(output_sym_1, feed_dict={obs_ph_1: n_obs})[0]
 
             for k in agent_infos.keys():
                 self.assertTrue(np.allclose(agent_infos[k], agent_infos_output_sym[k], rtol=1e-5, atol=1e-5))
@@ -63,8 +66,11 @@ class TestPolicy(unittest.TestCase):
     def test_get_action(self):
 
         with tf.Session() as sess:
-            self.env = DummyEnv(23, 7)
-            self.policy = GaussianMLPPolicy(env=self.env,
+            obs_dim = 23
+            action_dim = 7
+            self.env = DummyEnv(obs_dim, action_dim)
+            self.policy = GaussianMLPPolicy(obs_dim,
+                                            action_dim,
                                             name='test_policy_get_action',
                                             hidden_sizes=(64, 64))
 
@@ -77,8 +83,11 @@ class TestPolicy(unittest.TestCase):
                 self.assertTrue(np.allclose(agent_infos[k], agents_infos[k], rtol=1e-5, atol=1e-5))
 
     def testSerialize1(self):
-        self.env = DummyEnv(5, 2)
-        self.policy = GaussianMLPPolicy(env=self.env,
+        obs_dim = 23
+        action_dim = 7
+        self.env = DummyEnv(obs_dim, action_dim)
+        self.policy = GaussianMLPPolicy(obs_dim,
+                                        action_dim,
                                         name='test_policy_serialize',
                                         hidden_sizes=(64, 64))
 
@@ -89,24 +98,26 @@ class TestPolicy(unittest.TestCase):
         self.policy.set_params(all_param_values)
 
     def testSerialize2(self):
-        self.env = DummyEnv(5, 2)
-        policy = GaussianMLPPolicy(env=self.env,
+        obs_dim = 2
+        action_dim = 7
+        env = DummyEnv(obs_dim, action_dim)
+        policy = GaussianMLPPolicy(obs_dim,
+                                        action_dim,
                                         name='test_policy_serialize2',
                                         hidden_sizes=(54, 23))
 
         sess = tf.get_default_session()
         sess.run(tf.global_variables_initializer())
 
-        obs = self.env.get_obs()
-        pre_action, pre_agent_infos = policy.get_action(obs)
+        obs = env.get_obs()
+        _, pre_agent_infos = policy.get_action(obs)
         pkl_str = pickle.dumps(policy)
         tf.reset_default_graph()
         with tf.Session() as sess:
             policy_unpickled = pickle.loads(pkl_str)
-            post_action, post_agent_infos = policy_unpickled.get_action(obs)
-            self.assertLessEqual(np.sum(np.abs(pre_action - post_action)), 1e-6)
+            _, post_agent_infos = policy_unpickled.get_action(obs)
             for key in pre_agent_infos.keys():
-                self.assertEquals(pre_agent_infos[key], post_agent_infos[key])
+                self.assertTrue(np.allclose(pre_agent_infos[key], post_agent_infos[key]))
 
 
 if __name__ == '__main__':

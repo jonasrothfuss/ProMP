@@ -3,20 +3,19 @@ from maml_zoo.policies.distributions.diagonal_gaussian import DiagonalGaussian
 from maml_zoo.policies.base import Policy
 from maml_zoo.utils import Serializable
 
-
 import tensorflow as tf
 import numpy as np
 from collections import OrderedDict
-import gym
 
-class GaussianMLPPolicy(Policy, Serializable):
+class GaussianMLPPolicy(Policy):
     """
     Gaussian multi-layer perceptron policy (diagonal covariance matrix)
     Provides functions for executing and updating policy parameters
     A container for storing the current pre and post update policies
 
     Args:
-        env (gym.Env): gym environment
+        obs_dim (int): dimensionality of the observation space -> specifies the input size of the policy
+        action_dim (int): dimensionality of the action space -> specifies the output size of the policy
         name (str): name of the policy used as tf variable scope
         hidden_sizes (tuple): tuple of integers specifying the hidden layer sizes of the MLP
         hidden_nonlinearity (tf.op): nonlinearity function of the hidden layers
@@ -28,7 +27,8 @@ class GaussianMLPPolicy(Policy, Serializable):
     """
 
     def __init__(self,
-                 env,
+                 obs_dim,
+                 action_dim,
                  name='gaussian_mlp_policy',
                  hidden_sizes=(32, 32),
                  learn_std=True,
@@ -37,17 +37,12 @@ class GaussianMLPPolicy(Policy, Serializable):
                  init_std=1,
                  min_std=1e-6,
                  ):
-        Serializable.quick_init(self, locals())
+        Serializable.quick_init(self, locals()) # store the init args for serialization
 
-        assert isinstance(env.observation_space, gym.spaces.Box), 'observation space must be continous'
-        assert isinstance(env.action_space, gym.spaces.Box), 'action space must be continous'
-        self.obs_dim = int(np.prod(env.observation_space.shape))
-        self.action_dim = int(np.prod(env.action_space.shape))
-
-        # Assert is instance Box
-        self.obs_dim = np.prod(env.observation_space.shape)
-        self.action_dim = np.prod(env.action_space.shape)
+        self.obs_dim = obs_dim
+        self.action_dim = action_dim
         self.name = name
+
         self.hidden_sizes = hidden_sizes
         self.learn_std = learn_std
         self.hidden_nonlinearity = hidden_nonlinearity
@@ -96,8 +91,6 @@ class GaussianMLPPolicy(Policy, Serializable):
 
             mean_network_vars = OrderedDict([(var.name, var) for var in mean_network_vars])
             log_std_network_vars = OrderedDict([(var.name, var) for var in log_std_network_vars])
-
-            #self._create_getter_setter()
 
         action_var = mean_var + tf.random_normal(shape=tf.shape(mean_var)) * tf.exp(log_std_var)
 
@@ -225,14 +218,3 @@ class GaussianMLPPolicy(Policy, Serializable):
         """
         raise ["mean", "log_std"]
 
-    def __getstate__(self):
-        state = {
-            'init_args': Serializable.__getstate__(self),
-            'network_params': self.get_param_values()
-        }
-        return state
-
-    def __setstate__(self, state):
-        Serializable.__setstate__(self, state['init_args'])
-        tf.get_default_session().run(tf.global_variables_initializer())
-        self.set_params(state['network_params'])
