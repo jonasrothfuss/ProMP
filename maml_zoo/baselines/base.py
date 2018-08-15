@@ -38,7 +38,7 @@ class Baseline(Serializable):
 
     def predict(self, path):
         """
-        predicts the reward baselines for a provided trajectory / path
+        Predicts the reward baselines for a provided trajectory / path
 
         Args:
             path: dict of lists/numpy array containing trajectory / path information
