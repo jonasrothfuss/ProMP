@@ -16,8 +16,7 @@ class Trainer(object):
         baseline (Baseline) : 
         policy (Policy) : 
         n_itr (int) : Number of iterations to train for
-        meta_batch_size (int) : Number of meta tasks
-        num_grad_updates (int) : Number of inner steps per maml iteration
+        num_inner_grad_steps (int) : Number of inner steps per maml iteration
         sess (tf.Session) : current tf session (if we loaded policy, for example)
     """
     def __init__(
@@ -27,7 +26,7 @@ class Trainer(object):
             sample_processor,
             policy,
             n_itr,
-            num_grad_updates=1,
+            num_inner_grad_steps=1,
             sess=None
             ):
         self.algo = algo
@@ -35,7 +34,9 @@ class Trainer(object):
         self.sample_processor = sample_processor
         self.policy = policy
         self.n_itr = n_itr
-        self.num_grad_updates = num_grad_updates
+        self.num_inner_grad_steps = num_inner_grad_steps
+        if sess is None:
+            sess = tf.Session()
         self.sess = sess
 
         # initialize uninitialized vars  (only initialize vars that were not loaded)
@@ -48,7 +49,7 @@ class Trainer(object):
 
         Pseudocode:
             for itr in n_itr:
-                for step in num_grad_updates:
+                for step in num_inner_grad_steps:
                     sampler.sample()
                     algo.compute_updated_dists()
                 algo.optimize_policy()
@@ -67,7 +68,7 @@ class Trainer(object):
                     all_samples_data, all_paths = [], []
                     list_sampling_time, list_inner_step_time, list_outer_step_time, list_proc_samples_time = [], [], [], []
                     start_total_inner_time = time.time()
-                    for step in range(self.num_grad_updates+1):
+                    for step in range(self.num_inner_grad_steps+1):
                         logger.log('** Step ' + str(step) + ' **')
 
                         """ -------------------- Sampling --------------------------"""
@@ -96,7 +97,7 @@ class Trainer(object):
                         """ ------------------- Inner Policy Update --------------------"""
 
                         time_inner_step_start = time.time()
-                        if step < self.num_grad_updates:
+                        if step < self.num_inner_grad_steps:
                             logger.log("Computing inner policy updates...")
                             self.algo.compute_updated_dists(samples_data)
                         list_inner_step_time.append(time.time() - time_inner_step_start)

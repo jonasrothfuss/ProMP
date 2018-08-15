@@ -78,8 +78,7 @@ def forward_mlp(output_dim,
         hidden_nonlinearity (tf): non-linearity for the activations in the hidden layers
         output_nonlinearity (tf or None): output non-linearity. None results in no non-linearity being applied
         input_var (tf.placeholder or tf.Variable): Input of the network as a symbolic variable
-        mlp_params (list): List of the params of the neural network. It assumes that the params are passed in
-        order i.e. [hidden_0/kernel, hidden_0/bias, hidden_1/kernel, hidden_1/bias, ..., output/kernel, output/bias]
+        mlp_params (OrderedDict): OrderedDict of the params of the neural network. 
 
     Returns:
         input_var (tf.placeholder or tf.Variable): Input of the network as a symbolic variable
@@ -94,14 +93,12 @@ def forward_mlp(output_dim,
     if output_nonlinearity is None:
         output_nonlinearity = tf.identity
 
-    for param in mlp_params:
-        name, scope = get_original_tf_name(param.name), get_last_scope(param.name)
-
-        assert str(idx) in scope or (idx == len(hidden_sizes) and "output" in scope)
+    for name, param in mlp_params.items():
+        assert str(idx) in name or (idx == len(hidden_sizes) and "output" in name)
 
         if "kernel" in name:
             assert param.shape == (x.shape[-1], sizes[idx])
-            x = tf.matmul(param, x)
+            x = tf.matmul(x, param)
         elif "bias" in name:
             assert param.shape == (sizes[idx],)
             x = tf.add(x, param)
@@ -110,16 +107,14 @@ def forward_mlp(output_dim,
             raise NameError
 
         if bias_added:
-            if "hidden" in scope:
+            if "hidden" in name:
                 x = hidden_nonlinearity(x)
-                idx += 1
-            elif "output" in scope:
+            elif "output" in name:
                 x = output_nonlinearity(x)
-                idx += 1
             else:
                 raise NameError
             idx += 1
             bias_added = False
     output_var = x
-    return input_var, output_var
+    return input_var, output_var # Todo why return input_var?
 
