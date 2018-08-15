@@ -3,7 +3,7 @@ from maml_zoo.policies.gaussian_mlp_policy import GaussianMLPPolicy
 import numpy as np
 import tensorflow as tf
 import pickle
-
+import gym
 
 class DummySpace(object):
     def __init__(self, dim):
@@ -13,10 +13,10 @@ class DummySpace(object):
     def shape(self):
         return self._dim
 
-class DummyEnvSpec(object):
+class DummyEnv(object):
     def __init__(self, obs_dim, act_dim):
-        self._observation_space = DummySpace(obs_dim)
-        self._action_space = DummySpace(act_dim)
+        self._observation_space = gym.spaces.Box(low=-np.ones(obs_dim), high=np.ones(obs_dim))
+        self._action_space = gym.spaces.Box(low=-np.ones(act_dim), high=np.ones(act_dim))
 
     @property
     def observation_space(self):
@@ -28,9 +28,9 @@ class DummyEnvSpec(object):
 
     def get_obs(self, n=None):
         if n is None:
-            return np.random.uniform(0, 1, size=(self.observation_space.shape,))
+            return np.random.uniform(0, 1, size=self.observation_space.shape)
         else:
-            return np.random.uniform(0, 1, size=(n, self.observation_space.shape))
+            return np.random.uniform(0, 1, size=(n,) + self.observation_space.shape)
 
 
 class TestPolicy(unittest.TestCase):
@@ -41,61 +41,72 @@ class TestPolicy(unittest.TestCase):
             tf.InteractiveSession()
 
     def test_output_sym(self):
-        self.env_spec = DummyEnvSpec(23, 7)
-        self.policy = GaussianMLPPolicy(env=self.env_spec,
-                                        name='test_policy_output_sym',
-                                        hidden_sizes=(64, 64))
-        
-        obs_ph_1 = tf.placeholder(dtype=tf.float32, name="obs_ph_1",
-                                   shape=(None, self.env_spec.observation_space.shape))
-        output_sym_1 = self.policy.distribution_info_sym(obs_ph_1)
+        with tf.Session() as sess:
+            self.env = DummyEnv(23, 7)
+            self.policy = GaussianMLPPolicy(env=self.env,
+                                            name='test_policy_output_sym',
+                                            hidden_sizes=(64, 64))
 
-        sess = tf.get_default_session()
-        sess.run(tf.global_variables_initializer())
+            obs_ph_1 = tf.placeholder(dtype=tf.float32, name="obs_ph_1",
+                                       shape=(None,) +  self.env.observation_space.shape)
+            output_sym_1 = self.policy.distribution_info_sym(obs_ph_1)
 
-        n_obs = self.env_spec.get_obs(n=100)
-        action, agent_infos = self.policy.get_actions(n_obs)
-        agent_infos_output_sym = sess.run(output_sym_1, feed_dict={obs_ph_1: n_obs})
+            sess.run(tf.global_variables_initializer())
 
-        for k in agent_infos.keys():
-            self.assertTrue(np.allclose(agent_infos[k], agent_infos_output_sym[k], rtol=1e-5, atol=1e-5))
+            n_obs = self.env.get_obs(n=100)
+            action, agent_infos = self.policy.get_actions(n_obs)
+            agent_infos_output_sym = sess.run(output_sym_1, feed_dict={obs_ph_1: n_obs})
+
+            for k in agent_infos.keys():
+                self.assertTrue(np.allclose(agent_infos[k], agent_infos_output_sym[k], rtol=1e-5, atol=1e-5))
 
     def test_get_action(self):
-        self.env_spec = DummyEnvSpec(23, 7)
-        self.policy = GaussianMLPPolicy(env=self.env_spec,
-                                        name='test_policy_get_action',
-                                        hidden_sizes=(64, 64))
 
-        sess = tf.get_default_session()
-        sess.run(tf.global_variables_initializer())
+        with tf.Session() as sess:
+            self.env = DummyEnv(23, 7)
+            self.policy = GaussianMLPPolicy(env=self.env,
+                                            name='test_policy_get_action',
+                                            hidden_sizes=(64, 64))
 
-        obs = self.env_spec.get_obs()
-        action, agent_infos = self.policy.get_action(obs)
-        actions, agents_infos = self.policy.get_actions(np.expand_dims(obs, 0))
-        for k in agent_infos.keys():
-            self.assertTrue(np.allclose(agent_infos[k], agents_infos[k], rtol=1e-5, atol=1e-5))
+            sess.run(tf.global_variables_initializer())
 
-    def testSerialize(self):
-        self.env_spec = DummyEnvSpec(23, 7)
-        self.policy = GaussianMLPPolicy(env=self.env_spec,
+            obs = self.env.get_obs()
+            action, agent_infos = self.policy.get_action(obs)
+            actions, agents_infos = self.policy.get_actions(np.expand_dims(obs, 0))
+            for k in agent_infos.keys():
+                self.assertTrue(np.allclose(agent_infos[k], agents_infos[k], rtol=1e-5, atol=1e-5))
+
+    def testSerialize1(self):
+        self.env = DummyEnv(5, 2)
+        self.policy = GaussianMLPPolicy(env=self.env,
                                         name='test_policy_serialize',
                                         hidden_sizes=(64, 64))
 
         sess = tf.get_default_session()
         sess.run(tf.global_variables_initializer())
         all_param_values = self.policy.get_param_values()
-        for var in all_param_values:
-            var += 1
+
         self.policy.set_params(all_param_values)
 
-        obs = self.env_spec.get_obs()
-        pre_action, pre_agent_infos = self.policy.get_action(obs)
-        pkl = pickle.dumps(self.policy)
-        self.policy = pickle.loads(self.policy)
-        post_action, post_agent_infos = self.policy.get_action(obs)
-        self.assertEquals(pre_action, post_action)
-        for key in pre_agent_infos.keys():
-            self.assertEquals(pre_agent_infos[key], post_agent_infos[key])
+    def testSerialize2(self):
+        self.env = DummyEnv(5, 2)
+        policy = GaussianMLPPolicy(env=self.env,
+                                        name='test_policy_serialize2',
+                                        hidden_sizes=(54, 23))
+
+        sess = tf.get_default_session()
+        sess.run(tf.global_variables_initializer())
+
+        obs = self.env.get_obs()
+        pre_action, pre_agent_infos = policy.get_action(obs)
+        pkl_str = pickle.dumps(policy)
+        tf.reset_default_graph()
+        with tf.Session() as sess:
+            policy_unpickled = pickle.loads(pkl_str)
+            post_action, post_agent_infos = policy_unpickled.get_action(obs)
+            self.assertLessEqual(np.sum(np.abs(pre_action - post_action)), 1e-6)
+            for key in pre_agent_infos.keys():
+                self.assertEquals(pre_agent_infos[key], post_agent_infos[key])
 
 
 if __name__ == '__main__':

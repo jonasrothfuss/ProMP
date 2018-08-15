@@ -1,14 +1,15 @@
 from maml_zoo.policies.networks.mlp import create_mlp, forward_mlp
 from maml_zoo.policies.distributions.diagonal_gaussian import DiagonalGaussian
 from maml_zoo.policies.base import Policy
-from maml_zoo.utils.utils import get_original_tf_name
+from maml_zoo.utils import Serializable
+
 
 import tensorflow as tf
 import numpy as np
 from collections import OrderedDict
 import gym
 
-class GaussianMLPPolicy(Policy):
+class GaussianMLPPolicy(Policy, Serializable):
     """
     Gaussian multi-layer perceptron policy (diagonal covariance matrix)
     Provides functions for executing and updating policy parameters
@@ -36,6 +37,8 @@ class GaussianMLPPolicy(Policy):
                  init_std=1,
                  min_std=1e-6,
                  ):
+        Serializable.quick_init(self, locals())
+
         assert isinstance(env.observation_space, gym.spaces.Box), 'observation space must be continous'
         assert isinstance(env.action_space, gym.spaces.Box), 'action space must be continous'
         self.obs_dim = int(np.prod(env.observation_space.shape))
@@ -91,10 +94,10 @@ class GaussianMLPPolicy(Policy):
                                                      scope=current_scope + '/log_std_network')
             assert len(log_std_network_vars) == 1
 
-            mean_network_vars = OrderedDict([(get_original_tf_name(var.name), var) for var in mean_network_vars])
-            log_std_network_vars = OrderedDict([(get_original_tf_name(var.name), var) for var in log_std_network_vars])
+            mean_network_vars = OrderedDict([(var.name, var) for var in mean_network_vars])
+            log_std_network_vars = OrderedDict([(var.name, var) for var in log_std_network_vars])
 
-            # self._create_getter_setter()
+            #self._create_getter_setter()
 
         action_var = mean_var + tf.random_normal(shape=tf.shape(mean_var)) * tf.exp(log_std_var)
 
@@ -102,7 +105,7 @@ class GaussianMLPPolicy(Policy):
         self.action_var = action_var
         self.mean_var = mean_var
         self.log_std_var = log_std_var
-        self.policy_params = mean_network_vars.update(log_std_network_vars)
+        self.params = OrderedDict(list(mean_network_vars.items()) + list(log_std_network_vars.items()))
 
         self._dist = DiagonalGaussian(self.action_dim)
 
@@ -223,4 +226,14 @@ class GaussianMLPPolicy(Policy):
         """
         raise ["mean", "log_std"]
 
+    def __getstate__(self):
+        state = {
+            'init_args': Serializable.__getstate__(self),
+            'network_params': self.get_param_values()
+        }
+        return state
 
+    def __setstate__(self, state):
+        Serializable.__setstate__(self, state['init_args'])
+        tf.get_default_session().run(tf.global_variables_initializer())
+        self.set_params(state['network_params'])

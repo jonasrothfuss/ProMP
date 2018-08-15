@@ -130,16 +130,25 @@ class Policy(object):
         Sets the parameters for the graph
 
         Args:
-            policy_params (array): array of policy parameters for each task
+            policy_params (dict): of variable names and corresponding parameter values
         """
-        tf.get_default_session().run(self.param_assign_ops,
-                                     feed_dict=dict(list(zip(self.param_assign_placeholders, policy_params))))
+        assert all([k1 == k2 for k1, k2 in zip(self.get_params().keys(), policy_params.keys())]), \
+            "parameter keys must match with vrariable"
+
+        assign_ops, feed_dict = [], {}
+        for var, (param_name, var_value) in zip(self.get_params().values(), policy_params.items()):
+            assign_placeholder = tf.placeholder(dtype=var.dtype)
+            assign_op = tf.assign(var, assign_placeholder)
+            assign_ops.append(assign_op)
+            feed_dict[assign_placeholder] = var_value
+        tf.get_default_session().run(assign_ops, feed_dict=feed_dict)
+
 
     def _create_getter_setter(self):
         """
         Creates the variables necessary for get_params and set_params. Call once during graph creation
         """
-        self.params = tf.trainable_variables(scope=self.name)
+        self.params = tf.variables(scope=self.name)
         param_values = tf.get_default_session().run(self.params)
         self.param_assign_placeholders = []
         self.param_assign_ops = []
