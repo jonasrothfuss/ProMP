@@ -2,17 +2,15 @@ from maml_zoo.logger import logger
 from maml_zoo.optimizers.base import Optimizer
 import tensorflow as tf
 
+
 class MAMLFirstOrderOptimizer(Optimizer):
     """
     Optimizer for first order methods (SGD, Adam)
 
-    Args:
-        learning_rate (float) : initial learning rate
     """
-
     def __init__(
             self,
-            tf_optimizer_cls=None,
+            tf_optimizer_cls=tf.train.AdamOptimizer,
             tf_optimizer_args=None,
             learning_rate=1e-3,
             max_epochs=1,
@@ -20,12 +18,24 @@ class MAMLFirstOrderOptimizer(Optimizer):
             num_minibatches=1,
             verbose=False
             ):
+        """
+
+        Args:
+            tf_optimizer_cls (tf.train.optimizer): desired tensorflow optimzier for training
+            tf_optimizer_args (dict or None): arguments for the optimizer
+            learning_rate (float): learning rate
+            max_epochs: number of maximum epochs for training
+            tolerance (float): tolerance for early stopping. If the loss fucntion decreases less than the specified tolerance
+            after an epoch, then the training stops.
+            num_minibatches (int): number of mini-batches for performing the gradient step. The mini-batch size is
+            batch size//num_minibatches.
+            verbose (bool): Whether to log or not the optimization process
+        """
         self._target = None
-        if tf_optimizer_cls is None:
-            tf_optimizer_cls = tf.train.AdamOptimizer
         if tf_optimizer_args is None:
-            tf_optimizer_args = dict(learning_rate=learning_rate)
-        # TODO: Should we put the learning rate into the optimizer args??
+            tf_optimizer_args = dict()
+        tf_optimizer_args['learning_rate'] = learning_rate
+
         self._tf_optimizer = tf_optimizer_cls(**tf_optimizer_args)
         self._max_epochs = max_epochs
         self._tolerance = tolerance
@@ -36,6 +46,8 @@ class MAMLFirstOrderOptimizer(Optimizer):
         self._loss = None
         
     def build_graph(self, loss, target, inputs, extra_inputs=(), **kwargs):
+        # TODO: Can we get rid of the extra_inputs?? And just have them for the auxiliary objectives
+        # and not for the main loss
         """
         Sets the objective function and target weights for the optimize function
 
@@ -54,6 +66,17 @@ class MAMLFirstOrderOptimizer(Optimizer):
         self._loss = loss
 
     def loss(self, inputs, extra_inputs=()):
+        """
+        Computes the value of the loss for given inputs
+
+        Args:
+            inputs (tuple): inputs needed to compute the loss function
+            extra_inputs (tuple): additional inputs needed to compute the loss function
+
+        Returns:
+            (float): value of the loss
+
+        """
         assert isinstance(inputs, tuple)
         assert isinstance(extra_inputs, tuple)
 
@@ -62,6 +85,14 @@ class MAMLFirstOrderOptimizer(Optimizer):
         return loss
 
     def optimize(self, inputs, extra_inputs=()):
+        """
+        Carries out the optimization step
+
+        Args:
+            inputs (tuple): inputs for the optimization
+            extra_inputs (tuple): extra inputs for the optimization
+
+        """
         assert isinstance(inputs, tuple)
         assert isinstance(extra_inputs, tuple)
 
@@ -92,7 +123,8 @@ class MAMLFirstOrderOptimizer(Optimizer):
 
 class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
     """
-    Adds inner and outer kl terms to first order optimizer (Do we really need this?)
+    Adds inner and outer kl terms to first order optimizer  #TODO: (Do we really need this?)
+
     """
     def __init__(self, *args, **kwargs):
         # Todo: reimplement minibatches
@@ -119,6 +151,16 @@ class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
         self._outer_kl = outer_kl
 
     def inner_kl(self, inputs, extra_inputs=()):
+        """
+        Computes the value of the KL-divergence between pre-update policies for given inputs
+
+        Args:
+            inputs (tuple): inputs needed to compute the inner KL
+            extra_inputs (tuple): additional inputs needed to compute the inner KL
+
+        Returns:
+            (float): value of the loss
+        """
         assert isinstance(inputs, tuple)
         assert isinstance(extra_inputs, tuple)
 
@@ -127,6 +169,16 @@ class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
         return inner_kl
 
     def outer_kl(self, inputs, extra_inputs=()):
+        """
+        Computes the value of the KL-divergence between post-update policies for given inputs
+
+        Args:
+            inputs (tuple): inputs needed to compute the outer KL
+            extra_inputs (tuple): additional inputs needed to compute the outer KL
+
+        Returns:
+            (float): value of the loss
+        """
         assert isinstance(inputs, tuple)
         assert isinstance(extra_inputs, tuple)
 

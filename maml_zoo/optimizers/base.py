@@ -2,7 +2,7 @@ class Optimizer(object):
     def __init__(self):
         pass
 
-    def update_objective(self, loss, target, inputs, extra_inputs=()):
+    def build_graph(self, loss, target, inputs, extra_inputs=()):
         """
         Sets the objective function and target weights for the optimize function
         
@@ -16,12 +16,25 @@ class Optimizer(object):
 
     def optimize(self, inputs, extra_inputs):
         """
+        Carries out the optimization step
+
+        Args:
+            inputs (tuple): inputs for the optimization
+            extra_inputs (tuple): extra inputs for the optimization
 
         """
         raise NotImplementedError
 
     def loss(self, inputs, extra_inputs):
         """
+        Computes the value of the loss for given inputs
+
+        Args:
+            inputs (tuple): inputs needed to compute the loss function
+            extra_inputs (tuple): additional inputs needed to compute the loss function
+
+        Returns:
+            (float): value of the loss
 
         """
         raise NotImplementedError
