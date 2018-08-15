@@ -53,17 +53,17 @@ class MAMLFirstOrderOptimizer(Optimizer):
         self._all_inputs = inputs + extra_inputs
         self._loss = loss
 
-    def loss(self, inputs, extra_inputs=()):
-        assert isinstance(inputs, tuple)
-        assert isinstance(extra_inputs, tuple)
+    def loss(self, inputs, extra_inputs=[]):
+        assert isinstance(inputs, list)
+        assert isinstance(extra_inputs, list)
 
         sess = tf.get_default_session()
         loss = sess.run(self._loss, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
         return loss
 
-    def optimize(self, inputs, extra_inputs=()):
-        assert isinstance(inputs, tuple)
-        assert isinstance(extra_inputs, tuple)
+    def optimize(self, inputs, extra_inputs=[]):
+        assert isinstance(inputs, list)
+        assert isinstance(extra_inputs, list)
 
         sess = tf.get_default_session()
 
@@ -118,17 +118,17 @@ class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
         self._inner_kl = inner_kl
         self._outer_kl = outer_kl
 
-    def inner_kl(self, inputs, extra_inputs=()):
-        assert isinstance(inputs, tuple)
-        assert isinstance(extra_inputs, tuple)
+    def inner_kl(self, inputs, extra_inputs=[]):
+        assert isinstance(inputs, list)
+        assert isinstance(extra_inputs, list)
 
         sess = tf.get_default_session()
         inner_kl = sess.run(self._inner_kl, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
         return inner_kl
 
-    def outer_kl(self, inputs, extra_inputs=()):
-        assert isinstance(inputs, tuple)
-        assert isinstance(extra_inputs, tuple)
+    def outer_kl(self, inputs, extra_inputs=[]):
+        assert isinstance(inputs, list)
+        assert isinstance(extra_inputs, list)
 
         sess = tf.get_default_session()
         outer_kl = sess.run(self._outer_kl, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))

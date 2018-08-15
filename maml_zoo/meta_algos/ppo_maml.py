@@ -86,7 +86,7 @@ class MAMLPPO(MAMLAlgo):
         """ Create Variables """
         step_sizes, inner_kl_coeffs, anneal_ph, outer_kl_coeffs = self._create_opt_variables(scope=self.name)
 
-        kl_coeffs = inner_kl_coeffs + [outer_kl_coeffs]
+        kl_coeffs = inner_kl_coeffs + outer_kl_coeffs
         self.step_sizes = step_sizes
 
         """ Inner update for test-time """
@@ -190,11 +190,11 @@ class MAMLPPO(MAMLAlgo):
 
         input_list = self._extract_input_list(all_samples_data, self._optimization_keys)
 
-        extra_inputs = tuple(self.inner_kl_coeff)
+        extra_inputs = self.inner_kl_coeff
         if not self.clip_outer:
-            extra_inputs += tuple(self.outer_kl_coeff)
+            extra_inputs += self.outer_kl_coeff
 
-        extra_inputs += (self.anneal_coeff,)
+        extra_inputs += [self.anneal_coeff]
         self.anneal_coeff *= self.anneal_factor
 
         if log: logger.log("Computing loss before")
@@ -209,7 +209,8 @@ class MAMLPPO(MAMLAlgo):
         inner_kls = self.optimizer.inner_kl(input_list, extra_inputs=extra_inputs)
         if self.adaptive_inner_kl_penalty:
             if log: logger.log("Updating inner KL loss coefficients")
-            self._adapt_kl_coeff(self.inner_kl_coeff, inner_kls, self.target_inner_step)
+            for step_inner_kl_coeff, step_inner_kls in zip(self.inner_kl_coeff, inner_kls):
+                self._adapt_kl_coeff(step_inner_kl_coeff, step_inner_kls, self.target_inner_step)
 
         outer_kls = self.optimizer.outer_kl(input_list, extra_inputs=extra_inputs)
         if self.adaptive_outer_kl_penalty:

@@ -88,6 +88,7 @@ class MAMLSampler(Sampler):
             t = time.time()
             obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
             actions, agent_infos = policy.get_actions(obs_per_task)
+            actions = [[self.env.action_space.sample() for _ in range(self.batch_size)] for _ in range(self.meta_batch_size)] # Todo
             policy_time += time.time() - t
 
             # step environments

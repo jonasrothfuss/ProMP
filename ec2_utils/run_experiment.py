@@ -6,6 +6,7 @@ import doodad.mount as mount
 import doodad.easy_sweep.launcher as launcher
 from doodad.easy_sweep.hyper_sweep import run_sweep_doodad
 import tensorflow as tf
+import numpy as np
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.meta_algos.ppo_maml import MAMLPPO
@@ -26,7 +27,8 @@ def run_experiment(**kwargs):
     env = kwargs['env']() # Wrappers? normalization?
 
     policy = MetaGaussianMLPPolicy(
-        env=env,
+        obs_dim=np.prod(env.observation_space.shape), # Todo...?
+        action_dim=np.prod(env.action_space.shape),
         meta_batch_size=kwargs['meta_batch_size'],
         hidden_sizes=kwargs['hidden_sizes'],
         learn_std=kwargs['learn_std'],
@@ -76,6 +78,7 @@ def run_experiment(**kwargs):
     trainer = Trainer(
         algo=algo,
         policy=policy,
+        env=env,
         sampler=sampler,
         sample_processor=sample_processor,
         n_itr=kwargs['n_itr'],

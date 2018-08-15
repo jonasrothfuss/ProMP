@@ -105,7 +105,6 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
                                              self.pre_update_mean_var,
                                              self.pre_update_log_std_var],
                                             feed_dict=feed_dict)
-
         log_stds = np.squeeze(log_stds) # Get rid of fake batch size dimension (would be better to do this in tf, if we can match batch sizes)
         agent_infos = [[dict(mean=mean, log_std=log_stds[idx]) for mean in means[idx]] for idx in range(self.meta_batch_size)]
         return actions, agent_infos
@@ -128,7 +127,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
                                              self.post_update_mean_var,
                                              self.post_update_log_std_var],
                                             feed_dict=feed_dict)
-
+        log_stds = np.squeeze(log_stds) # Get rid of fake batch size dimension (would be better to do this in tf, if we can match batch sizes)
         agent_infos = [[dict(mean=mean, log_std=log_stds[idx]) for mean in means[idx]] for idx in range(self.meta_batch_size)]
         return actions, agent_infos
 
