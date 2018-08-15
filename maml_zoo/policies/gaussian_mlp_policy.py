@@ -81,7 +81,7 @@ class GaussianMLPPolicy(Policy):
                                           initializer=tf.constant_initializer(self.init_log_std),
                                           trainable=self.learn_std
                                           )
-
+            
             log_std_var = tf.maximum(log_std_var, self.min_log_std)
 
             current_scope = tf.get_default_graph().get_name_scope()
@@ -102,8 +102,8 @@ class GaussianMLPPolicy(Policy):
         self.action_var = action_var
         self.mean_var = mean_var
         self.log_std_var = log_std_var
-        self.policy_params = mean_network_vars.update(log_std_network_vars)
-
+        mean_network_vars.update(log_std_network_vars)
+        self.policy_params = mean_network_vars
         self._dist = DiagonalGaussian(self.action_dim)
 
     def get_action(self, observation):
@@ -177,7 +177,7 @@ class GaussianMLPPolicy(Policy):
             (dict) : a dictionary of tf placeholders for the policy output distribution
         """
         with tf.variable_scope(self.name):
-            if params is None:
+            if params is None: # Todo: Do we need this case?
                 obs_var, mean_var = create_mlp(name='mean_network',
                                                output_dim=self.action_dim,
                                                hidden_sizes=self.hidden_sizes,
@@ -191,10 +191,10 @@ class GaussianMLPPolicy(Policy):
             else:
                 mean_network_params = []
                 log_std_network_params = []
-                for param in params.values():
-                    if 'mean_network' in param.name:
+                for name, param in params.items():
+                    if 'mean_network' in name:
                         mean_network_params.append(param)
-                    elif 'log_std_network' in param.name:
+                    elif 'log_std_network' in name:
                         log_std_network_params.append(params)
 
                 assert len(log_std_network_params) == 1
@@ -209,7 +209,7 @@ class GaussianMLPPolicy(Policy):
 
                 log_std_var = log_std_network_params[0]
 
-        return dict(mean=mean_var, log_std=log_std_var)
+        return dict(mean=mean_var, log_std=log_std_var), 
 
     def distribution_info_keys(self, obs, state_infos):
         """

@@ -48,21 +48,7 @@ class Algo(object):
         """
         raise NotImplementedError
 
-    def init_dist_sym(self, obs_var, params_var, is_training=False):
-        """
-        Creates the symbolic representation of the current tf policy
-
-        Args:
-            obs_var (list) : list of obs placeholders split by env
-            params_ph (dict) : dict of placeholders for initial policy params
-            is_training (bool) : used for batch norm # (Do we support this?)
-
-        Returns:
-            (tf_op) : symbolic representation the policy's output for each obs
-        """
-        raise NotImplementedError
-
-    def compute_updated_dist_sym(self, surr_obj, obs_var, params_var, is_training=False):
+    def adapt_sym(self, surr_obj, obs_var, params_var, is_training=False):
         """
         Creates the symbolic representation of the tf policy after one gradient step towards the surr_obj
 
@@ -77,7 +63,7 @@ class Algo(object):
         """
         raise NotImplementedError
 
-    def compute_updated_dists(self, samples):
+    def adapt(self, samples):
         """
         Performs MAML inner step for each task and stores resulting gradients # (in the policy?)
 
@@ -162,12 +148,12 @@ class MAMLAlgo(Algo):
             for i in range(self.meta_batch_size):
                 obs_phs.append(tf.placeholder(
                     dtype=tf.float32,
-                    shape=[None, np.prod(self.env.observation_space.shape)],
+                    shape=[None, self.policy.obs_dim],
                     name='obs' + prefix + '_' + str(i)
                 ))
                 action_phs.append(tf.placeholder(
                     dtype=tf.float32,
-                    shape=[None, np.prod(self.env.action_space.shape)],
+                    shape=[None, self.policy.action_dim],
                     name='action' + prefix + '_' + str(i),
                 ))
                 adv_phs.append(tf.placeholder(
@@ -257,7 +243,7 @@ class MAMLAlgo(Algo):
         num_tasks = len(samples)
         assert num_tasks == self.meta_batch_size
 
-        input_list = self._extract_input_list(samples, self._optimization_keys)
+        input_list = self._extract_input_list([samples], self._optimization_keys)
 
         feed_dict_inputs = list(zip(self.input_list_ph, input_list))
         feed_dict_params = list((self.policy.policies_params_ph[i][key], self.policy.policies_params_vals[i][key])
@@ -285,7 +271,7 @@ class MAMLAlgo(Algo):
             inputs = [list() for _ in range(len(keys))]
             for i in range(self.meta_batch_size):
                 extracted_data = extract(
-                    all_samples_data[step][i], keys
+                    all_samples_data[step][i], *keys
                 )
                 for j, data in enumerate(extracted_data):
                     if isinstance(data, dict):

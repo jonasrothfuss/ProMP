@@ -77,6 +77,8 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
         Args:
             observations (list): List of size meta-batch size with numpy arrays of shape batch_size x obs_dim
 
+        Returns:
+            (tuple) : A tuple containing a list of lists of action, and a list of list of dicts of agent infos
         """
         if self._pre_update_mode:
             actions, agent_infos = self._get_pre_update_actions(observations)
@@ -96,7 +98,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
         assert len(observations) == self.meta_batch_size
 
         obs_stack = np.concatenate(observations, axis=0)
-        feed_dict = {self.obs_var, obs_stack}
+        feed_dict = {self.obs_var: obs_stack}
 
         sess = tf.get_default_session()
         actions, means, log_stds = sess.run([self.pre_update_action_var,
@@ -104,7 +106,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
                                              self.pre_update_log_std_var],
                                             feed_dict=feed_dict)
 
-        agent_infos = [dict(mean=means[idx], log_std=log_stds[idx]) for idx in range(self.meta_batch_size)]
+        agent_infos = [[dict(mean=mean, log_std=log_stds[idx]) for mean in means[idx]] for idx in range(self.meta_batch_size)]
         return actions, agent_infos
 
     def _get_post_update_actions(self, observations):
@@ -115,7 +117,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
         """
         assert self.policies_params_vals is not None
         obs_stack = np.concatenate(observations, axis=0)
-        feed_dict = {self.obs_var, obs_stack}
+        feed_dict = {self.obs_var: obs_stack}
         feed_dict_params = dict([(self.policies_params_ph[idx][key], self.policies_params_vals[idx][key])
                                 for key in self.policy_params_keys for idx in range(self.meta_batch_size)])
         feed_dict.update(feed_dict_params)
@@ -126,6 +128,6 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
                                              self.post_update_log_std_var],
                                             feed_dict=feed_dict)
 
-        agent_infos = [dict(mean=means[idx], log_std=log_stds[idx]) for idx in range(self.meta_batch_size)]
+        agent_infos = [[dict(mean=mean, log_std=log_stds[idx]) for mean in means[idx]] for idx in range(self.meta_batch_size)]
         return actions, agent_infos
 

@@ -63,7 +63,6 @@ class MAMLPPO(MAMLAlgo):
         self.name = name
         self.kl_coeff = [init_inner_kl_penalty] * self.meta_batch_size * self.num_inner_grad_steps
         self.step_sizes = None
-        self.dist = None
 
     def build_graph(self):
         """
@@ -102,7 +101,7 @@ class MAMLPPO(MAMLAlgo):
 
             # Test
             distribution_info_var_test = self.policy.distribution_info_sym(obs_phs[i], params=self.policies_params_ph[i])
-            likelihood_ratio_test = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], disttribution_info_var_test)
+            likelihood_ratio_test = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], distribution_info_var_test)
             surr_objs_test.append(-tf.reduce_mean(likelihood_ratio_test * adv_phs[i]))
 
         all_inputs += obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), []) # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
@@ -172,12 +171,12 @@ class MAMLPPO(MAMLAlgo):
     def _build_inner_objective(self, obs_ph, action_ph, adv_ph, dist_info_ph, distribution_info_var,
                                current_policy_params):
         if self.entropy_bonus > 0:
-            entropy = self.entropy_bonus * tf.reduce_mean(self.dist.entropy_sym(distribution_info_var))
+            entropy = self.entropy_bonus * tf.reduce_mean(self.policy.dist.entropy_sym(distribution_info_var))
         else:  # Save a computation
             entropy = 0
 
-        kl_loss = tf.reduce_mean(self.dist.kl_sym(dist_info_ph, distribution_info_var))
-        likelihood_ratio = self.dist.likelihood_ratio_sym(action_ph, dist_info_ph, distribution_info_var)
+        kl_loss = tf.reduce_mean(self.policy.dist.kl_sym(dist_info_ph, distribution_info_var))
+        likelihood_ratio = self.policy.dist.likelihood_ratio_sym(action_ph, dist_info_ph, distribution_info_var)
         surr_loss = - tf.reduce_mean(likelihood_ratio * adv_ph)
 
         dist_info_var, adapted_params_var = self.adapt_sym(surr_loss, obs_ph, current_policy_params)
@@ -190,7 +189,7 @@ class MAMLPPO(MAMLAlgo):
         kl_penalty = sum(list(kl_penalties[j] * inner_kl_coeffs[j] for j in range(self.num_inner_grad_steps)))
         entropy_bonus = sum(list(entropies_bonus[j] for j in range(self.num_inner_grad_steps)))
 
-        likelihood_ratio = self.dist.likelihood_ratio_sym(action_ph, dist_info_ph, distribution_info_var)
+        likelihood_ratio = self.policy.dist.likelihood_ratio_sym(action_ph, dist_info_ph, distribution_info_var)
         if self.clip_outer:
             clipped_obj = tf.minimum(likelihood_ratio * adv_ph,
                                      tf.clip_by_value(likelihood_ratio,
@@ -200,7 +199,7 @@ class MAMLPPO(MAMLAlgo):
             outer_kl = []
 
         else:
-            outer_kl = tf.reduce_mean(self.dist.kl_sym(dist_info_ph, distribution_info_var))
+            outer_kl = tf.reduce_mean(self.policy.dist.kl_sym(dist_info_ph, distribution_info_var))
             outer_kl_penalty = outer_kl_coeffs[0] * outer_kl
             surr_obj = - tf.reduce_mean(likelihood_ratio * adv_ph) - entropy_bonus + \
                        kl_penalty + outer_kl_penalty

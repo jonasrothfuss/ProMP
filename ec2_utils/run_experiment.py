@@ -82,8 +82,7 @@ def run_experiment(**kwargs):
         num_inner_grad_steps=kwargs['num_inner_grad_steps'],
     )
 
-    print("Successfully loaded all modules!")
-    # trainer.train()
+    trainer.train()
 
 if __name__ == '__main__':    
     parser = argparse.ArgumentParser()

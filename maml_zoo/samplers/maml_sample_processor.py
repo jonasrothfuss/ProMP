@@ -20,7 +20,7 @@ class MAMLSampleProcessor(SampleProcessor):
         Returns:
             (dict of dicts) : Processed sample data among the meta-batch; size: [meta_batch_size] x [7] x (batch_size x max_path_length)
         """
-        assert type(paths_meta_batch) == dict, 'paths must be a list'
+        assert type(paths_meta_batch) == dict, 'paths must be a dict'
         assert self.baseline, 'baseline must be specified - use self.build_sample_processor(baseline_obj)'
 
         samples_data_meta_batch = {}
