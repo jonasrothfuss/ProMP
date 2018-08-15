@@ -35,8 +35,14 @@ class Policy(Serializable):
                  ):
         Serializable.quick_init(self, locals())
 
-        self.param_assign_ops = None
-        self.param_assign_placeholders = None
+        self.obs_dim = obs_dim
+        self.action_dim = action_dim
+        self.name = name
+
+        self.hidden_sizes = hidden_sizes
+        self.learn_std = learn_std
+        self.hidden_nonlinearity = hidden_nonlinearity
+        self.output_nonlinearity = output_nonlinearity
 
     def build_graph(self):
         """

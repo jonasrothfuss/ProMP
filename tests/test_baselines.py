@@ -52,7 +52,7 @@ class RandomPolicy(Policy):
 class TestBaseline(unittest.TestCase):
     def setUp(self):
         self.random_env = RandomEnv()
-        self.random_policy = RandomPolicy()
+        self.random_policy = RandomPolicy(obs_dim=1, action_dim=1)
         self.meta_batch_size = 2
         self.batch_size = 10
         self.path_length = 100

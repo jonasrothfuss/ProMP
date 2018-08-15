@@ -66,9 +66,9 @@ class TestSampler(unittest.TestCase):
     def setUp(self):
         self.test_env = TestEnv()
         self.random_env = RandomEnv()
-        self.test_policy = TestPolicy()
-        self.return_policy = ReturnPolicy()
-        self.random_policy = RandomPolicy()
+        self.test_policy = TestPolicy(obs_dim=3, action_dim=4)
+        self.return_policy = ReturnPolicy(obs_dim=3, action_dim=4)
+        self.random_policy = RandomPolicy(obs_dim=3, action_dim=4)
         self.meta_batch_size = 3
         self.batch_size = 4
         self.path_length = 5
