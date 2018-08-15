@@ -139,7 +139,7 @@ class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
         Args:
             loss (tf_op) : minimization objective
             target (Policy) : Policy whose values we are optimizing over
-            inputs (lsit) : list of tf.placeholders for input data
+            inputs (list) : list of tf.placeholders for input data
             inner_kl (list): list with the inner kl loss for each task
             outer_kl (list): list with the outer kl loss for each task
             extra_inputs (list) : list of tf.placeholders for hyperparameters (e.g. learning rate, if annealed)
