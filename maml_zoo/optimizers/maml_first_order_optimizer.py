@@ -65,7 +65,7 @@ class MAMLFirstOrderOptimizer(Optimizer):
         self._all_inputs = inputs + extra_inputs
         self._loss = loss
 
-    def loss(self, inputs, extra_inputs=()):
+    def loss(self, inputs, extra_inputs=[]):
         """
         Computes the value of the loss for given inputs
 
@@ -77,14 +77,14 @@ class MAMLFirstOrderOptimizer(Optimizer):
             (float): value of the loss
 
         """
-        assert isinstance(inputs, tuple)
-        assert isinstance(extra_inputs, tuple)
+        assert isinstance(inputs, list)
+        assert isinstance(extra_inputs, list)
 
         sess = tf.get_default_session()
         loss = sess.run(self._loss, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
         return loss
 
-    def optimize(self, inputs, extra_inputs=()):
+    def optimize(self, inputs, extra_inputs=[]):
         """
         Carries out the optimization step
 
@@ -93,8 +93,8 @@ class MAMLFirstOrderOptimizer(Optimizer):
             extra_inputs (tuple): extra inputs for the optimization
 
         """
-        assert isinstance(inputs, tuple)
-        assert isinstance(extra_inputs, tuple)
+        assert isinstance(inputs, list)
+        assert isinstance(extra_inputs, list)
 
         sess = tf.get_default_session()
 
@@ -150,7 +150,7 @@ class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
         self._inner_kl = inner_kl
         self._outer_kl = outer_kl
 
-    def inner_kl(self, inputs, extra_inputs=()):
+    def inner_kl(self, inputs, extra_inputs=[]):
         """
         Computes the value of the KL-divergence between pre-update policies for given inputs
 
@@ -161,14 +161,14 @@ class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
         Returns:
             (float): value of the loss
         """
-        assert isinstance(inputs, tuple)
-        assert isinstance(extra_inputs, tuple)
+        assert isinstance(inputs, list)
+        assert isinstance(extra_inputs, list)
 
         sess = tf.get_default_session()
         inner_kl = sess.run(self._inner_kl, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
         return inner_kl
 
-    def outer_kl(self, inputs, extra_inputs=()):
+    def outer_kl(self, inputs, extra_inputs=[]):
         """
         Computes the value of the KL-divergence between post-update policies for given inputs
 
@@ -179,8 +179,8 @@ class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
         Returns:
             (float): value of the loss
         """
-        assert isinstance(inputs, tuple)
-        assert isinstance(extra_inputs, tuple)
+        assert isinstance(inputs, list)
+        assert isinstance(extra_inputs, list)
 
         sess = tf.get_default_session()
         outer_kl = sess.run(self._outer_kl, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))

@@ -16,14 +16,15 @@ def get_original_tf_name(name):
 
 def remove_scope_from_name(name, scope):
     """
+    # Todo: rename this
     Args:
         name (str): full name of the tf variable with all the scopes
 
     Returns:
         (str): full name of the variable with the scope removed
     """
-    return name.replace(scope + '/', "").split(":")[0]
-
+    return '/'.join(name.split("/")[1:]).split(":")[0]
+    # return name.replace(scope + '/', "").split(":")[0]
 
 def get_last_scope(name):
     """
@@ -135,3 +136,9 @@ def stack_tensor_dict_list(tensor_dict_list):
             v = np.asarray([x[k] for x in tensor_dict_list])
         ret[k] = v
     return ret
+
+def flatten_first_dimension(array):
+    """
+    Flattens an array of size [a x b x c ...] to [(a*b) x c x ...]
+    Used for 
+    """

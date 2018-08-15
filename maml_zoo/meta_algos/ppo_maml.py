@@ -86,11 +86,11 @@ class MAMLPPO(MAMLAlgo):
         """ Create Variables """
         step_sizes, inner_kl_coeffs, anneal_ph, outer_kl_coeffs = self._create_opt_variables(scope=self.name)
 
-        kl_coeffs = inner_kl_coeffs + [outer_kl_coeffs]
+        kl_coeffs = inner_kl_coeffs + outer_kl_coeffs
         self.step_sizes = step_sizes
 
         """ Inner update for test-time """
-        obs_phs, action_phs, adv_phs, dist_info_phs = self.make_input_placeholders(prefix='init', scope=self.name)
+        obs_phs, action_phs, adv_phs, dist_info_phs, all_phs = self.make_input_placeholders(prefix='init', scope=self.name)
         all_surr_objs, all_inputs, all_entropies, all_inner_kls = [], [], [], []
         surr_objs_test, surr_objs_train = [], []  # Used for computing fast gradient step
         distribution_info_vars, current_policy_params = [], []
@@ -106,7 +106,7 @@ class MAMLPPO(MAMLAlgo):
             likelihood_ratio_test = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], distribution_info_var_test)
             surr_objs_test.append(-tf.reduce_mean(likelihood_ratio_test * adv_phs[i]))
 
-        all_inputs += obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), []) # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
+        all_inputs += all_phs # obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), []) # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
 
         # For computing the fast update for sampling
         self.adapt_sym_test(all_inputs, surr_objs_test)
@@ -136,19 +136,23 @@ class MAMLPPO(MAMLAlgo):
             all_inner_kls.append(kls)
 
             # Update graph for next gradient step
-            obs_phs, action_phs, adv_phs, dist_info_phs = self.make_input_placeholders(str(j), scope=self.name)
+            obs_phs, action_phs, adv_phs, dist_info_phs, all_phs = self.make_input_placeholders(str(j), scope=self.name)
 
             current_policy_params = adapted_policy_params
             distribution_info_vars = adapted_policy_dist_info_vars
 
-            all_inputs += obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), []) # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
+            all_inputs += all_phs # obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), []) # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
 
         """ Outer objective """
         surr_objs = []
         outer_kls = []
 
         for i in range(self.meta_batch_size):
-            surr_obj, outer_kl = self._build_outer_objective(all_inner_kls[i], inner_kl_coeffs[i], all_entropies[i],
+            # Todo: This is kinda dumb
+            all_inner_kls_i = [all_inner_kls[j][i] for j in range(self.num_inner_grad_steps)]
+            inner_kl_coeffs_i = [inner_kl_coeffs[j][i] for j in range(self.num_inner_grad_steps)]
+            all_entropies_i = [all_entropies[j][i] for j in range(self.num_inner_grad_steps)]
+            surr_obj, outer_kl = self._build_outer_objective(all_inner_kls_i, inner_kl_coeffs_i, all_entropies_i,
                                                              action_phs[i], adv_phs[i], dist_info_phs[i],
                                                              distribution_info_vars[i], anneal_ph, outer_kl_coeffs[i])
             surr_objs.append(surr_obj)
@@ -186,11 +190,11 @@ class MAMLPPO(MAMLAlgo):
 
         input_list = self._extract_input_list(all_samples_data, self._optimization_keys)
 
-        extra_inputs = tuple(self.inner_kl_coeff)
+        extra_inputs = self.inner_kl_coeff
         if not self.clip_outer:
-            extra_inputs += tuple(self.outer_kl_coeff)
+            extra_inputs += self.outer_kl_coeff
 
-        extra_inputs += (self.anneal_coeff,)
+        extra_inputs += [self.anneal_coeff]
         self.anneal_coeff *= self.anneal_factor
 
         if log: logger.log("Computing loss before")
@@ -205,7 +209,8 @@ class MAMLPPO(MAMLAlgo):
         inner_kls = self.optimizer.inner_kl(input_list, extra_inputs=extra_inputs)
         if self.adaptive_inner_kl_penalty:
             if log: logger.log("Updating inner KL loss coefficients")
-            self._adapt_kl_coeff(self.inner_kl_coeff, inner_kls, self.target_inner_step)
+            for step_inner_kl_coeff, step_inner_kls in zip(self.inner_kl_coeff, inner_kls):
+                self._adapt_kl_coeff(step_inner_kl_coeff, step_inner_kls, self.target_inner_step)
 
         outer_kls = self.optimizer.outer_kl(input_list, extra_inputs=extra_inputs)
         if self.adaptive_outer_kl_penalty:
@@ -223,7 +228,7 @@ class MAMLPPO(MAMLAlgo):
     def _build_inner_objective(self, obs_ph, action_ph, adv_ph, dist_info_ph, distribution_info_var,
                                current_policy_params):
         if self.entropy_bonus > 0:
-            entropy = self.entropy_bonus * tf.reduce_mean(self.policy.dist.entropy_sym(distribution_info_var))
+            entropy = self.entropy_bonus * tf.reduce_mean(self.policy.distribution.entropy_sym(distribution_info_var))
         else:  # Save a computation
             entropy = 0
 
@@ -231,9 +236,9 @@ class MAMLPPO(MAMLAlgo):
         likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(action_ph, dist_info_ph, distribution_info_var)
         surr_loss = - tf.reduce_mean(likelihood_ratio * adv_ph)
 
-        dist_info_var, adapted_params_var = self.adapt_sym(surr_loss, obs_ph, current_policy_params)
+        dist_info_var = self.adapt_sym(surr_loss, obs_ph, current_policy_params)
 
-        return kl_loss, entropy, surr_loss, dist_info_var, adapted_params_var
+        return kl_loss, entropy, surr_loss, dist_info_var, current_policy_params
 
     def _build_outer_objective(self, kl_penalties, inner_kl_coeffs, entropies_bonus, action_ph,
                                adv_ph, dist_info_ph, distribution_info_var, anneal_ph, outer_kl_coeffs):
@@ -251,7 +256,7 @@ class MAMLPPO(MAMLAlgo):
             outer_kl = []
 
         else:
-            outer_kl = tf.reduce_mean(self.policy.dist.kl_sym(dist_info_ph, distribution_info_var))
+            outer_kl = tf.reduce_mean(self.policy.distribution.kl_sym(dist_info_ph, distribution_info_var))
             outer_kl_penalty = outer_kl_coeffs[0] * outer_kl
             surr_obj = - tf.reduce_mean(likelihood_ratio * adv_ph) - entropy_bonus + \
                        kl_penalty + outer_kl_penalty
@@ -277,7 +282,6 @@ class MAMLPPO(MAMLAlgo):
                 step_sizes[key] = tf.Variable(initial_value=init_stepsize,
                                               name='%s_step_size' % key,
                                               dtype=tf.float32)
-
             # Inner KL coeffs
             inner_kl_coeffs = [list(tf.placeholder(tf.float32, shape=[], name='kl_%s_%s' % (j, i))
                                     for i in range(self.meta_batch_size))

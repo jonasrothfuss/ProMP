@@ -2,6 +2,7 @@ from maml_zoo.policies.networks.mlp import create_mlp, forward_mlp
 from maml_zoo.policies.distributions.diagonal_gaussian import DiagonalGaussian
 from maml_zoo.policies.base import Policy
 from maml_zoo.utils import Serializable
+from maml_zoo.utils.utils import remove_scope_from_name
 
 import tensorflow as tf
 import numpy as np
@@ -31,7 +32,7 @@ class GaussianMLPPolicy(Policy, DiagonalGaussian):
         Serializable.quick_init(self, locals())
         Policy.__init__(self, *args, **kwargs)
         DiagonalGaussian.__init__(self, dim=self.action_dim)
-
+        # Serializable.quick_init(self, locals())
         self.min_log_std = np.log(min_std)
         self.init_log_std = np.log(init_std)
 
@@ -74,8 +75,8 @@ class GaussianMLPPolicy(Policy, DiagonalGaussian):
                                                      scope=current_scope + '/log_std_network')
             assert len(log_std_network_vars) == 1
 
-            mean_network_vars = OrderedDict([(var.name, var) for var in mean_network_vars])
-            log_std_network_vars = OrderedDict([(var.name, var) for var in log_std_network_vars])
+            mean_network_vars = OrderedDict([(remove_scope_from_name(var.name, current_scope), var) for var in mean_network_vars])
+            log_std_network_vars = OrderedDict([(remove_scope_from_name(var.name, current_scope), var) for var in log_std_network_vars])
 
         action_var = mean_var + tf.random_normal(shape=tf.shape(mean_var)) * tf.exp(log_std_var)
 
@@ -169,17 +170,16 @@ class GaussianMLPPolicy(Policy, DiagonalGaussian):
 
                 log_std_var = self.log_std_var
             else:
-                mean_network_params = []
+                mean_network_params = OrderedDict()
                 log_std_network_params = []
                 for name, param in params.items():
-                    if 'mean_network' in name:
-                        mean_network_params.append(param)
-                    elif 'log_std_network' in name:
-                        log_std_network_params.append(params)
+                    if 'log_std_network' in name:
+                        log_std_network_params.append(param)
+                    else:# if 'mean_network' in name:
+                        mean_network_params[name] = param
 
                 assert len(log_std_network_params) == 1
-
-                obs_var, mean_var = forward_mlp(output_dim=self.obs_dim,
+                obs_var, mean_var = forward_mlp(output_dim=self.action_dim,
                                                 hidden_sizes=self.hidden_sizes,
                                                 hidden_nonlinearity=self.hidden_nonlinearity,
                                                 output_nonlinearity=self.output_nonlinearity,
@@ -189,7 +189,7 @@ class GaussianMLPPolicy(Policy, DiagonalGaussian):
 
                 log_std_var = log_std_network_params[0]
 
-        return dict(mean=mean_var, log_std=log_std_var), 
+        return dict(mean=mean_var, log_std=log_std_var)
 
     def distribution_info_keys(self, obs, state_infos):
         """

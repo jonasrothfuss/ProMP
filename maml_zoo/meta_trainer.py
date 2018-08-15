@@ -45,10 +45,6 @@ class Trainer(object):
             sess = tf.Session()
         self.sess = sess
 
-        # initialize uninitialized vars  (only initialize vars that were not loaded)
-        uninit_vars = [var for var in tf.global_variables() if not sess.run(tf.is_variable_initialized(var))]
-        sess.run(tf.variables_initializer(uninit_vars))
-
     def train(self):
         """
         Trains policy on env using algo
@@ -61,7 +57,12 @@ class Trainer(object):
                 algo.optimize_policy()
                 sampler.update_goals()
         """
-        with self.sess.as_default():
+        with self.sess.as_default() as sess:
+
+            # initialize uninitialized vars  (only initialize vars that were not loaded)
+            uninit_vars = [var for var in tf.global_variables() if not sess.run(tf.is_variable_initialized(var))]
+            sess.run(tf.variables_initializer(uninit_vars))
+
             start_time = time.time()
             for itr in range(self.start_itr, self.n_itr):
                 itr_start_time = time.time()
@@ -120,7 +121,7 @@ class Trainer(object):
 
                 logger.log("Saving snapshot...")
                 params = self.get_itr_snapshot(itr)  # , **kwargs)
-                logger.save_itr_params(itr, params)
+                # logger.save_itr_params(itr, params) # Todo
                 logger.log("Saved")
 
                 logger.logkv('Time', time.time() - start_time)
