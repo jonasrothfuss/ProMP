@@ -1,5 +1,7 @@
 from maml_zoo.baselines.base import Baseline
+from maml_zoo.utils.serializable import Serializable
 import numpy as np
+
 
 class LinearFeatureBaseline(Baseline):
     """
@@ -15,6 +17,8 @@ class LinearFeatureBaseline(Baseline):
 
     """
     def __init__(self, reg_coeff=1e-5):
+        super(LinearFeatureBaseline, self).__init__()
+        Serializable.quick_init(self, locals())
         self._coeffs = None
         self._reg_coeff = reg_coeff
 
@@ -28,7 +32,7 @@ class LinearFeatureBaseline(Baseline):
         """
         return self._coeffs
 
-    def set_param_values(self, value, **tags):
+    def set_params(self, value, **tags):
         """
         Sets the parameter values of the baseline object
 
@@ -39,21 +43,23 @@ class LinearFeatureBaseline(Baseline):
         self._coeffs = value
 
     def _features(self, path):
-        o = np.clip(path["observations"], -10, 10)
-        l = len(path["rewards"])
-        al = np.arange(l).reshape(-1, 1) / 100.0
-        return np.concatenate([o, o ** 2, al, al ** 2, al ** 3, np.ones((l, 1))], axis=1)
+        # TODO: Should we add the option of normalizing the obs??
+        obs = np.clip(path["observations"], -10, 10)
+        path_length = len(path["rewards"])
+        time_step = np.arange(path_length).reshape(-1, 1) / 100.0
+        return np.concatenate([obs, obs ** 2, time_step, time_step ** 2, time_step ** 3, np.ones((path_length, 1))],
+                              axis=1)
 
     def fit(self, paths):
         """
         Fits the linear baseline model with the provided paths via damped least squares
 
         Args:
-            paths: list of paths
+            paths (list): list of paths
 
         """
-        featmat = np.concatenate([self._features(path) for path in paths])
-        returns = np.concatenate([path["returns"] for path in paths])
+        featmat = np.concatenate([self._features(path) for path in paths], axis=0)
+        returns = np.concatenate([path["returns"] for path in paths], axis=0)
         reg_coeff = self._reg_coeff
         for _ in range(5):
             self._coeffs = np.linalg.lstsq(
@@ -70,10 +76,11 @@ class LinearFeatureBaseline(Baseline):
         If the baseline is not fitted - returns zero baseline
 
         Args:
-           path: dict of lists/numpy array containing trajectory / path information
+           path (dict): dict of lists/numpy array containing trajectory / path information
                  such as "observations", "rewards", ...
 
-        Returns: numpy array of the same length as paths["observations"] specifying the reward baseline
+        Returns:
+             (np.ndarray): numpy array of the same length as paths["observations"] specifying the reward baseline
 
         """
         if self._coeffs is None:

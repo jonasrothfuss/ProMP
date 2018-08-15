@@ -64,6 +64,8 @@ class MAMLPPO(MAMLAlgo):
         self.kl_coeff = [init_inner_kl_penalty] * self.meta_batch_size * self.num_inner_grad_steps
         self.step_sizes = None
 
+        self.build_graph()
+
     def build_graph(self):
         """
         Creates the computation graph
@@ -141,7 +143,7 @@ class MAMLPPO(MAMLAlgo):
 
             all_inputs += obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), []) # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
 
-        """ Outer Objective """
+        """ Outer objective """
         surr_objs = []
         outer_kls = []
 
@@ -167,44 +169,6 @@ class MAMLPPO(MAMLAlgo):
             inner_kl=all_inner_kls,
             outer_kl=outer_kls,
         )
-
-    def _build_inner_objective(self, obs_ph, action_ph, adv_ph, dist_info_ph, distribution_info_var,
-                               current_policy_params):
-        if self.entropy_bonus > 0:
-            entropy = self.entropy_bonus * tf.reduce_mean(self.policy.dist.entropy_sym(distribution_info_var))
-        else:  # Save a computation
-            entropy = 0
-
-        kl_loss = tf.reduce_mean(self.policy.dist.kl_sym(dist_info_ph, distribution_info_var))
-        likelihood_ratio = self.policy.dist.likelihood_ratio_sym(action_ph, dist_info_ph, distribution_info_var)
-        surr_loss = - tf.reduce_mean(likelihood_ratio * adv_ph)
-
-        dist_info_var, adapted_params_var = self.adapt_sym(surr_loss, obs_ph, current_policy_params)
-
-        return kl_loss, entropy, surr_loss, dist_info_var, adapted_params_var
-
-    def _build_outer_objective(self, kl_penalties, inner_kl_coeffs, entropies_bonus, action_ph,
-                               adv_ph, dist_info_ph, distribution_info_var, anneal_ph, outer_kl_coeffs):
-
-        kl_penalty = sum(list(kl_penalties[j] * inner_kl_coeffs[j] for j in range(self.num_inner_grad_steps)))
-        entropy_bonus = sum(list(entropies_bonus[j] for j in range(self.num_inner_grad_steps)))
-
-        likelihood_ratio = self.policy.dist.likelihood_ratio_sym(action_ph, dist_info_ph, distribution_info_var)
-        if self.clip_outer:
-            clipped_obj = tf.minimum(likelihood_ratio * adv_ph,
-                                     tf.clip_by_value(likelihood_ratio,
-                                                      1 - self.clip_eps * anneal_ph,
-                                                      1 + self.clip_eps * anneal_ph) * adv_ph)
-            surr_obj = - tf.reduce_mean(clipped_obj) - entropy_bonus + kl_penalty
-            outer_kl = []
-
-        else:
-            outer_kl = tf.reduce_mean(self.policy.dist.kl_sym(dist_info_ph, distribution_info_var))
-            outer_kl_penalty = outer_kl_coeffs[0] * outer_kl
-            surr_obj = - tf.reduce_mean(likelihood_ratio * adv_ph) - entropy_bonus + \
-                       kl_penalty + outer_kl_penalty
-
-        return surr_obj, outer_kl
 
     def optimize_policy(self, all_samples_data, log=True):
         """
@@ -255,6 +219,44 @@ class MAMLPPO(MAMLAlgo):
             logger.logkv('klDiff', np.mean(inner_kls))
             logger.logkv('klCoeff', np.mean(self.inner_kl_coeff))
             if not self.clip_outer: logger.logkv('outerklDiff', np.mean(outer_kls))
+
+    def _build_inner_objective(self, obs_ph, action_ph, adv_ph, dist_info_ph, distribution_info_var,
+                               current_policy_params):
+        if self.entropy_bonus > 0:
+            entropy = self.entropy_bonus * tf.reduce_mean(self.policy.dist.entropy_sym(distribution_info_var))
+        else:  # Save a computation
+            entropy = 0
+
+        kl_loss = tf.reduce_mean(self.policy.distribution.kl_sym(dist_info_ph, distribution_info_var))
+        likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(action_ph, dist_info_ph, distribution_info_var)
+        surr_loss = - tf.reduce_mean(likelihood_ratio * adv_ph)
+
+        dist_info_var, adapted_params_var = self.adapt_sym(surr_loss, obs_ph, current_policy_params)
+
+        return kl_loss, entropy, surr_loss, dist_info_var, adapted_params_var
+
+    def _build_outer_objective(self, kl_penalties, inner_kl_coeffs, entropies_bonus, action_ph,
+                               adv_ph, dist_info_ph, distribution_info_var, anneal_ph, outer_kl_coeffs):
+
+        kl_penalty = sum(list(kl_penalties[j] * inner_kl_coeffs[j] for j in range(self.num_inner_grad_steps)))
+        entropy_bonus = sum(list(entropies_bonus[j] for j in range(self.num_inner_grad_steps)))
+
+        likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(action_ph, dist_info_ph, distribution_info_var)
+        if self.clip_outer:
+            clipped_obj = tf.minimum(likelihood_ratio * adv_ph,
+                                     tf.clip_by_value(likelihood_ratio,
+                                                      1 - self.clip_eps * anneal_ph,
+                                                      1 + self.clip_eps * anneal_ph) * adv_ph)
+            surr_obj = - tf.reduce_mean(clipped_obj) - entropy_bonus + kl_penalty
+            outer_kl = []
+
+        else:
+            outer_kl = tf.reduce_mean(self.policy.dist.kl_sym(dist_info_ph, distribution_info_var))
+            outer_kl_penalty = outer_kl_coeffs[0] * outer_kl
+            surr_obj = - tf.reduce_mean(likelihood_ratio * adv_ph) - entropy_bonus + \
+                       kl_penalty + outer_kl_penalty
+
+        return surr_obj, outer_kl
 
     def _adapt_kl_coeff(self, kl_params, kl_values, kl_target):
         for i, kl in enumerate(kl_values):

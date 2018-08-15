@@ -5,8 +5,10 @@ from maml_zoo.utils import utils
 from maml_zoo.policies.base import Policy
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.samplers.maml_sampler import MAMLSampler
+from gym import Env
 
-class RandomEnv():
+
+class RandomEnv(Env):
     def __init__(self):
         self.state = np.zeros(1)
         self.goal = 0
@@ -45,19 +47,22 @@ class RandomEnv():
     def env_spec(self):
         return None
 
+
 class RandomPolicy(Policy):
     def get_actions(self, observations):
         return [[np.random.random() + obs / 100 for obs in task] for task in observations], None
 
+
 class TestBaseline(unittest.TestCase):
     def setUp(self):
         self.random_env = RandomEnv()
-        self.random_policy = RandomPolicy(obs_dim=1, action_dim=1)
+        self.random_policy = RandomPolicy(1, 1)
         self.meta_batch_size = 2
         self.batch_size = 10
         self.path_length = 100
         self.linear = LinearFeatureBaseline()
-        self.sampler = MAMLSampler(self.random_env, self.random_policy, self.batch_size, self.meta_batch_size, self.path_length, parallel=True)
+        self.sampler = MAMLSampler(self.random_env, self.random_policy, self.batch_size,
+                                   self.meta_batch_size, self.path_length, parallel=True)
 
     def testFit(self):
         paths = self.sampler.obtain_samples()
@@ -91,6 +96,7 @@ class TestBaseline(unittest.TestCase):
                 fit_pred = self.linear.predict(path)
                 fit_error_post += sum([np.square(pred - actual) for pred, actual in zip(fit_pred, path['returns'])])
             self.assertEqual(fit_error_pre, fit_error_post)
+
 
 if __name__ == '__main__':
     unittest.main()
