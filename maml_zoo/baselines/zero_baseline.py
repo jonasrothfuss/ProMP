@@ -1,37 +1,35 @@
 from maml_zoo.baselines.base import Baseline
 import numpy as np
 
+
 class ZeroBaseline(Baseline):
     """
     Dummy baseline
     """
 
     def __init__(self):
-        pass
+        super(ZeroBaseline, self).__init__()
 
-    @overrides
     def get_param_values(self, **kwargs):
         """
         Returns the parameter values of the baseline object
 
         Returns:
-            numpy array of linear_regression coefficients
+            (None): coefficients of the baseline
 
         """
         return None
 
-    @overrides
-    def set_param_values(self, val, **kwargs):
+    def set_param_values(self, value, **kwargs):
         """
         Sets the parameter values of the baseline object
 
         Args:
-            value: numpy array of linear_regression coefficients
+            value (None): coefficients of the baseline
 
         """
         pass
 
-    @overrides
     def fit(self, paths, **kwargs):
         """
         Improves the quality of zeroes output by baseline
@@ -42,14 +40,16 @@ class ZeroBaseline(Baseline):
         """
         pass
 
-    @overrides
     def predict(self, path):
         """
         Produces some zeroes
 
         Args:
-            path: dict of lists/numpy array containing trajectory / path information
+            path (dict): dict of lists/numpy array containing trajectory / path information
                 such as "observations", "rewards", ...
+
+        Returns:
+             (np.ndarray): numpy array of the same length as paths["observations"] specifying the reward baseline
                 
         """
         return np.zeros_like(path["rewards"])
