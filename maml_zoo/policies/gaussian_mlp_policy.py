@@ -19,7 +19,6 @@ class GaussianMLPPolicy(Policy):
                  min_std=1e-6,
                  ):
         """
-        Also provides functions for executing and updating policy parameters
         A container for storing the current pre and post update policies
         Args:
 
@@ -46,6 +45,9 @@ class GaussianMLPPolicy(Policy):
         GaussianMLPPolicy.build_graph(self)
 
     def build_graph(self):
+        """
+        Builds computational graph for policy
+        """
         with tf.variable_scope(self.name):
             obs_var, mean_var = create_mlp(name='mean_network',
                                            output_dim=self.action_dim,
@@ -135,6 +137,8 @@ class GaussianMLPPolicy(Policy):
     @property
     def distribution(self):
         """
+        Returns this policy's distribution
+
         Returns:
             (Distribution) : this policy's distribution
         """

@@ -4,6 +4,7 @@ from maml_zoo.optimizers.maml_first_order_optimizer import MAMLFirstOrderOptimiz
 class MAMLVPG(MAMLAlgo):
     """
     Algorithm for TRPO MAML
+
     Args:
         optimizer (Optimizer) : Optimizer to use
         inner_type (str) : log_likelihood, likelihood_ratio, or dice
@@ -27,9 +28,11 @@ class MAMLVPG(MAMLAlgo):
     def build_graph(self, policy, meta_batch_size):
         """
         Creates computation graph
+
         Args:
             policy (Policy) : policy for this algorithm
             meta_batch_size (int) : number of metalearning tasks
+            
         Pseudocode:
         for task in meta_batch_size:
             make_vars
@@ -136,9 +139,11 @@ class MAMLVPG(MAMLAlgo):
     def optimize_policy(self, all_samples_data, log=True):
         """
         Performs MAML outer step for each task
+
         Args:
             all_samples_data (list) : list of lists of lists of samples (each is a dict) split by gradient update and meta task
             log (bool) : whether to log statistics
+
         Returns:
             None
         """

@@ -7,6 +7,7 @@ from maml_zoo.optimizers.maml_first_order_optimizer import MAMLPPOOptimizer
 class MAMLPPO(MAMLAlgo):
     """
     Algorithm for PPO MAML
+
     Args:
         policy (Policy) : policy object
         inner_lr (float) : gradient step size used for inner step
@@ -25,6 +26,7 @@ class MAMLPPO(MAMLAlgo):
         adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
         anneal_factor (float) : multiplicative factor for clip_eps, updated every iteration
         entropy_bonus (float) : scaling factor for policy entropy
+        
     """
     def __init__(
             self,

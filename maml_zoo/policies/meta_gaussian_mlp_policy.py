@@ -27,6 +27,9 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
         MetaGaussianMLPPolicy.build_graph(self)
 
     def build_graph(self):
+        """
+        Builds computational graph for policy
+        """
         # Create pre-update policy graph
         self.pre_update_action_var = tf.split(self.action_var, self.meta_batch_size)
         self.pre_update_mean_var = tf.split(self.mean_var, self.meta_batch_size)
@@ -38,7 +41,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
             current_scope = tf.get_default_graph().get_name_scope()
             scopes = [current_scope + '/mean_network', current_scope + '/log_std_network']
 
-            mean_network_ph, log_std_network_ph = self._create_placeholders_for_vars(scopes, num_tasks=num_tasks)
+            mean_network_ph, log_std_network_ph = self._create_placeholders_for_vars(scopes, meta_batch_size=self.meta_batch_size)
 
             assert len(log_std_network_ph[0]) == 1
 

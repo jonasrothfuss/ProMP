@@ -6,7 +6,8 @@ import maml_zoo.logger as logger
 
 class Trainer(object):
     """
-    Object for training 
+    Performs steps for MAML
+
     Args:
         algo (Algo) :
         env (Env) :
@@ -44,6 +45,7 @@ class Trainer(object):
     def train(self):
         """
         Trains policy on env using algo
+
         Pseudocode:
             for itr in n_itr:
                 for step in num_grad_updates:

@@ -3,6 +3,13 @@ from maml_zoo.optimizers.base import Optimizer
 import tensorflow as tf
 
 class MAMLFirstOrderOptimizer(Optimizer):
+    """
+    Optimizer for first order methods (SGD, Adam)
+
+    Args:
+        learning_rate (float) : initial learning rate
+    """
+
     def __init__(
             self,
             tf_optimizer_cls=None,
@@ -13,10 +20,6 @@ class MAMLFirstOrderOptimizer(Optimizer):
             minibatch_splits=1,
             verbose=False
             ):
-        """
-        Args:
-            learning_rate (float) : initial learning rate
-        """
         self._target = None
         if tf_optimizer_cls is None:
             tf_optimizer_cls = tf.train.AdamOptimizer
@@ -35,6 +38,7 @@ class MAMLFirstOrderOptimizer(Optimizer):
     def build_graph(self, loss, target, inputs, extra_inputs=(), **kwargs):
         """
         Sets the objective function and target weights for the optimize function
+
         Args:
             loss (tf_op) : minimization objective
             target (Policy) : Policy whose values we are optimizing over
@@ -87,6 +91,9 @@ class MAMLFirstOrderOptimizer(Optimizer):
 
 
 class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
+    """
+    Adds inner and outer kl terms to first order optimizer (Do we really need this?)
+    """
     def __init__(
             self,
             tf_optimizer_cls=None,
@@ -110,6 +117,7 @@ class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
     def build_graph(self, loss, target, inputs, inner_kl=None, outer_kl=None, extra_inputs=(), **kwargs):
         """
         Sets the objective function and target weights for the optimize function
+
         Args:
             loss (tf_op) : minimization objective
             target (Policy) : Policy whose values we are optimizing over

@@ -4,11 +4,13 @@ from maml_zoo.optimizers.conjugate_gradient_optimizer import ConjugateGradientOp
 class MAMLTRPO(MAMLAlgo):
     """
     Algorithm for TRPO MAML
+
     Args:
         optimizer (Optimizer) : Optimizer to use
         inner_step_size (float) : maximum kl divergence of inner step
         inner_type (str) : log_likelihood, likelihood_ratio, or dice
         num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
+
     """
     def __init__(
             self,
@@ -32,6 +34,7 @@ class MAMLTRPO(MAMLAlgo):
         Args:
             policy (Policy) : policy for this algorithm
             meta_batch_size (int) : number of metalearning tasks
+
         Pseudocode:
         for task in meta_batch_size:
             make_vars
@@ -137,10 +140,12 @@ class MAMLTRPO(MAMLAlgo):
     def optimize_policy(self, all_samples_data, log=True):
         """
         Performs MAML outer step for each task
+        
         Args:
             all_samples_data (list) : list of lists of lists of samples (each is a dict) split by gradient update and
              meta task
             log (bool) : whether to log statistics
+
         Returns:
             None
         """

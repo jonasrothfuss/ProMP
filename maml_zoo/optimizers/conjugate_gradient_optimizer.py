@@ -105,6 +105,19 @@ class ConjugateGradientOptimizer(object):
     Performs constrained optimization via line search. The search direction is computed using a conjugate gradient
     algorithm, which gives x = A^{-1}g, where A is a second order approximation of the constraint and g is the gradient
     of the loss function.
+
+    Args:
+        cg_iters (int) : The number of CG iterations used to calculate A^-1 g
+        reg_coeff (float) : A small value so that A -> A + reg*I
+        subsample_factor (float) : Subsampling factor to reduce samples when using "conjugate gradient. Since the
+        computation time for the descent direction dominates, this can greatly reduce the overall computation time.
+        backtrack_ratio (float) : 
+        max_backtracks (int) : 
+        debug_nan (bool) : if set to True, NanGuard will be added to the compilation, and ipdb will be invoked when
+        nan is detected
+        accept_violation (bool) : whether to accept the descent step if it violates the line search condition after
+        exhausting all backtracking budgets
+        hvp_approach (obj) : 
     """
 
     def __init__(
@@ -118,20 +131,7 @@ class ConjugateGradientOptimizer(object):
             accept_violation=False,
             hvp_approach=None,
             ):
-        """
-        Args:
-            cg_iters (int) : The number of CG iterations used to calculate A^-1 g
-            reg_coeff (float) : A small value so that A -> A + reg*I
-            subsample_factor (float) : Subsampling factor to reduce samples when using "conjugate gradient. Since the
-        computation time for the descent direction dominates, this can greatly reduce the overall computation time.
-            backtrack_ratio (float) : 
-            max_backtracks (int) : 
-            debug_nan (bool) : if set to True, NanGuard will be added to the compilation, and ipdb will be invoked when
-        nan is detected
-            accept_violation (bool) : whether to accept the descent step if it violates the line search condition after
-        exhausting all backtracking budgets
-            hvp_approach (obj) : 
-        """
+
         self._cg_iters = cg_iters
         self._reg_coeff = reg_coeff
         self._subsample_factor = subsample_factor
@@ -150,6 +150,7 @@ class ConjugateGradientOptimizer(object):
     def update_opt(self, loss, target, inputs, leq_constraint, extra_inputs=(), constraint_name="constraint"):
         """
         Sets the objective function and target weights for the optimize function
+
         Args:
             loss (tf_op) : minimization objective
             target (Policy) : Policy whose values we are optimizing over
