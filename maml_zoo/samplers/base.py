@@ -16,9 +16,9 @@ class Sampler(object):
 
     def __init__(self, env, policy, batch_size, max_path_length):
         assert hasattr(env, 'reset') and hasattr(env, 'step')
+
         self.env = env
         self.policy = policy
-
         self.batch_size = batch_size
         self.max_path_length = max_path_length
 
@@ -83,7 +83,7 @@ class SampleProcessor(object):
             (dict) : Processed sample data of size [7] x (batch_size x max_path_length)
         """
         assert type(paths) == list, 'paths must be a list'
-        assert set(paths[0].keys()) >= set(('observations', 'actions', 'rewards'))
+        assert paths[0].keys() >= {'observations', 'actions', 'rewards'}
         assert self.baseline, 'baseline must be specified - use self.build_sample_processor(baseline_obj)'
 
         # fits baseline, compute advantages and stack path data
@@ -92,13 +92,15 @@ class SampleProcessor(object):
         # 7) log statistics if desired
         self._log_path_stats(paths, log=log, log_prefix='')
 
-        assert set(samples_data.keys()) >= set(['observations', 'actions', 'rewards', 'advantages', 'returns'])
+        assert samples_data.keys() >= {'observations', 'actions', 'rewards', 'advantages', 'returns'}
+
         return samples_data
 
     """ helper functions """
 
     def _compute_samples_data(self, paths):
         assert type(paths) == list
+
         # 1) compute discounted rewards (returns)
         for idx, path in enumerate(paths):
             path["returns"] = utils.discount_cumsum(path["rewards"], self.discount)
@@ -129,6 +131,7 @@ class SampleProcessor(object):
             env_infos=env_infos,
             agent_infos=agent_infos,
         )
+
         return samples_data, paths
 
     def _log_path_stats(self, paths, log=False, log_prefix=''):
@@ -138,6 +141,7 @@ class SampleProcessor(object):
 
         if log == 'reward':
             logger.logkv(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
+
         elif log == 'all' or log is True:
             logger.logkv(log_prefix + 'AverageDiscountedReturn', average_discounted_return)
             logger.logkv(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
@@ -156,6 +160,7 @@ class SampleProcessor(object):
                      path_baselines[:-1]
             path["advantages"] = utils.discount_cumsum(
                 deltas, self.discount * self.gae_lambda)
+
         return paths
 
     def _stack_path_data(self, paths):
@@ -166,5 +171,6 @@ class SampleProcessor(object):
         advantages = np.concatenate([path["advantages"] for path in paths])
         env_infos = utils.concat_tensor_dict_list([path["env_infos"] for path in paths])
         agent_infos = utils.concat_tensor_dict_list([path["agent_infos"] for path in paths])
+
         return observations, actions, rewards, returns, advantages, env_infos, agent_infos
 
