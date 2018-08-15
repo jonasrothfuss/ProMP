@@ -139,9 +139,10 @@ class MAMLAlgo(Algo):
             prefix (str) : a string to prepend to the name of each variable
 
         Returns:
-            (tuple) : a tuple containing lists of placeholders for each input type and meta task
+            (tuple) : a tuple containing lists of placeholders for each input type and meta task, 
+            and for convenience, a list containing all placeholders created
         """
-        obs_phs, action_phs, adv_phs, dist_info_phs = [], [], [], []
+        obs_phs, action_phs, adv_phs, dist_info_phs, dist_info_phs_list = [], [], [], [], []
         dist_info_specs = self.policy.distribution.dist_info_specs
 
         with tf.variable_scope(scope):
@@ -161,12 +162,15 @@ class MAMLAlgo(Algo):
                     shape=[None],
                     name='advantage' + prefix + '_' + str(i),
                 ))
-                dist_info_phs.append([tf.placeholder(
+                dist_info_phs.append({k: tf.placeholder(
                     dtype=tf.float32,
                     shape=[None] + list(shape), name='%s%s_%i' % (k, prefix, i))
                     for k, shape in dist_info_specs
-                ])
-        return obs_phs, action_phs, adv_phs, dist_info_phs
+                })
+                dist_info_phs_list.append([dist_info_phs[-1][k] for k, _ in dist_info_specs]) # Todo: Change this to [dist_0], [dist_1]
+
+        all_phs = obs_phs + action_phs + adv_phs + list(sum(list(zip(*dist_info_phs_list)), ()))
+        return obs_phs, action_phs, adv_phs, dist_info_phs, all_phs
 
     def adapt_sym(self, surr_obj, obs_var, params_var):
         """
@@ -214,7 +218,6 @@ class MAMLAlgo(Algo):
         # Create the symbolic graph for the one-step inner gradient update (It'll be called several times if
         # more gradient steps are needed
         # TODO: A tf.map would be faster
-
         for i in range(num_tasks):
             # compute gradients for a current task (symbolic)
             grads = tf.gradients(surr_objs[i],[self.policies_params_ph[i][key] for key in update_param_keys])
@@ -242,12 +245,18 @@ class MAMLAlgo(Algo):
         sess = tf.get_default_session()
         num_tasks = len(samples)
         assert num_tasks == self.meta_batch_size
-
         input_list = self._extract_input_list([samples], self._optimization_keys)
 
         feed_dict_inputs = list(zip(self.input_list_ph, input_list))
-        feed_dict_params = list((self.policy.policies_params_ph[i][key], self.policy.policies_params_vals[i][key])
-                                for i in range(num_tasks) for key in self.policy.policy_params_keys)
+
+        if self.policy.policies_params_vals is not None: # Todo:
+            feed_dict_params = list((self.policy.policies_params_ph[i][key], self.policy.policies_params_vals[i][key])
+                                    for i in range(num_tasks) for key in self.policy.policy_params_keys)
+        else:
+            policies_params_vals = self.policy.get_param_values()
+            feed_dict_params = list((self.policy.policies_params_ph[i][key], policies_params_vals[key])
+                                    for i in range(num_tasks) for key in self.policy.policy_params_keys)
+
         feed_dict = dict(feed_dict_inputs + feed_dict_params)
 
         adapted_policies_params_vals = sess.run(self.adapted_policies_params, feed_dict=feed_dict)
