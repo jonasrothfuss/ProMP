@@ -244,7 +244,7 @@ class MetaPolicy(Policy):
         Switches get_action to pre-update policy
         """
         self._pre_update_mode = True
-        self.policies_params_vals = None
+        self.policies_params_vals = self.policy.get_param_values()
 
     def get_actions(self, observations):
         if self._pre_update_mode:

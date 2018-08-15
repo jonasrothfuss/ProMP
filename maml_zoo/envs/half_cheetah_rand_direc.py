@@ -12,7 +12,7 @@ class HalfCheetahRandDirecEnv(MetaEnv, gym.utils.EzPickle):
         gym.utils.EzPickle.__init__(self, goal_direction)
 
     def sample_tasks(self, n_tasks):
-        # for fwd/bwd env, goal direc is backwards if < 1.0, forwards if > 1.0
+        # for fwd/bwd env, goal direc is backwards if - 1.0, forwards if + 1.0
         return np.random.choice((-1.0, 1.0), (n_tasks, ))
 
     def set_task(self, task):

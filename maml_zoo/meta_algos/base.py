@@ -212,15 +212,6 @@ class MAMLAlgo(MetaAlgo):
         feed_dict_inputs = list(zip(self.adapt_input_list_ph, input_list))
         feed_dict_params = list((self.policy.policies_params_ph[i][key], self.policy.policies_params_vals[i][key])
                                 for i in range(self.meta_batch_size) for key in self.policy.policy_params_keys)
-        feed_dict_inputs = list(zip(self.input_list_ph, input_list))
-
-        if self.policy.policies_params_vals is not None: # Todo:
-            feed_dict_params = list((self.policy.policies_params_ph[i][key], self.policy.policies_params_vals[i][key])
-                                    for i in range(num_tasks) for key in self.policy.policy_params_keys)
-        else:
-            policies_params_vals = self.policy.get_param_values()
-            feed_dict_params = list((self.policy.policies_params_ph[i][key], policies_params_vals[key])
-                                    for i in range(num_tasks) for key in self.policy.policy_params_keys)
 
         feed_dict = dict(feed_dict_inputs + feed_dict_params)
 

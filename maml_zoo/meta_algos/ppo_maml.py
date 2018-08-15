@@ -262,7 +262,7 @@ class MAMLPPO(MAMLAlgo):
         adapted_params_var = self.adapt_sym(surr_loss, current_policy_params)
         dist_info_var = self.policy.distribution_info_sym(obs_ph, params=adapted_params_var)
 
-        return kl_loss, entropy, surr_loss, dist_info_var, current_policy_params
+        return kl_loss, entropy, surr_loss, dist_info_var, adapted_params_var
 
     def _build_outer_objective(self, kl_penalties, inner_kl_coeffs, entropies_bonus, action_ph,
                                adv_ph, dist_info_ph, distribution_info_var, anneal_ph, outer_kl_coeffs):
