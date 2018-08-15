@@ -1,6 +1,6 @@
 import tensorflow as tf
 from collections import OrderedDict
-from maml_zoo.utils.utils import get_original_tf_name
+from maml_zoo.utils.utils import remove_scope_from_name
 
 class Policy(object):
     """
@@ -29,11 +29,10 @@ class Policy(object):
         self.param_assign_ops = None
         self.param_assign_placeholders = None
 
-    def build_graph(self, env_spec, **kwargs):
+    def build_graph(self):
         """
         Builds computational graph for policy
         """
-        # Why take kwargs?
         raise NotImplementedError
 
     def get_action(self, observation):
@@ -178,7 +177,7 @@ class MetaPolicy(Policy):
 
         for scope in scopes:
             var_list = tf.get_collection(graph_keys, scope=scope)
-            placeholders.append([OrderedDict([(get_original_tf_name(var.name),
+            placeholders.append([OrderedDict([(remove_scope_from_name(var.name, scope),
                                               tf.placeholder(tf.float32, shape=var.shape))
                                              for var in var_list])
                                 for _ in range(meta_batch_size)

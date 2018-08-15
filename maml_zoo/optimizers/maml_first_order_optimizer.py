@@ -17,7 +17,7 @@ class MAMLFirstOrderOptimizer(Optimizer):
             learning_rate=1e-3,
             max_epochs=1,
             tolerance=1e-6,
-            minibatch_splits=1,
+            num_minibatches=1,
             verbose=False
             ):
         self._target = None
@@ -29,7 +29,7 @@ class MAMLFirstOrderOptimizer(Optimizer):
         self._tf_optimizer = tf_optimizer_cls(**tf_optimizer_args)
         self._max_epochs = max_epochs
         self._tolerance = tolerance
-        self._minibatch_splits = minibatch_splits # Unused
+        self._num_minibatches = num_minibatches # Unused
         self._verbose = verbose
         self._all_inputs = None
         self._train_op = None
@@ -94,23 +94,9 @@ class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
     """
     Adds inner and outer kl terms to first order optimizer (Do we really need this?)
     """
-    def __init__(
-            self,
-            tf_optimizer_cls=None,
-            tf_optimizer_args=None,
-            learning_rate=1e-3,
-            max_epochs=1,
-            tolerance=1e-6,
-            verbose=False,
-    ):
+    def __init__(self, *args, **kwargs):
         # Todo: reimplement minibatches
-        super(MAMLPPOOptimizer, self).__init__(tf_optimizer_cls,
-                                               tf_optimizer_args,
-                                               learning_rate,
-                                               max_epochs,
-                                               tolerance,
-                                               verbose)
-        self.minibatch_splits = None # minibatch_splits
+        super(MAMLPPOOptimizer, self).__init__(*args, **kwargs)
         self._inner_kl = None
         self._outer_kl = None
 

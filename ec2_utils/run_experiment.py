@@ -34,6 +34,8 @@ def run_experiment(**kwargs):
         output_nonlinearity=kwargs['output_nonlinearity'],
     )
 
+    # Load policy here
+
     sampler = MAMLSampler(
         env=env,
         policy=policy,
@@ -52,7 +54,7 @@ def run_experiment(**kwargs):
     )
 
     algo = MAMLPPO(
-        policy = policy,
+        policy=policy,
         inner_lr=kwargs['inner_lr'],
         meta_batch_size=kwargs['meta_batch_size'],
         num_inner_grad_steps=kwargs['num_inner_grad_steps'],
@@ -73,16 +75,11 @@ def run_experiment(**kwargs):
 
     trainer = Trainer(
         algo=algo,
-        env=env,
+        policy=policy,
         sampler=sampler,
         sample_processor=sample_processor,
-        baseline=baseline,
-        policy=policy,
         n_itr=kwargs['n_itr'],
-        meta_batch_size=kwargs['meta_batch_size'],
         num_inner_grad_steps=kwargs['num_inner_grad_steps'],
-        scope=kwargs['scope'],
-        load_policy=None,
     )
 
     print("Successfully loaded all modules!")
@@ -129,8 +126,8 @@ if __name__ == '__main__':
         'init_inner_kl_penalty': [1e-3],
         'adaptive_outer_kl_penalty': [False],
         'adaptive_inner_kl_penalty': [True],
-        'anneal_factor': [1],
-        'entropy_bonus': [0],
+        'anneal_factor': [1.0],
+        'entropy_bonus': [0.0],
 
         'n_itr': [100],
         'meta_batch_size': [40],

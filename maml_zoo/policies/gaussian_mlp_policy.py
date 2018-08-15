@@ -63,7 +63,7 @@ class GaussianMLPPolicy(Policy, Serializable):
         self.action_var = None
         self._dist = None
 
-        GaussianMLPPolicy.build_graph(self)
+        self.build_graph()
 
     def build_graph(self):
         """

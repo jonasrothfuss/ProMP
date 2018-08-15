@@ -26,7 +26,7 @@ class MAMLPPO(MAMLAlgo):
         adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
         anneal_factor (float) : multiplicative factor for clip_eps, updated every iteration
         entropy_bonus (float) : scaling factor for policy entropy
-        
+
     """
     def __init__(
             self,
@@ -49,16 +49,14 @@ class MAMLPPO(MAMLAlgo):
         super(MAMLPPO, self).__init__(*args, **kwargs)
 
         self.optimizer = MAMLPPOOptimizer(learning_rate=learning_rate, max_epochs=max_epochs, num_minibatches=num_minibatches)
-        self.num_inner_grad_steps = num_inner_grad_steps
-        self.meta_batch_size = meta_batch_size
         self.clip_eps = clip_eps
         self.clip_outer = clip_outer
         self.target_outer_step = target_outer_step
         self.target_inner_step = target_inner_step
         self.adaptive_outer_kl_penalty = adaptive_outer_kl_penalty
         self.adaptive_inner_kl_penalty = adaptive_inner_kl_penalty
-        self.inner_kl_coeff = [init_inner_kl_penalty] * meta_batch_size * num_inner_grad_steps
-        self.outer_kl_coeff = [init_outer_kl_penalty] * meta_batch_size
+        self.inner_kl_coeff = [init_inner_kl_penalty] * self.meta_batch_size * self.num_inner_grad_steps
+        self.outer_kl_coeff = [init_outer_kl_penalty] * self.meta_batch_size
         self.anneal_coeff = 1
         self.anneal_factor = anneal_factor
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']

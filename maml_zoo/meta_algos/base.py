@@ -130,9 +130,9 @@ class MAMLAlgo(Algo):
     """
     def __init__(self, inner_lr, meta_batch_size, num_inner_grad_steps, *args, **kwargs):
         super(MAMLAlgo, self).__init__(*args, **kwargs)
-        assert (num_inner_grad_steps).is_integer()
-        assert isinstance(inner_lr, float)
-        assert (meta_batch_size).is_integer()
+        assert isinstance(num_inner_grad_steps, int) or (num_inner_grad_steps).is_integer()
+        assert isinstance(inner_lr, float) or isinstance(inner_lr, int)
+        assert isinstance(meta_batch_size, int) or (meta_batch_size).is_integer()
         self.inner_lr = inner_lr
         self.meta_batch_size = meta_batch_size
         self.num_inner_grad_steps = num_inner_grad_steps
@@ -141,9 +141,8 @@ class MAMLAlgo(Algo):
         self.adapted_policies_params = None
         self.step_sizes = None
         self.meta_batch_size = meta_batch_size
-        self.policy = policy
-        self.policies_params_ph = policy.policies_params_ph
-        self.policy_params = policy.policy_params
+        self.policies_params_ph = self.policy.policies_params_ph
+        self.policy_params = self.policy.policy_params
 
     def build_graph(self):
         raise NotImplementedError

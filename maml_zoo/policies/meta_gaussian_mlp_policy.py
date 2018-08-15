@@ -7,7 +7,6 @@ from maml_zoo.policies.networks.mlp import forward_mlp
 
 class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
     def __init__(self, meta_batch_size,  *args, **kwargs):
-        super(MetaGaussianMLPPolicy, self).__init__(*args, **kwargs)
         self.meta_batch_size = meta_batch_size
 
         self.pre_update_action_var = None
@@ -24,31 +23,27 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
 
         self._pre_update_mode = True
 
-        MetaGaussianMLPPolicy.build_graph(self)
+        super(MetaGaussianMLPPolicy, self).__init__(*args, **kwargs)
 
     def build_graph(self):
         """
         Builds computational graph for policy
         """
+
         # Create pre-update policy graph
+        super(MetaGaussianMLPPolicy, self).build_graph()
         self.pre_update_action_var = tf.split(self.action_var, self.meta_batch_size)
         self.pre_update_mean_var = tf.split(self.mean_var, self.meta_batch_size)
         self.pre_update_log_std_var = [self.log_std_var for _ in range(self.meta_batch_size)]
 
         # Create post-update policy graph
         with tf.variable_scope(self.name):
-
-            current_scope = tf.get_default_graph().get_name_scope()
+            current_scope = self.name # Todo: is this wrong?
             scopes = [current_scope + '/mean_network', current_scope + '/log_std_network']
 
             mean_network_ph, log_std_network_ph = self._create_placeholders_for_vars(scopes, meta_batch_size=self.meta_batch_size)
 
             assert len(log_std_network_ph[0]) == 1
-
-            self.policies_params_ph = [odict.update(log_std_network_ph[idx])
-                                       for idx, odict in enumerate(mean_network_ph)]
-
-            self.policy_params_keys = list(self.policies_params_ph[0].keys())
 
             self.post_update_action_var = []
             self.post_update_mean_var = []
@@ -56,19 +51,26 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
 
             obs_var = tf.split(self.obs_var, self.meta_batch_size, axis=0)
             for idx in range(self.meta_batch_size):
-                obs_var, mean_var = forward_mlp(output_dim=self.obs_dim,
+                _, mean_var = forward_mlp(output_dim=self.action_dim,
                                                 hidden_sizes=self.hidden_sizes,
                                                 hidden_nonlinearity=self.hidden_nonlinearity,
                                                 output_nonlinearity=self.output_nonlinearity,
-                                                input_var=obs_var,
-                                                mlp_params=list(mean_network_ph[idx].values()),
+                                                input_var=obs_var[idx],
+                                                mlp_params=mean_network_ph[idx],
                                                 )
-                log_std_var = log_std_network_ph[idx][0]
-                action_var = mean_var + tf.random_normal(shape=mean_var.shape) * tf.exp(log_std_var)
+                log_std_var = list(log_std_network_ph[idx].values())[0] # ?
+                action_var = mean_var + tf.random_normal(shape=tf.shape(mean_var)) * tf.exp(log_std_var)
 
                 self.post_update_action_var.append(action_var)
                 self.post_update_mean_var.append(mean_var)
                 self.post_update_log_std_var.append(log_std_var)
+
+            self.policies_params_ph = []
+            for idx, odict in enumerate(mean_network_ph): # Mutate mean_network_ph here    
+                odict.update(log_std_network_ph[idx])
+                self.policies_params_ph.append(odict)
+
+            self.policy_params_keys = list(self.policies_params_ph[0].keys())
 
     def get_actions(self, observations):
         """

@@ -15,9 +15,8 @@ class Sampler(object):
     """
 
     def __init__(self, env, policy, batch_size, max_path_length):
-        assert hasattr(env, 'env_spec') and hasattr(env, 'reset') and hasattr(env, 'step')
+        assert hasattr(env, 'reset') and hasattr(env, 'step')
         self.env = env
-        self.env_spec = env.env_spec
         self.policy = policy
 
         self.batch_size = batch_size

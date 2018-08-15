@@ -2,10 +2,11 @@ import numpy as np
 import scipy
 import scipy.signal
 
-
 def get_original_tf_name(name):
     return name.split("/")[-1].split(":")[0]
 
+def remove_scope_from_name(name, scope):
+    return name.replace(scope + '/', "").split(":")[0]
 
 def get_last_scope(name):
     return name.split("/")[-2]
