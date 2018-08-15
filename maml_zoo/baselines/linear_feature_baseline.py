@@ -14,7 +14,6 @@ class LinearFeatureBaseline(Baseline):
         reg_coeff: list of paths
 
     """
-
     def __init__(self, reg_coeff=1e-5):
         self._coeffs = None
         self._reg_coeff = reg_coeff

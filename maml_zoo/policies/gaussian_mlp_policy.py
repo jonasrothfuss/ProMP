@@ -30,9 +30,9 @@ class GaussianMLPPolicy(Policy):
                  env,
                  name='gaussian_mlp_policy',
                  hidden_sizes=(32, 32),
+                 learn_std=True,
                  hidden_nonlinearity=tf.tanh,
                  output_nonlinearity=None,
-                 learn_std=True,
                  init_std=1,
                  min_std=1e-6,
                  ):
@@ -41,6 +41,9 @@ class GaussianMLPPolicy(Policy):
         self.obs_dim = int(np.prod(env.observation_space.shape))
         self.action_dim = int(np.prod(env.action_space.shape))
 
+        # Assert is instance Box
+        self.obs_dim = np.prod(env.observation_space.shape)
+        self.action_dim = np.prod(env.action_space.shape)
         self.name = name
         self.hidden_sizes = hidden_sizes
         self.learn_std = learn_std
@@ -61,9 +64,7 @@ class GaussianMLPPolicy(Policy):
 
     def build_graph(self):
         """
-        builds the policy's tensorflow graph
-        Returns:
-
+        Builds computational graph for policy
         """
         with tf.variable_scope(self.name):
             obs_var, mean_var = create_mlp(name='mean_network',
@@ -157,6 +158,8 @@ class GaussianMLPPolicy(Policy):
     @property
     def distribution(self):
         """
+        Returns this policy's distribution
+
         Returns:
             (Distribution) : this policy's distribution
         """

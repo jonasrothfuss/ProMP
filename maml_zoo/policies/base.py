@@ -6,16 +6,23 @@ class Policy(object):
     """
     A container for storing the current pre and post update policies
     Also provides functions for executing and updating policy parameters
-    Note: the preupdate policy is stored as tf.Variables, while the postupdate
-    policy is stored in numpy arrays and executed through tf.placeholders
-    Args:
 
+    Note:
+        the preupdate policy is stored as tf.Variables, while the postupdate
+        policy is stored in numpy arrays and executed through tf.placeholders
+
+    Args:
+        name (str) : Name used for scoping variables in policy
+        hidden_sizes (tuple) : size of hidden layers of network
+        learn_std (bool) : whether to learn variance of network output
+        hidden_nonlinearity (Operation) : nonlinearity used between hidden layers of network
+        output_nonlinearity (Operation) : nonlinearity used after the final layer of network
     """
     def __init__(self,
                  name='policy',
                  hidden_sizes=(32, 32),
                  learn_std=True,
-                 hidden_nonlinearity='tanh',
+                 hidden_nonlinearity=tf.tanh,
                  output_nonlinearity=None,
                  **kwargs
                  ):
@@ -24,7 +31,7 @@ class Policy(object):
 
     def build_graph(self, env_spec, **kwargs):
         """
-        Also should create lists of variables and corresponding assign ops
+        Builds computational graph for policy
         """
         # Why take kwargs?
         raise NotImplementedError
@@ -66,6 +73,8 @@ class Policy(object):
     @property
     def distribution(self):
         """
+        Returns this policy's distribution
+
         Returns:
             (Distribution) : this policy's distribution
         """
@@ -101,7 +110,7 @@ class Policy(object):
         """
         Get the tf.Variables representing the trainable weights of the network (symbolic)
 
-        Returns: 
+        Returns:
             (list) : list of all trainable Variables
         """
         return self.params
@@ -154,7 +163,7 @@ class MetaPolicy(Policy):
         """
         raise NotImplementedError
 
-    def _create_placeholders_for_vars(self, scopes, num_tasks=1, graph_keys=tf.GraphKeys.TRAINABLE_VARIABLES):
+    def _create_placeholders_for_vars(self, scopes, meta_batch_size=1, graph_keys=tf.GraphKeys.TRAINABLE_VARIABLES):
         assert isinstance(scopes, list) or isinstance(scopes, tuple)
         placeholders = []
 
@@ -163,13 +172,13 @@ class MetaPolicy(Policy):
             placeholders.append([OrderedDict([(get_original_tf_name(var.name),
                                               tf.placeholder(tf.float32, shape=var.shape))
                                              for var in var_list])
-                                for _ in range(num_tasks)
+                                for _ in range(meta_batch_size)
                                  ])
         return placeholders
 
     def switch_to_pre_update(self):
         """
-        Switches to the pre-updated policy
+        Switches get_action to pre-update policy
         """
         self._pre_update_mode = True
         self.policies_params_vals = None
@@ -184,7 +193,6 @@ class MetaPolicy(Policy):
         """
         Args:
             observations (list): List of size meta-batch size with numpy arrays of shape batch_size x obs_dim
-
         """
         raise NotImplementedError
 
@@ -192,7 +200,6 @@ class MetaPolicy(Policy):
         """
         Args:
             observations (list): List of size meta-batch size with numpy arrays of shape batch_size x obs_dim
-
         """
         raise NotImplementedError
 
@@ -201,7 +208,6 @@ class MetaPolicy(Policy):
         Args:
             updated_policies_parameters (list): List of size meta-batch size. Each contains a dict with the policies
             parameters
-
         """
         self.policies_params_vals = updated_policies_parameters
         self._pre_update_mode = False

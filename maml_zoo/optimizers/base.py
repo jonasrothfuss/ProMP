@@ -5,6 +5,7 @@ class Optimizer(object):
     def update_objective(self, loss, target, inputs, extra_inputs=()):
         """
         Sets the objective function and target weights for the optimize function
+        
         Args:
             loss (tf_op) : minimization objective
             target (Policy) : Policy whose values we are optimizing over
