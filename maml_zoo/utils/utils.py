@@ -4,18 +4,46 @@ import scipy.signal
 
 
 def get_original_tf_name(name):
+    """
+    Args:
+        name (str): full name of the tf variable with all the scopes
+
+    Returns:
+        (str): name given to the variable when creating it (i.e. name of the variable w/o the scope and the colons)
+    """
     return name.split("/")[-1].split(":")[0]
 
 
 def remove_scope_from_name(name, scope):
+    """
+    Args:
+        name (str): full name of the tf variable with all the scopes
+
+    Returns:
+        (str): full name of the variable with the scope removed
+    """
     return name.replace(scope + '/', "").split(":")[0]
 
 
 def get_last_scope(name):
+    """
+    Args:
+        name (str): full name of the tf variable with all the scopes
+
+    Returns:
+        (str): name of the last scope
+    """
     return name.split("/")[-2]
 
 
 def extract(x, *keys):
+    """
+    Args:
+        x (dict or list): dict or list of dicts
+
+    Returns:
+        (tuple): tuple with the elements of the dict or the dicts of the list
+    """
     if isinstance(x, dict):
         return tuple(x[k] for k in keys)
     elif isinstance(x, list):
@@ -25,6 +53,13 @@ def extract(x, *keys):
 
 
 def normalize_advantages(advantages):
+    """
+    Args:
+        advantages (np.ndarray): np array with the advantages
+
+    Returns:
+        (np.ndarray): np array with the advantages normalized
+    """
     return (advantages - np.mean(advantages)) / (advantages.std() + 1e-8)
 
 
@@ -35,6 +70,7 @@ def shift_advantages_to_positive(advantages):
 def discount_cumsum(x, discount):
     """
     See https://docs.scipy.org/doc/scipy/reference/tutorial/signal.html#difference-equation-filtering
+
     Returns:
         (float) : y[t] - discount*y[t+1] = x[t] or rev(y)[t] - discount*rev(y)[t-1] = rev(x)[t]
     """
@@ -42,6 +78,15 @@ def discount_cumsum(x, discount):
 
 
 def explained_variance_1d(ypred, y):
+    """
+    Args:
+        ypred (np.ndarray): predicted values of the variable of interest
+        y (np.ndarray): real values of the variable
+
+    Returns:
+        (float): variance explained by your estimator
+
+    """
     assert y.ndim == 1 and ypred.ndim == 1
     vary = np.var(y)
     if np.isclose(vary, 0):
@@ -56,6 +101,7 @@ def concat_tensor_dict_list(tensor_dict_list):
     """
     Args:
         tensor_dict_list (list) : list of dicts of lists of tensors
+
     Returns:
         (dict) : dict of lists of tensors
     """
@@ -75,6 +121,7 @@ def stack_tensor_dict_list(tensor_dict_list):
     """
     Args:
         tensor_dict_list (list) : list of dicts of tensors
+
     Returns:
         (dict) : dict of lists of tensors
     """
