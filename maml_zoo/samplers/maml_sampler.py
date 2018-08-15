@@ -8,13 +8,14 @@ import numpy as np
 import time
 import itertools
 
+
 class MAMLSampler(Sampler):
     """
     Sampler for Meta-RL
 
     Args:
-        env (gym.Env) : environment object
-        policy (maml_zoo.policies.policy) : policy object
+        env (maml_zoo.envs.base.MetaEnv) : environment object
+        policy (maml_zoo.policies.base.Policy) : policy object
         batch_size (int) : number of trajectories per task
         meta_batch_size (int) : number of meta tasks
         max_path_length (int) : max number of steps per trajectory
@@ -88,12 +89,10 @@ class MAMLSampler(Sampler):
             t = time.time()
             obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
             actions, agent_infos = policy.get_actions(obs_per_task)
-            actions = [[self.env.action_space.sample() for _ in range(self.batch_size)] for _ in range(self.meta_batch_size)] # Todo
             policy_time += time.time() - t
 
             # step environments
             t = time.time()
-            actions = np.concatenate(actions) # stack meta batch
             next_obses, rewards, dones, env_infos = self.vec_env.step(actions)
             env_time += time.time() - t
 

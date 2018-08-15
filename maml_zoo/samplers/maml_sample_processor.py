@@ -18,24 +18,24 @@ class MAMLSampleProcessor(SampleProcessor):
             log_prefix (str): prefix for the logging keys
 
         Returns:
-            (dict of dicts) : Processed sample data among the meta-batch; size: [meta_batch_size] x [7] x (batch_size x max_path_length)
+            (list of dicts) : Processed sample data among the meta-batch; size: [meta_batch_size] x [7] x (batch_size x max_path_length)
         """
         assert isinstance(paths_meta_batch, dict), 'paths must be a dict'
         assert self.baseline, 'baseline must be specified'
 
-        samples_data_meta_batch = {}
+        samples_data_meta_batch = []
         all_paths = []
         for meta_task, paths in paths_meta_batch.items():
 
             # fits baseline, compute advantages and stack path data
             samples_data, paths = self._compute_samples_data(paths)
 
-            samples_data_meta_batch[meta_task] = samples_data
+            samples_data_meta_batch.append(samples_data)
             all_paths.extend(paths)
 
         # 7) log statistics if desired
         self._log_path_stats(all_paths, log=log, log_prefix='')
 
         assert all([samples_data.keys() >= {'observations', 'actions', 'rewards', 'advantages', 'returns'}
-                    for samples_data in samples_data_meta_batch.values()])
+                    for samples_data in samples_data_meta_batch])
         return samples_data_meta_batch

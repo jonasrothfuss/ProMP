@@ -93,7 +93,6 @@ class SampleProcessor(object):
         self._log_path_stats(paths, log=log, log_prefix='')
 
         assert samples_data.keys() >= {'observations', 'actions', 'rewards', 'advantages', 'returns'}
-
         return samples_data
 
     """ helper functions """

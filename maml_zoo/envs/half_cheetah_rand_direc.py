@@ -4,6 +4,7 @@ from maml_zoo.logger import logger
 import gym
 from gym.envs.mujoco import mujoco_env
 
+
 class HalfCheetahRandDirecEnv(MetaEnv, gym.utils.EzPickle):
     def __init__(self, goal_direction=None):
         self.goal_direction = goal_direction if goal_direction else 1.0
