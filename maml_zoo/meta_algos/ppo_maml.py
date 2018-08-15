@@ -4,19 +4,34 @@ from maml_zoo.logger import logger
 from maml_zoo.meta_algos.base import MAMLAlgo
 from maml_zoo.optimizers.maml_first_order_optimizer import MAMLPPOOptimizer
 
-
 class MAMLPPO(MAMLAlgo):
     """
     Algorithm for PPO MAML
+    Args:
+        policy (Policy) : policy object
+        inner_lr (float) : gradient step size used for inner step
+        meta_batch_size (int): number of meta-tasks
+        num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
+        learning_rate (float) : 
+        max_epochs (int) :
+        num_minibatches (int) : Currently not implemented
+        clip_eps (float) :
+        clip_outer (bool) : whether to use L^CLIP or L^KLPEN on outer gradient update
+        target_outer_step (float) : target outer kl divergence, used only with L^KLPEN and when adaptive_outer_kl_penalty is true
+        target_inner_step (float) : target inner kl divergence, used only when adaptive_inner_kl_penalty is true
+        init_outer_kl_penalty (float) : initial penalty for outer kl, used only with L^KLPEN
+        init_inner_kl_penalty (float) : initial penalty for inner kl
+        adaptive_outer_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on outer gradient update
+        adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
+        anneal_factor (float) : multiplicative factor for clip_eps, updated every iteration
+        entropy_bonus (float) : scaling factor for policy entropy
     """
     def __init__(
             self,
-            meta_batch_size,
-            num_inner_grad_steps,
-            inner_lr,
             learning_rate,
             max_epochs,
             num_minibatches,
+            *args,
             clip_eps=0.2, 
             clip_outer=True,
             target_outer_step=0.001,
@@ -25,29 +40,12 @@ class MAMLPPO(MAMLAlgo):
             init_inner_kl_penalty=1e-2,
             adaptive_outer_kl_penalty=True,
             adaptive_inner_kl_penalty=True,
-            anneal_factor=1,
-            entropy_bonus=0,
-            name="ppo_maml"
+            anneal_factor=1.0,
+            name="ppo_maml",
+            **kwargs
             ):
-        """
-        Args:
-            optimizer (Optimizer) : Optimizer to use
-            inner_lr (float) : gradient step size used for inner step
-            learning_rate (float) : 
-            max_epochs (int) :
-            num_minibatches (int) : Currently not implemented
-            clip_eps (float) :
-            clip_outer (bool) : whether to use L^CLIP or L^KLPEN on outer gradient update
-            target_outer_step (float) : target outer kl divergence, used only with L^KLPEN and when adaptive_outer_kl_penalty is true
-            target_inner_step (float) : target inner kl divergence, used only when adaptive_inner_kl_penalty is true
-            init_outer_kl_penalty (float) : initial penalty for outer kl, used only with L^KLPEN
-            init_inner_kl_penalty (float) : initial penalty for inner kl
-            adaptive_outer_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on outer gradient update
-            adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
-            anneal_factor (float) : multiplicative factor for clip_eps, updated every iteration
-            entropy_bonus (float) : scaling factor for policy entropy
-        """
-        super(MAMLPPO, self).__init__(inner_lr, entropy_bonus)
+        super(MAMLPPO, self).__init__(*args, **kwargs)
+
         self.optimizer = MAMLPPOOptimizer(learning_rate=learning_rate, max_epochs=max_epochs, num_minibatches=num_minibatches)
         self.num_inner_grad_steps = num_inner_grad_steps
         self.meta_batch_size = meta_batch_size
@@ -63,33 +61,26 @@ class MAMLPPO(MAMLAlgo):
         self.anneal_factor = anneal_factor
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']
         self.name = name
-        self.policies_params_ph = None
-        self.policy_params = None
+        self.kl_coeff = [init_inner_kl_penalty] * self.meta_batch_size * self.num_inner_grad_steps
         self.step_sizes = None
         self.dist = None
 
-    def build_graph(self, policy, env, meta_batch_size, num_inner_grad_steps):
+    def build_graph(self):
         """
         Creates the computation graph
-        Args:
-            policy (Policy) : policy for this algorithm
-            meta_batch_size (int) : number of metalearning tasks
-            num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
-        Pseudocode:
-        for task in meta_batch_size:
-            make_vars
-            init_init_dist_sym
-        for step in num_inner_grad_steps:
+
+        Notes:
+            Pseudocode:
             for task in meta_batch_size:
                 make_vars
-                update_init_dist_sym
-        set objectives for optimizer
+                init_init_dist_sym
+            for step in num_inner_grad_steps:
+                for task in meta_batch_size:
+                    make_vars
+                    update_init_dist_sym
+            set objectives for optimizer
         """
-        self.policy = policy
-        self.env = env
-        self.policies_params_ph = policy.policies_params_ph
-        self.policy_params = policy.policy_params
-        self.dist = dist = policy.distribution
+        dist = self.policy.distribution
 
         """ Create Variables """
         step_sizes, inner_kl_coeffs, anneal_ph, outer_kl_coeffs = self._create_opt_variables(scope=self.name)
@@ -105,12 +96,12 @@ class MAMLPPO(MAMLAlgo):
 
         for i in range(self.meta_batch_size):
             # Train
-            dist_info_var = policy.distribution_info_sym(obs_phs[i], params=None)
+            dist_info_var = self.policy.distribution_info_sym(obs_phs[i], params=None)
             distribution_info_vars.append(dist_info_var)
             current_policy_params.append(self.policy_params)
 
             # Test
-            disttribution_info_var_test = policy.distribution_info_sym(obs_phs[i], params=self.policies_params_ph[i])
+            distribution_info_var_test = self.policy.distribution_info_sym(obs_phs[i], params=self.policies_params_ph[i])
             likelihood_ratio_test = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], disttribution_info_var_test)
             surr_objs_test.append(-tf.reduce_mean(likelihood_ratio_test * adv_phs[i]))
 
@@ -219,10 +210,12 @@ class MAMLPPO(MAMLAlgo):
     def optimize_policy(self, all_samples_data, log=True):
         """
         Performs MAML outer step for each task
+
         Args:
             all_samples_data (list) : list of lists of lists of samples (each is a dict) split by gradient update and
              meta task
             log (bool) : whether to log statistics
+
         Returns:
             None
         """

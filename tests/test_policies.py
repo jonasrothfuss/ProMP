@@ -10,9 +10,8 @@ class DummySpace(object):
         self._dim = dim
 
     @property
-    def flat_dim(self):
+    def shape(self):
         return self._dim
-
 
 class DummyEnvSpec(object):
     def __init__(self, obs_dim, act_dim):
@@ -29,9 +28,9 @@ class DummyEnvSpec(object):
 
     def get_obs(self, n=None):
         if n is None:
-            return np.random.uniform(0, 1, size=(self.observation_space.flat_dim,))
+            return np.random.uniform(0, 1, size=(self.observation_space.shape,))
         else:
-            return np.random.uniform(0, 1, size=(n, self.observation_space.flat_dim))
+            return np.random.uniform(0, 1, size=(n, self.observation_space.shape))
 
 
 class TestPolicy(unittest.TestCase):
@@ -42,13 +41,14 @@ class TestPolicy(unittest.TestCase):
             tf.InteractiveSession()
 
     def test_output_sym(self):
-        self.policy = GaussianMLPPolicy(name='test_policy_ouput_sym',
-                                        hidden_sizes=(64, 64))
         self.env_spec = DummyEnvSpec(23, 7)
-        self.policy.build_graph(self.env_spec)
+        self.policy = GaussianMLPPolicy(env=self.env_spec,
+                                        name='test_policy_output_sym',
+                                        hidden_sizes=(64, 64))
+        
         obs_ph_1 = tf.placeholder(dtype=tf.float32, name="obs_ph_1",
-                                   shape=(None, self.env_spec.observation_space.flat_dim))
-        output_sym_1 = self.policy.output_sym(obs_ph_1)
+                                   shape=(None, self.env_spec.observation_space.shape))
+        output_sym_1 = self.policy.distribution_info_sym(obs_ph_1)
 
         sess = tf.get_default_session()
         sess.run(tf.global_variables_initializer())
@@ -61,10 +61,10 @@ class TestPolicy(unittest.TestCase):
             self.assertTrue(np.allclose(agent_infos[k], agent_infos_output_sym[k], rtol=1e-5, atol=1e-5))
 
     def test_get_action(self):
-        self.policy = GaussianMLPPolicy(name='test_policy_get_action',
-                                        hidden_sizes=(64, 64))
         self.env_spec = DummyEnvSpec(23, 7)
-        self.policy.build_graph(self.env_spec)
+        self.policy = GaussianMLPPolicy(env=self.env_spec,
+                                        name='test_policy_get_action',
+                                        hidden_sizes=(64, 64))
 
         sess = tf.get_default_session()
         sess.run(tf.global_variables_initializer())
@@ -76,10 +76,10 @@ class TestPolicy(unittest.TestCase):
             self.assertTrue(np.allclose(agent_infos[k], agents_infos[k], rtol=1e-5, atol=1e-5))
 
     def testSerialize(self):
-        self.policy = GaussianMLPPolicy(name='test_policy_test_serialize',
-                                        hidden_sizes=(64, 64))
         self.env_spec = DummyEnvSpec(23, 7)
-        self.policy.build_graph(self.env_spec)
+        self.policy = GaussianMLPPolicy(env=self.env_spec,
+                                        name='test_policy_serialize',
+                                        hidden_sizes=(64, 64))
 
         sess = tf.get_default_session()
         sess.run(tf.global_variables_initializer())

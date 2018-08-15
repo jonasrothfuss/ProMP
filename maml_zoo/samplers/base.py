@@ -36,22 +36,22 @@ class Sampler(object):
 class SampleProcessor(object):
     """
     Sample processor interface
-        - optionally fits a reward baseline
+        - fits a reward baseline (use zero baseline to skip this step)
         - performs Generalized Advantage Estimation to provide advantages (see Schulman et al. 2015 - https://arxiv.org/abs/1506.02438)
 
     Args:
+        baseline (Baseline) : a reward baseline object
         discount (float) : reward discount factor
         gae_lambda (float) : Generalized Advantage Estimation lambda
-        baseline (Baseline) : a reward baseline object
         normalize_adv (bool) : indicates whether to normalize the estimated advantages (zero mean and unit std)
         positive_adv (bool) : indicates whether to shift the (normalized) advantages so that they are all positive
     """
 
     def __init__(
             self,
+            baseline,
             discount=0.99,
             gae_lambda=1,
-            baseline=None,
             normalize_adv=False,
             positive_adv=False,
             ):
@@ -59,12 +59,12 @@ class SampleProcessor(object):
         assert 0 <= discount <= 1.0, 'discount factor must be in [0,1]'
         assert 0 <= gae_lambda <= 1.0, 'gae_lambda must be in [0,1]'
         assert hasattr(baseline, 'fit') and hasattr(baseline, 'predict')
-
+        
+        self.baseline = baseline
         self.discount = discount
         self.gae_lambda = gae_lambda
         self.normalize_adv = normalize_adv
         self.positive_adv = positive_adv
-        self.baseline = baseline
 
     def process_samples(self, paths, log=False, log_prefix=''):
         """

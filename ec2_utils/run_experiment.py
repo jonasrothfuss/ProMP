@@ -25,55 +25,65 @@ def run_experiment(**kwargs):
 
     env = kwargs['env']() # Wrappers? normalization?
 
+    policy = MetaGaussianMLPPolicy(
+        env=env,
+        meta_batch_size=kwargs['meta_batch_size'],
+        hidden_sizes=kwargs['hidden_sizes'],
+        learn_std=kwargs['learn_std'],
+        hidden_nonlinearity=kwargs['hidden_nonlinearity'],
+        output_nonlinearity=kwargs['output_nonlinearity'],
+    )
+
     sampler = MAMLSampler(
-            batch_size=kwargs['batch_size'],
-            max_path_length=kwargs['max_path_length'],
-            parallel=kwargs['parallel'],
-        )
+        env=env,
+        policy=policy,
+        batch_size=kwargs['batch_size'],
+        meta_batch_size=kwargs['meta_batch_size'],
+        max_path_length=kwargs['max_path_length'],
+        parallel=kwargs['parallel'],
+    )
 
-    # sample_processor = MAMLSampleProcessor(
-    #         discount=kwargs['discount'],
-    #         gae_lambda=kwargs['gae_lambda'],
-    #         normalize_adv=kwargs['normalize_adv'],
-    #         positive_adv=kwargs['positive_adv'],
-    #     )
+    sample_processor = MAMLSampleProcessor(
+        baseline=baseline,
+        discount=kwargs['discount'],
+        gae_lambda=kwargs['gae_lambda'],
+        normalize_adv=kwargs['normalize_adv'],
+        positive_adv=kwargs['positive_adv'],
+    )
 
-    # policy = MetaGaussianMLPPolicy(
-    #         hidden_sizes=kwargs['hidden_sizes'],
-    #         learn_std=kwargs['learn_std'],
-    #         hidden_nonlinearity=kwargs['hidden_nonlinearity'],
-    #         output_nonlinearity=kwargs['output_nonlinearity'],
-    #     )
+    algo = MAMLPPO(
+        policy = policy,
+        inner_lr=kwargs['inner_lr'],
+        meta_batch_size=kwargs['meta_batch_size'],
+        num_inner_grad_steps=kwargs['num_inner_grad_steps'],
+        learning_rate=kwargs['learning_rate'],
+        max_epochs=kwargs['max_epochs'],
+        num_minibatches=kwargs['num_minibatches'],
+        clip_eps=kwargs['clip_eps'], 
+        clip_outer=kwargs['clip_outer'],
+        target_outer_step=kwargs['target_outer_step'],
+        target_inner_step=kwargs['target_inner_step'],
+        init_outer_kl_penalty=kwargs['init_outer_kl_penalty'],
+        init_inner_kl_penalty=kwargs['init_inner_kl_penalty'],
+        adaptive_outer_kl_penalty=kwargs['adaptive_outer_kl_penalty'],
+        adaptive_inner_kl_penalty=kwargs['adaptive_inner_kl_penalty'],
+        anneal_factor=kwargs['anneal_factor'],
+        entropy_bonus=kwargs['entropy_bonus'],
+    )
 
-    # algo = MAMLPPO(
-    #         inner_lr=kwargs['inner_lr'],
-    #         learning_rate=kwargs['learning_rate'],
-    #         max_epochs=kwargs['max_epochs'],
-    #         num_minibatches=kwargs['num_minibatches'],
-    #         clip_eps=kwargs['clip_eps'], 
-    #         clip_outer=kwargs['clip_outer'],
-    #         target_outer_step=kwargs['target_outer_step'],
-    #         target_inner_step=kwargs['target_inner_step'],
-    #         init_outer_kl_penalty=kwargs['init_outer_kl_penalty'],
-    #         init_inner_kl_penalty=kwargs['init_inner_kl_penalty'],
-    #         adaptive_outer_kl_penalty=kwargs['adaptive_outer_kl_penalty'],
-    #         adaptive_inner_kl_penalty=kwargs['adaptive_inner_kl_penalty'],
-    #         anneal_factor=kwargs['anneal_factor'],
-    #         entropy_bonus=kwargs['entropy_bonus'],
-    #     )
-
-    # trainer = Trainer(
-    #         algo=algo,
-    #         env=env,
-    #         sampler=sampler,
-    #         baseline=baseline,
-    #         policy=policy,
-    #         n_itr=kwargs['n_itr'],
-    #         meta_batch_size=kwargs['meta_batch_size'],
-    #         num_inner_grad_steps=kwargs['num_inner_grad_steps'],
-    #         scope=kwargs['scope'],
-    #         load_policy=None,
-    #     )
+    trainer = Trainer(
+        algo=algo,
+        env=env,
+        sampler=sampler,
+        sample_processor=sample_processor,
+        baseline=baseline,
+        policy=policy,
+        n_itr=kwargs['n_itr'],
+        meta_batch_size=kwargs['meta_batch_size'],
+        num_inner_grad_steps=kwargs['num_inner_grad_steps'],
+        scope=kwargs['scope'],
+        load_policy=None,
+    )
 
     print("Successfully loaded all modules!")
     # trainer.train()

@@ -12,23 +12,23 @@ class MAMLTRPO(MAMLAlgo):
     """
     def __init__(
             self,
-            inner_lr,
             inner_step_size,
             inner_type,
-            num_inner_grad_steps=1,
-            entropy_bonus=0,
+            *args,
+            **kwargs
             ):
         
         assert inner_type in ["log_likelihood", "likelihood_ratio", "dice"]
-        super(MAMLTRPO, self).__init__(inner_lr, num_inner_grad_steps, entropy_bonus)
+        super(MAMLTRPO, self).__init__(*args, **kwargs)
         self.optimizer = ConjugateGradientOptimizer()
         self.inner_step_size = inner_step_size
         self.inner_type = inner_type
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']
 
-    def build_graph(self, policy, meta_batch_size):
+    def build_graph(self):
         """
-        Creates computation graph
+        Creates computation graph (TODO: match ppo_maml formatting)
+
         Args:
             policy (Policy) : policy for this algorithm
             meta_batch_size (int) : number of metalearning tasks
@@ -42,8 +42,6 @@ class MAMLTRPO(MAMLAlgo):
                 update_init_dist_sym
         set objectives for optimizer
         """
-        self.meta_batch_size = meta_batch_size
-        self.policy = policy
         dist = policy.distribution
 
         all_surr_objs, input_list = [], []
@@ -140,27 +138,15 @@ class MAMLTRPO(MAMLAlgo):
         """
         Performs MAML outer step for each task
         Args:
-            all_samples_data (list) : list of lists of lists of samples (each is a dict) split by gradient update and meta task
+            all_samples_data (list) : list of lists of lists of samples (each is a dict) split by gradient update and
+             meta task
             log (bool) : whether to log statistics
         Returns:
             None
         """
         assert len(all_samples_data) == self.num_inner_grad_steps + 1  # we collected the rollouts to compute the grads and then the test!
-
-        input_list = []
-        for step in range(len(all_samples_data)):  # these are the gradient steps
-            obs_list, action_list, adv_list, dist_info_list = [], [], [], []
-            for i in range(self.meta_batch_size):
-
-                inputs = ext.extract(
-                    all_samples_data[step][i], *self._optimization_keys
-                )
-                obs_list.append(inputs[0])
-                action_list.append(inputs[1])
-                adv_list.append(inputs[2])
-                dist_info_list.append([inputs[3][k] for k in self.policy.distribution.dist_info_keys])
-
-            input_list += obs_list + action_list + adv_list + sum(list(zip(*dist_info_list)), [])  # [ [obs_0], [act_0], [adv_0], [dist1_0], [dist2_0], [obs_1], ... ]
+        
+        input_list = self._extract_input_list(all_samples_data, self._optimization_keys)
 
         logger.log("Computing KL before")
         mean_kl_before = self.optimizer.constraint_val(input_list)

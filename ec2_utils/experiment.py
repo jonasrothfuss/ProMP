@@ -32,7 +32,6 @@ def __get_arg_config():
     args.cloudpickle_version = cloudpickle_version
     return args
 
-
 def get_args(key=None, default=None):
     args = __get_arg_config()
 

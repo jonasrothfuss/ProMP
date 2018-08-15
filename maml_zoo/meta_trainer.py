@@ -5,54 +5,41 @@ import maml_zoo.logger as logger
 # import maml_zoo.utils.plotter as plotter
 
 class Trainer(object):
+    """
+    Object for training 
+    Args:
+        algo (Algo) :
+        env (Env) :
+        sampler (Sampler) : 
+        sample_processor (SampleProcessor) : 
+        baseline (Baseline) : 
+        policy (Policy) : 
+        n_itr (int) : Number of iterations to train for
+        meta_batch_size (int) : Number of meta tasks
+        num_grad_updates (int) : Number of inner steps per maml iteration
+        sess (tf.Session) : current tf session (if we loaded policy, for example)
+    """
     def __init__(
             self,
             algo,
-            env,
             sampler,
-            baseline,
+            sample_processor,
             policy,
             n_itr,
-            meta_batch_size,
             num_grad_updates=1,
-            scope=None,
-            load_policy=None,
+            sess=None
             ):
-        """
-        Args:
-            algo (Algo) :
-            env (Env) :
-            sampler (Sampler) : 
-            baseline (Baseline) : 
-            policy (Policy) : 
-            n_itr (int) : Number of iterations to train for
-            meta_batch_size (int) : Number of meta tasks
-            num_grad_updates (int) : Number of inner steps per maml iteration
-            scope (str) : Scope for identifying the algorithm. Must be specified if running multiple algorithms
-            load_policy (Policy) : Policy to reload from
-        """
         self.algo = algo
         self.sampler = sampler
-        self.sample_processor = None
-        # env.build_env()
+        self.sample_processor = sample_processor
+        self.policy = policy
         self.n_itr = n_itr
-        self.meta_batch_size = meta_batch_size
         self.num_grad_updates = num_grad_updates
-        self.scope = scope
-        with tf.Session() as sess:
-            # Code for loading a previous policy. Somewhat hacky because needs to be in sess.
-            if load_policy is not None:
-                import joblib
-                policy = joblib.load(load_policy)['policy']
-            
-            policy.build_graph(env)
-            sampler.build_sampler(env, policy, meta_batch_size)
-            # Sample processor here?
-            algo.build_graph(policy, meta_batch_size, num_grad_updates)
-            
-            # initialize uninitialized vars  (only initialize vars that were not loaded)
-            uninit_vars = [var for var in tf.global_variables() if not sess.run(tf.is_variable_initialized(var))]
-            sess.run(tf.variables_initializer(uninit_vars))
+        self.sess = sess
+
+        # initialize uninitialized vars  (only initialize vars that were not loaded)
+        uninit_vars = [var for var in tf.global_variables() if not sess.run(tf.is_variable_initialized(var))]
+        sess.run(tf.variables_initializer(uninit_vars))
 
     def train(self):
         """
@@ -65,7 +52,7 @@ class Trainer(object):
                 algo.optimize_policy()
                 sampler.update_goals()
         """
-        with tf.Session() as sess:
+        with self.sess.as_default():
             start_time = time.time()
             for itr in range(self.start_itr, self.n_itr):
                 itr_start_time = time.time()

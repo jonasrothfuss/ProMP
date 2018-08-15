@@ -1,31 +1,26 @@
 import tensorflow as tf
 import numpy as np
-from maml_zoo.optimizers.base import Optimizer
+from maml_zoo.policies.base import Policy
 from collections import OrderedDict
 from maml_zoo.utils.utils import extract
 
-
 class Algo(object):
     """
+    Base class for algorithms
 
+    Args:
+        policy (Policy) : policy object
+        entropy_bonus (float) : scaling factor for policy entropy
     """
 
-    def __init__(
-            self,
-            optimizer,
-            inner_lr,
-            entropy_bonus=0,
-            ):
-
-        assert isinstance(optimizer, Optimizer)
-        self.optimizer = optimizer
-        self.inner_lr = inner_lr
+    def __init__(self, policy, entropy_bonus=0.0, *args, **kwargs):
+        assert isinstance(policy, Policy)
+        assert isinstance(entropy_bonus, float)
+        self.policy = policy
         self.entropy_bonus = entropy_bonus
-        self.meta_batch_size = None
-        self.policy = None
         self._optimization_keys = None
 
-    def build_graph(self, policy, env, *args, **kwargs):
+    def build_graph(self):
         """
         Creates meta-learning computation graph
 
@@ -40,11 +35,6 @@ class Algo(object):
                     make_vars
                     update_dist_info_sym
             set objectives for optimizer
-
-        Args:
-            policy: policy object
-            meta_batch_size (int): number of meta-tasks
-
         """
         raise NotImplementedError
 
@@ -52,6 +42,7 @@ class Algo(object):
         """
         Args:
             prefix (str) : a string to prepend to the name of each variable
+
         Returns:
             (tuple) : a tuple containing lists of placeholders for each input type and meta task
         """
@@ -131,16 +122,30 @@ class Algo(object):
 class MAMLAlgo(Algo):
     """
     Provides some implementations shared between all MAML algorithms
+    
+    Args:
+        inner_lr (float) : gradient step size used for inner step
+        meta_batch_size (int): number of metalearning tasks
+        num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, inner_lr, meta_batch_size, num_inner_grad_steps, *args, **kwargs):
         super(MAMLAlgo, self).__init__(*args, **kwargs)
+        assert (num_inner_grad_steps).is_integer()
+        assert isinstance(inner_lr, float)
+        assert (meta_batch_size).is_integer()
+        self.inner_lr = inner_lr
+        self.meta_batch_size = meta_batch_size
+        self.num_inner_grad_steps = num_inner_grad_steps
         self.input_list_ph = None
         self.surr_objs_var = None
         self.adapted_policies_params = None
         self.step_sizes = None
-        self.policies_params_ph = None
+        self.meta_batch_size = meta_batch_size
+        self.policy = policy
+        self.policies_params_ph = policy.policies_params_ph
+        self.policy_params = policy.policy_params
 
-    def build_graph(self, policy, env, meta_batch_size, num_inner_grad_steps):
+    def build_graph(self):
         raise NotImplementedError
 
     def make_input_placeholders(self, prefix='', scope=''):
@@ -204,6 +209,17 @@ class MAMLAlgo(Algo):
         return self.policy.distribution_info_sym(obs_var, params=adapted_policy_params_dict)
 
     def adapt_sym_test(self, input_list, surr_objs):
+        """
+        Create the symbolic graph for the one-step inner gradient update (It'll be called several times if
+        more gradient steps are needed)
+        
+        Args:
+            input_list (list) : a list of placeholders for sampled data
+            surr_objs (list) : a list of operations to compute the loss for each task
+
+        Returns:
+            None
+        """
         self.input_list_ph = input_list
         self.surr_objs_var = surr_objs
         self.adapted_policies_params = []
@@ -254,6 +270,17 @@ class MAMLAlgo(Algo):
         self.policy.update_task_parameters(adapted_policies_params_vals)
 
     def _extract_input_list(self, all_samples_data, keys):
+        """
+        Extracts keys from each dict in a list of list of dicts, and 
+        Todo: double check what this does and simplify
+
+        Args:
+            all_samples_data (list) : list of list of dicts (?)
+            keys (list) : a list of keys that should exist in each dict
+
+        Returns:
+            (list) : list of input data of the form [key_1], [key_2], [key_3]
+        """
         input_list = []
         for step in range(len(all_samples_data)):  # these are the gradient steps
             inputs = [list() for _ in range(len(keys))]

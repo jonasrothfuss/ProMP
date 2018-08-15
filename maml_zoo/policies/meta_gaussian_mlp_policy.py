@@ -6,9 +6,9 @@ from maml_zoo.policies.networks.mlp import forward_mlp
 
 
 class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, meta_batch_size,  *args, **kwargs):
         super(MetaGaussianMLPPolicy, self).__init__(*args, **kwargs)
-        self.num_tasks = None
+        self.meta_batch_size = meta_batch_size
 
         self.pre_update_action_var = None
         self.pre_update_mean_var = None
@@ -24,14 +24,13 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
 
         self._pre_update_mode = True
 
-    def build_graph(self, env_spec, num_tasks=1):
-        self.num_tasks = num_tasks
+        MetaGaussianMLPPolicy.build_graph(self)
 
+    def build_graph(self):
         # Create pre-update policy graph
-        super(MetaGaussianMLPPolicy, self).build_graph(env_spec)
-        self.pre_update_action_var = tf.split(self.action_var, self.num_tasks)
-        self.pre_update_mean_var = tf.split(self.mean_var, self.num_tasks)
-        self.pre_update_log_std_var = [self.log_std_var for _ in range(self.num_tasks)]
+        self.pre_update_action_var = tf.split(self.action_var, self.meta_batch_size)
+        self.pre_update_mean_var = tf.split(self.mean_var, self.meta_batch_size)
+        self.pre_update_log_std_var = [self.log_std_var for _ in range(self.meta_batch_size)]
 
         # Create post-update policy graph
         with tf.variable_scope(self.name):
@@ -52,8 +51,8 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
             self.post_update_mean_var = []
             self.post_update_log_std_var = []
 
-            obs_var = tf.split(self.obs_var, self.num_tasks, axis=0)
-            for idx in range(self.num_tasks):
+            obs_var = tf.split(self.obs_var, self.meta_batch_size, axis=0)
+            for idx in range(self.meta_batch_size):
                 obs_var, mean_var = forward_mlp(output_dim=self.obs_dim,
                                                 hidden_sizes=self.hidden_sizes,
                                                 hidden_nonlinearity=self.hidden_nonlinearity,
@@ -89,7 +88,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
         """
         batch_size = observations[0].shape[0]
         assert all([obs.shape[0] == batch_size for obs in observations])
-        assert len(observations) == self.num_tasks
+        assert len(observations) == self.meta_batch_size
 
         obs_stack = np.concatenate(observations, axis=0)
         feed_dict = {self.obs_var, obs_stack}
@@ -100,7 +99,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
                                              self.pre_update_log_std_var],
                                             feed_dict=feed_dict)
 
-        agent_infos = [dict(mean=means[idx], log_std=log_stds[idx]) for idx in range(self.num_tasks)]
+        agent_infos = [dict(mean=means[idx], log_std=log_stds[idx]) for idx in range(self.meta_batch_size)]
         return actions, agent_infos
 
     def _get_post_update_actions(self, observations):
@@ -113,7 +112,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
         obs_stack = np.concatenate(observations, axis=0)
         feed_dict = {self.obs_var, obs_stack}
         feed_dict_params = dict([(self.policies_params_ph[idx][key], self.policies_params_vals[idx][key])
-                                for key in self.policy_params_keys for idx in range(self.num_tasks)])
+                                for key in self.policy_params_keys for idx in range(self.meta_batch_size)])
         feed_dict.update(feed_dict_params)
 
         sess = tf.get_default_session()
@@ -122,6 +121,6 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
                                              self.post_update_log_std_var],
                                             feed_dict=feed_dict)
 
-        agent_infos = [dict(mean=means[idx], log_std=log_stds[idx]) for idx in range(self.num_tasks)]
+        agent_infos = [dict(mean=means[idx], log_std=log_stds[idx]) for idx in range(self.meta_batch_size)]
         return actions, agent_infos
 

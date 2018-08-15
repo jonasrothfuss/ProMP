@@ -138,7 +138,7 @@ class MetaPolicy(Policy):
         self._pre_update_mode = True
         self.policies_params_vals = None
 
-    def build_graph(self, env_spec, num_tasks=1):
+    def build_graph(self):
         """
         Also should create lists of variables and corresponding assign ops
         """

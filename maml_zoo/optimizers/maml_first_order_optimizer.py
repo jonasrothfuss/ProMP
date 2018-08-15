@@ -2,7 +2,6 @@ from maml_zoo.logger import logger
 from maml_zoo.optimizers.base import Optimizer
 import tensorflow as tf
 
-
 class MAMLFirstOrderOptimizer(Optimizer):
     def __init__(
             self,
