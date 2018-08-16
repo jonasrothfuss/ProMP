@@ -142,10 +142,10 @@ if __name__ == '__main__':
     if args.mode == 'ec2':
         sweeper.run_sweep_ec2(run_experiment, sweep_params, bucket_name='rllab-experiments')
     elif args.mode == 'local_docker':
-        mode_ec2 = dd.mode.LocalDocker(
+        mode_docker = dd.mode.LocalDocker(
             image=sweeper.image,
         )
-        run_sweep_doodad(run_method, params, run_mode=mode_ec2, 
+        run_sweep_doodad(run_method, params, run_mode=mode_docker, 
                 mounts=sweeper.mounts)
     elif args.mode == 'local':
         sweeper.run_sweep_serial(run_experiment, sweep_params)

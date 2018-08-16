@@ -1,5 +1,6 @@
 from maml_zoo.utils.utils import remove_scope_from_name
 from maml_zoo.utils import Serializable
+from maml_zoo.policies.distributions.base import Distribution
 
 import tensorflow as tf
 from collections import OrderedDict
@@ -43,6 +44,8 @@ class Policy(Serializable):
         self.learn_std = learn_std
         self.hidden_nonlinearity = hidden_nonlinearity
         self.output_nonlinearity = output_nonlinearity
+
+        self._dist = None
 
     def build_graph(self):
         """
@@ -100,7 +103,7 @@ class Policy(Serializable):
 
         Args:
             obs_var (placeholder) : symbolic variable for observations
-            parmas (None or dict) : a dictionary of placeholders that contains information about the
+            params (None or dict) : a dictionary of placeholders that contains information about the
             state of the policy at the time it received the observation
 
         Returns:
@@ -119,6 +122,42 @@ class Policy(Serializable):
             (dict) : a dictionary of tf placeholders for the policy output distribution
         """
         raise NotImplementedError
+
+    def likelihood_ratio_sym(self, obs, action, dist_info_old, policy_params):
+        """
+        Computes the likelihood p_new(obs|act)/p_old ratio between
+
+        Args:
+            obs (tf.Tensor): symbolic variable for observations
+            action (tf.Tensor): symbolic variable for actions
+            dist_info_old (dict): dictionary of tf.placeholders with old policy information
+            policy_params (dict): dictionary of the policy parameters (each value is a tf.Tensor)
+
+        Returns:
+            (tf.Tensor) : likelihood ratio
+        """
+
+        distribution_info_new = self.distribution_info_sym(obs, params=policy_params)
+        likelihood_ratio = self._dist.likelihood_ratio_sym(action, dist_info_old,
+                                                                 distribution_info_new)
+        return likelihood_ratio
+
+    def log_likelihood_sym(self, obs, action, policy_params):
+        """
+        Computes the log likelihood p(obs|act)
+
+        Args:
+            obs (tf.Tensor): symbolic variable for observations
+            action (tf.Tensor): symbolic variable for actions
+            policy_params (dict): dictionary of the policy parameters (each value is a tf.Tensor)
+
+        Returns:
+            (tf.Tensor) : log likelihood
+        """
+
+        distribution_info_var = self._dist.distribution_info_sym(obs, params=policy_params)
+        log_likelihood = self._dist.log_likelihood_sym(action, distribution_info_var)
+        return log_likelihood
 
 
     """ --- methods for serialization --- """
@@ -205,7 +244,7 @@ class MetaPolicy(Policy):
         Switches get_action to pre-update policy
         """
         self._pre_update_mode = True
-        self.policies_params_vals = None
+        self.policies_params_vals = self.get_param_values()
 
     def get_actions(self, observations):
         if self._pre_update_mode:

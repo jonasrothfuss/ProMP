@@ -4,7 +4,7 @@ from maml_zoo.policies.base import Policy
 from collections import OrderedDict
 from maml_zoo.utils.utils import extract
 
-class Algo(object):
+class MetaAlgo(object):
     """
     Base class for algorithms
 
@@ -48,18 +48,16 @@ class Algo(object):
         """
         raise NotImplementedError
 
-    def adapt_sym(self, surr_obj, obs_var, params_var, is_training=False):
+    def adapt_sym(self, surr_obj, params_var):
         """
         Creates the symbolic representation of the tf policy after one gradient step towards the surr_obj
 
         Args:
             surr_obj (tf_op) : tensorflow op for task specific (inner) objective
-            obs_var (list) : list of obs placeholders split by env
-            params_ph (dict) : dict of placeholders for current policy params
-            is_training (bool) : used for batch norm # (Do we support this?)
+            params_var (dict) : dict of placeholders for current policy params
 
         Returns:
-            (tf_op) : symbolic representation the policy's output for each obs
+            (dict):  dict of tf.Tensors for adapted policy params
         """
         raise NotImplementedError
 
@@ -105,33 +103,31 @@ class Algo(object):
         return input_list
 
 
-class MAMLAlgo(Algo):
+class MAMLAlgo(MetaAlgo):
     """
     Provides some implementations shared between all MAML algorithms
     
     Args:
         inner_lr (float) : gradient step size used for inner step
-        meta_batch_size (int): number of metalearning tasks
+        meta_batch_size (int): number of meta-learning tasks
         num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
     """
     def __init__(self, inner_lr, meta_batch_size, num_inner_grad_steps, *args, **kwargs):
         super(MAMLAlgo, self).__init__(*args, **kwargs)
-        assert isinstance(num_inner_grad_steps, int) or (num_inner_grad_steps).is_integer()
-        assert isinstance(inner_lr, float) or isinstance(inner_lr, int)
-        assert isinstance(meta_batch_size, int) or (meta_batch_size).is_integer()
-        self.inner_lr = inner_lr
+
+        assert type(num_inner_grad_steps) and num_inner_grad_steps >= 0
+        assert type(meta_batch_size) == int
+
+        self.inner_lr = float(inner_lr)
         self.meta_batch_size = meta_batch_size
         self.num_inner_grad_steps = num_inner_grad_steps
-        self.input_list_ph = None
-        self.surr_objs_var = None
+
+        self.adapt_input_list_ph = None
         self.adapted_policies_params = None
         self.step_sizes = None
         self.meta_batch_size = meta_batch_size
         self.policies_params_ph = self.policy.policies_params_ph
         self.policy_params = self.policy.policy_params
-
-    def build_graph(self):
-        raise NotImplementedError
 
     def make_input_placeholders(self, prefix='', scope=''):
         """
@@ -167,22 +163,21 @@ class MAMLAlgo(Algo):
                     shape=[None] + list(shape), name='%s%s_%i' % (k, prefix, i))
                     for k, shape in dist_info_specs
                 })
-                dist_info_phs_list.append([dist_info_phs[-1][k] for k, _ in dist_info_specs]) # Todo: Change this to [dist_0], [dist_1]
+                dist_info_phs_list.append([dist_info_phs[-1][k] for k, _ in dist_info_specs])
 
         all_phs = obs_phs + action_phs + adv_phs + list(sum(list(zip(*dist_info_phs_list)), ()))
         return obs_phs, action_phs, adv_phs, dist_info_phs, all_phs
 
-    def adapt_sym(self, surr_obj, obs_var, params_var):
+    def adapt_sym(self, surr_obj, params_var):
         """
         Creates the symbolic representation of the tf policy after one gradient step towards the surr_obj
 
         Args:
             surr_obj (tf_op) : tensorflow op for task specific (inner) objective
-            obs_var (list) : list of obs placeholders split by env
-            params_ph (dict) : dict of placeholders for current policy params
+            params_var (dict) : dict of tf.Tensors for current policy params
 
         Returns:
-            (tf_op) : symbolic representation the policy's output for each obs
+            (dict):  dict of tf.Tensors for adapted policy params
         """
         # TODO: Fix this if we want to learn the learning rate (it isn't supported right now).
         update_param_keys = params_var.keys()
@@ -195,67 +190,31 @@ class MAMLAlgo(Algo):
 
         adapted_policy_params_dict = OrderedDict(zip(update_param_keys, adapted_policy_params))
 
-        return self.policy.distribution_info_sym(obs_var, params=adapted_policy_params_dict)
-
-    def adapt_sym_test(self, input_list, surr_objs):
-        """
-        Create the symbolic graph for the one-step inner gradient update (It'll be called several times if
-        more gradient steps are needed)
-        
-        Args:
-            input_list (list) : a list of placeholders for sampled data
-            surr_objs (list) : a list of operations to compute the loss for each task
-
-        Returns:
-            None
-        """
-        self.input_list_ph = input_list
-        self.surr_objs_var = surr_objs
-        self.adapted_policies_params = []
-
-        update_param_keys = self.policy.policy_params_keys
-        num_tasks = len(surr_objs)
-        # Create the symbolic graph for the one-step inner gradient update (It'll be called several times if
-        # more gradient steps are needed
-        # TODO: A tf.map would be faster
-        for i in range(num_tasks):
-            # compute gradients for a current task (symbolic)
-            grads = tf.gradients(surr_objs[i],[self.policies_params_ph[i][key] for key in update_param_keys])
-            gradients = dict(zip(update_param_keys, grads))
-
-            # gradient update for params of current task (symbolic)
-            adapted_policy_params = [self.policies_params_ph[i][key] - tf.multiply(self.step_sizes[key], gradients[key])
-                                     for key in update_param_keys]
-
-            adapted_policy_params_dict = OrderedDict(zip(update_param_keys, adapted_policy_params))
-
-            # tensors that represent the updated params for all of the tasks (symbolic)
-            self.adapted_policies_params.append(adapted_policy_params_dict)
+        return adapted_policy_params_dict
 
     def adapt(self, samples):
         """
         Performs MAML inner step for each task and performs an update with the resulting gradients
 
         Args:
-            samples (list) : list of lists of samples (each is a dict) split by meta task
+            samples (list) : list of dicts of samples (each is a dict) split by meta task
 
         Returns:
             None
         """
+        assert len(samples) == self.meta_batch_size
+        assert [sample_dict.keys() for sample_dict in samples]
         sess = tf.get_default_session()
+
+        # prepare feed dict
+        input_list = self._extract_input_list([samples], self._optimization_keys) #TODO make sure that this works
         num_tasks = len(samples)
         assert num_tasks == self.meta_batch_size
         input_list = self._extract_input_list([samples], self._optimization_keys)
 
-        feed_dict_inputs = list(zip(self.input_list_ph, input_list))
-
-        if self.policy.policies_params_vals is not None: # Todo:
-            feed_dict_params = list((self.policy.policies_params_ph[i][key], self.policy.policies_params_vals[i][key])
-                                    for i in range(num_tasks) for key in self.policy.policy_params_keys)
-        else:
-            policies_params_vals = self.policy.get_param_values()
-            feed_dict_params = list((self.policy.policies_params_ph[i][key], policies_params_vals[key])
-                                    for i in range(num_tasks) for key in self.policy.policy_params_keys)
+        feed_dict_inputs = list(zip(self.adapt_input_list_ph, input_list))
+        feed_dict_params = list((self.policy.policies_params_ph[i][key], self.policy.policies_params_vals[i][key])
+                                for i in range(self.meta_batch_size) for key in self.policy.policy_params_keys)
 
         feed_dict = dict(feed_dict_inputs + feed_dict_params)
 

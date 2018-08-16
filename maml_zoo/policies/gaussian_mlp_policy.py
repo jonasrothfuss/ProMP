@@ -8,7 +8,7 @@ import tensorflow as tf
 import numpy as np
 from collections import OrderedDict
 
-class GaussianMLPPolicy(Policy, DiagonalGaussian):
+class GaussianMLPPolicy(Policy):
     """
     Gaussian multi-layer perceptron policy (diagonal covariance matrix)
     Provides functions for executing and updating policy parameters
@@ -31,8 +31,7 @@ class GaussianMLPPolicy(Policy, DiagonalGaussian):
         # store the init args for serialization and call the super constructors
         Serializable.quick_init(self, locals())
         Policy.__init__(self, *args, **kwargs)
-        DiagonalGaussian.__init__(self, dim=self.action_dim)
-        # Serializable.quick_init(self, locals())
+
         self.min_log_std = np.log(min_std)
         self.init_log_std = np.log(init_std)
 
