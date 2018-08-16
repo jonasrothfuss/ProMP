@@ -1,13 +1,10 @@
 from maml_zoo.utils.serializable import Serializable
 
 
-class Baseline(Serializable):
+class Baseline():
     """
     Reward baseline interface
     """
-
-    def __init__(self, *args, **kwargs):
-        Serializable.quick_init(self, locals())
 
     def get_param_values(self):
         """
@@ -54,14 +51,3 @@ class Baseline(Serializable):
         Log extra information per iteration based on the collected paths
         """
         pass
-
-    def __getstate__(self):
-        state = {
-            'init_args': Serializable.__getstate__(self),
-            'baseline_params': self.get_param_values()
-        }
-        return state
-
-    def __setstate__(self, state):
-        Serializable.__setstate__(self, state['init_args'])
-        self.set_params(state['baseline_params'])
