@@ -14,7 +14,6 @@ class Serializable(object):
         self.__kwargs = kwargs
 
     def quick_init(self, locals_):
-        return # Todo: 
         if getattr(self, "_serializable_initialized", False):
             return
         if sys.version_info >= (3, 0):
