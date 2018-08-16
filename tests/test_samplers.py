@@ -170,8 +170,8 @@ class TestSampler(unittest.TestCase):
             sampler.update_tasks()
             paths_meta_batch = sampler.obtain_samples()
             samples_data_meta_batch = self.maml_sample_processor.process_samples(paths_meta_batch)
-            self.assertEqual(len(samples_data_meta_batch.keys()), self.meta_batch_size)
-            for samples_data in samples_data_meta_batch.values():
+            self.assertEqual(len(samples_data_meta_batch), self.meta_batch_size)
+            for samples_data in samples_data_meta_batch:
                 self.assertEqual(len(samples_data.keys()), 7)
                 self.assertEqual(samples_data['advantages'].size, self.path_length*self.batch_size)
 

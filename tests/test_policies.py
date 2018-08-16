@@ -58,7 +58,7 @@ class TestPolicy(unittest.TestCase):
 
             n_obs = self.env.get_obs(n=100)
             action, agent_infos = self.policy.get_actions(n_obs)
-            agent_infos_output_sym = sess.run(output_sym_1, feed_dict={obs_ph_1: n_obs})[0]
+            agent_infos_output_sym = sess.run(output_sym_1, feed_dict={obs_ph_1: n_obs})
 
             for k in agent_infos.keys():
                 self.assertTrue(np.allclose(agent_infos[k], agent_infos_output_sym[k], rtol=1e-5, atol=1e-5))
