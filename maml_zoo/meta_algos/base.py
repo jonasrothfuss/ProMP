@@ -133,12 +133,12 @@ class MAMLAlgo(MetaAlgo):
         """
         Args:
             prefix (str) : a string to prepend to the name of each variable
-            scope (str): tensorflow variable scope
 
         Returns:
-            (tuple) : a tuple containing lists of placeholders for each input type and meta task
+            (tuple) : a tuple containing lists of placeholders for each input type and meta task, 
+            and for convenience, a list containing all placeholders created
         """
-        obs_phs, action_phs, adv_phs, dist_info_phs = [], [], [], []
+        obs_phs, action_phs, adv_phs, dist_info_phs, dist_info_phs_list = [], [], [], [], []
         dist_info_specs = self.policy.distribution.dist_info_specs
 
         with tf.variable_scope(scope):
@@ -158,12 +158,15 @@ class MAMLAlgo(MetaAlgo):
                     shape=[None],
                     name='advantage' + prefix + '_' + str(i),
                 ))
-                dist_info_phs.append([tf.placeholder(
+                dist_info_phs.append({k: tf.placeholder(
                     dtype=tf.float32,
                     shape=[None] + list(shape), name='%s%s_%i' % (k, prefix, i))
                     for k, shape in dist_info_specs
-                ])
-        return obs_phs, action_phs, adv_phs, dist_info_phs
+                })
+                dist_info_phs_list.append([dist_info_phs[-1][k] for k, _ in dist_info_specs])
+
+        all_phs = obs_phs + action_phs + adv_phs + list(sum(list(zip(*dist_info_phs_list)), ()))
+        return obs_phs, action_phs, adv_phs, dist_info_phs, all_phs
 
     def adapt_sym(self, surr_obj, params_var):
         """

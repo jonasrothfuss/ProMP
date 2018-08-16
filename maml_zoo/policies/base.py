@@ -137,7 +137,7 @@ class Policy(Serializable):
             (tf.Tensor) : likelihood ratio
         """
 
-        distribution_info_new = self._dist.distribution_info_sym(obs, params=policy_params)
+        distribution_info_new = self.distribution_info_sym(obs, params=policy_params)
         likelihood_ratio = self._dist.likelihood_ratio_sym(action, dist_info_old,
                                                                  distribution_info_new)
         return likelihood_ratio
@@ -244,7 +244,7 @@ class MetaPolicy(Policy):
         Switches get_action to pre-update policy
         """
         self._pre_update_mode = True
-        self.policies_params_vals = self.policy.get_param_values()
+        self.policies_params_vals = self.get_param_values()
 
     def get_actions(self, observations):
         if self._pre_update_mode:

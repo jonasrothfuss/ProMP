@@ -91,10 +91,7 @@ class MAMLPPO(MAMLAlgo):
             adapted_policy_param = self.adapt_sym(surr_obj_adapt, self.policies_params_ph[i])
             adapted_policies_params.append(adapted_policy_param)
 
-        # fix all all_inputs since it grows
-        adapt_input_list_ph = obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), [])
-                # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
-        return adapted_policies_params, adapt_input_list_ph
+        return adapted_policies_params
 
 
     def build_graph(self):
@@ -120,17 +117,17 @@ class MAMLPPO(MAMLAlgo):
         self.step_sizes = step_sizes
 
         """ Prepare some stuff """
-        obs_phs, action_phs, adv_phs, dist_info_phs = self.make_input_placeholders(prefix='init', scope=self.name)
+        obs_phs, action_phs, adv_phs, dist_info_phs, all_phs = self.make_input_placeholders('init', scope=self.name)
         all_surr_objs, all_inputs, all_entropies, all_inner_kls = [], [], [], []
         distribution_info_vars, current_policy_params = [], []
-        all_inputs = obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), [])
+        all_inputs = all_phs
                 # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
 
         """ --- Build inner update graph for adapting the policy and sampling trajectories --- """
         # this graph is only used for adapting the policy and not computing the meta-updates
 
-        self.adapted_policies_params, self.adapt_input_list_ph = self._build_inner_adaption(obs_phs, action_phs, adv_phs, dist_info_phs)
-
+        self.adapted_policies_params = self._build_inner_adaption(obs_phs, action_phs, adv_phs, dist_info_phs)
+        self.adapt_input_list_ph = all_phs
         """ ----- Build graph for the meta-update ----- """
 
         for i in range(self.meta_batch_size):
@@ -163,21 +160,25 @@ class MAMLPPO(MAMLAlgo):
             all_inner_kls.append(kls)
 
             # Update graph for next gradient step
-            obs_phs, action_phs, adv_phs, dist_info_phs = self.make_input_placeholders(str(j), scope=self.name)
+            obs_phs, action_phs, adv_phs, dist_info_phs, all_phs = self.make_input_placeholders(str(j), scope=self.name)
 
             current_policy_params = adapted_policy_params
             distribution_info_vars = adapted_policy_dist_info_vars
 
-            all_inputs += obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), []) # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
+            all_inputs += all_phs # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
 
         """ Outer objective """
         surr_objs = []
         outer_kls = []
 
         for i in range(self.meta_batch_size):
-            surr_obj, outer_kl = self._build_outer_objective(all_inner_kls[i], inner_kl_coeffs[i], all_entropies[i],
+            all_inner_kls_i = [all_inner_kls[j][i] for j in range(self.num_inner_grad_steps)] # Todo: make this cleaner
+            inner_kl_coeffs_i = [inner_kl_coeffs[j][i] for j in range(self.num_inner_grad_steps)]
+            all_entropies_i = [all_entropies[j][i] for j in range(self.num_inner_grad_steps)]
+            surr_obj, outer_kl = self._build_outer_objective(all_inner_kls_i, inner_kl_coeffs_i, all_entropies_i,
                                                              action_phs[i], adv_phs[i], dist_info_phs[i],
                                                              distribution_info_vars[i], anneal_ph, outer_kl_coeffs[i])
+
             surr_objs.append(surr_obj)
             outer_kls.append(outer_kl)
 
@@ -185,8 +186,8 @@ class MAMLPPO(MAMLAlgo):
         meta_objective = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)
 
         kl_coeffs = sum(kl_coeffs, [])
-        extra_inputs = tuple(kl_coeffs) + (anneal_ph,)
-        input_list = tuple(all_inputs)
+        extra_inputs = kl_coeffs + [anneal_ph]
+        input_list = all_inputs
 
         self.optimizer.build_graph(
             loss=meta_objective,
