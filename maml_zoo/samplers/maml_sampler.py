@@ -93,6 +93,7 @@ class MAMLSampler(Sampler):
 
             # step environments
             t = time.time()
+            actions = np.concatenate(actions) # stack meta batch
             next_obses, rewards, dones, env_infos = self.vec_env.step(actions)
             env_time += time.time() - t
 
