@@ -111,17 +111,17 @@ class ConjugateGradientOptimizer(object):
     of the loss function.
 
     Args:
-        cg_iters (int) : The number of CG iterations used to calculate A^-1 g
+        cg_iters (int) : The number of conjugate gradients iterations used to calculate A^-1 g
         reg_coeff (float) : A small value so that A -> A + reg*I
         subsample_factor (float) : Subsampling factor to reduce samples when using "conjugate gradient. Since the
         computation time for the descent direction dominates, this can greatly reduce the overall computation time.
-        backtrack_ratio (float) : 
-        max_backtracks (int) : 
+        backtrack_ratio (float) : ratio for decreasing the step size for the line search
+        max_backtracks (int) : maximum number of backtracking iterations for the line search
         debug_nan (bool) : if set to True, NanGuard will be added to the compilation, and ipdb will be invoked when
         nan is detected
         accept_violation (bool) : whether to accept the descent step if it violates the line search condition after
         exhausting all backtracking budgets
-        hvp_approach (obj) : 
+        hvp_approach (obj) : Hessian vector product approach
     """
 
     def __init__(
@@ -153,7 +153,7 @@ class ConjugateGradientOptimizer(object):
         self._constraint_objective = None
         self._all_inputs = None
 
-    def build_graph(self, loss, target, inputs, leq_constraint, extra_inputs=[], constraint_name="constraint"):
+    def build_graph(self, loss, target, inputs, leq_constraint, extra_inputs=[]):
         """
         Sets the objective function and target weights for the optimize function
 
@@ -172,7 +172,6 @@ class ConjugateGradientOptimizer(object):
         self._target = target
         self._constraint_objective = constraint_objective
         self._max_constraint_val = constraint_value
-        self._constraint_name = constraint_name
         self._all_inputs = inputs + extra_inputs
         self._loss = loss
 
@@ -246,6 +245,15 @@ class ConjugateGradientOptimizer(object):
         return gradient
 
     def optimize(self, inputs, extra_inputs=[], subsample_grouped_inputs=None):
+        """
+        Carries out the optimization step
+
+        Args:
+            inputs (list): inputs for the optimization
+            extra_inputs (list): extra inputs for the optimization
+            subsample_grouped_inputs (None or list): subsample data from each element of the list
+
+        """
         assert isinstance(inputs, list)
         assert isinstance(extra_inputs, list)
 
@@ -275,6 +283,7 @@ class ConjugateGradientOptimizer(object):
         prev_params = self._target.get_param_values()
         prev_params_values = _flatten_params(prev_params)
 
+        loss, constraint_val, n_iter, violated = 0, 0, 0, False
         for n_iter, ratio in enumerate(self._backtrack_ratio ** np.arange(self._max_backtracks)):
             cur_step = ratio * initial_descent_step
             cur_params_values = prev_params_values - cur_step
@@ -285,16 +294,21 @@ class ConjugateGradientOptimizer(object):
             if loss < loss_before and constraint_val <= self._max_constraint_val:
                 break
 
+        """ ------------------- Logging Stuff -------------------------- """
         if np.isnan(loss):
+            violated = True
             logger.log("Line search violated because loss is NaN")
         if np.isnan(constraint_val):
+            violated = True
             logger.log("Line search violated because constraint %s is NaN" % self._constraint_name)
         if loss >= loss_before:
+            violated = True
             logger.log("Line search violated because loss not improving")
         if constraint_val >= self._max_constraint_val:
+            violated = True
             logger.log("Line search violated because constraint %s is violated" % self._constraint_name)
 
-        if not self._accept_violation:
+        if violated and not self._accept_violation:
             logger.log("Line search condition violated. Rejecting the step!")
             self._target.set_param_values(prev_params, trainable=True)
 
