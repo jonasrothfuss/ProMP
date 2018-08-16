@@ -1,9 +1,11 @@
 import numpy as np
+from maml_zoo.envs.base import MetaEnv
+from maml_zoo.envs.base import RandomEnv
 from gym import utils
 
-class HopperRandParamsEnv(MetaEnv, utils.EzPickle):
-    def __init__(self):
-        MetaEnv.__init__(self, 'hopper.xml', 4)
+class HopperRandParamsEnv(RandomEnv, utils.EzPickle):
+    def __init__(self, log_scale_limit=3.0):
+        RandomEnv.__init__(self, log_scale_limit, 'hopper.xml', 4)
         utils.EzPickle.__init__(self)
 
     def step(self, a):
@@ -35,7 +37,7 @@ class HopperRandParamsEnv(MetaEnv, utils.EzPickle):
     def viewer_setup(self):
         self.viewer.cam.trackbodyid = 2
         self.viewer.cam.distance = self.model.stat.extent * 0.75
-        self.viewer.cam.lookat[2] += .8
+        # self.viewer.cam.lookat[2] += .8
         self.viewer.cam.elevation = -20
 
     def log_diagnostics(self, paths, prefix=''):
@@ -50,53 +52,13 @@ class HopperRandParamsEnv(MetaEnv, utils.EzPickle):
 
 if __name__ == "__main__":
 
-    env = HopperEnvRandParams()
+    env = HopperRandParamsEnv()
+    tasks = env.sample_tasks(40)
     while True:
         env.reset()
+        env.set_task(np.random.choice(tasks))
         print(env.model.body_mass)
         for _ in range(100):
             env.render()
             env.step(env.action_space.sample())  # take a random action
-
-
-
-    def __init__(self, *args, log_scale_limit=3.0, fix_params=False, rand_params=BaseEnvRandParams.RAND_PARAMS, random_seed=None, max_path_length=None, **kwargs):
-        """
-        Half-Cheetah environment with randomized mujoco parameters
-        :param log_scale_limit: lower / upper limit for uniform sampling in logspace of base 2
-        :param random_seed: random seed for sampling the mujoco model params
-        :param fix_params: boolean indicating whether the mujoco parameters shall be fixed
-        :param rand_params: mujoco model parameters to sample
-        """
-
-        args_all, kwargs_all = get_all_function_arguments(self.__init__, locals())
-        BaseEnvRandParams.__init__(*args_all, **kwargs_all)
-        HopperEnv.__init__(self, *args, **kwargs)
-        Serializable.__init__(*args_all, **kwargs_all)
-        self._obs_bounds()
-
-    def reward(self, obs, action, obs_next):
-        alive_bonus = 1.0
-        if obs.ndim == 2 and action.ndim == 2:
-            assert obs.shape == obs_next.shape and action.shape[0] == obs.shape[0]
-            vel = obs_next[:, 5]
-            ctrl_cost = 1e-3 * np.sum(np.square(action), axis=1)
-            reward =  vel + alive_bonus - ctrl_cost
-        else:
-            reward = self.reward(np.array([obs]), np.array([action]), np.array([obs_next]))[0]
-        return np.minimum(np.maximum(-1000.0, reward), 1000.0)
-
-    def done(self, obs):
-        if obs.ndim == 2:
-            notdone = np.all(np.isfinite(obs), axis=1) * (np.abs(obs[:, 3:]) < 100).all(axis=1) * (obs[:, 0] > .7) * (np.abs(obs[:, 1]) < .2)
-            return np.logical_not(notdone)
-        else:
-            notdone = np.isfinite(obs).all() and \
-                      (np.abs(obs[3:]) < 100).all() and (obs[0] > .7) and \
-                      (abs(obs[1]) < .2)
-            return not notdone
-
-
-    @overrides
-
 
