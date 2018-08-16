@@ -1,103 +1,107 @@
 from maml_zoo.logger import logger
-import itertools
 import numpy as np
 import tensorflow as tf
-from maml_zoo.utils import utils
+from collections import OrderedDict
 
-class PerlmutterHvp(object):
-    def __init__(self):
-        self.target = None
-        self.reg_coeff = None
 
-    def update_opt(self, f, target, inputs, reg_coeff):
-        assert isinstance(inputs, tuple)
-        self.target = target
-        self.reg_coeff = reg_coeff
-        params = target.get_params()
-
-        constraint_grads = tf.gradients(f, xs=params)
-        for idx, (grad, param) in enumerate(zip(constraint_grads, params)):
-            if grad is None:
-                constraint_grads[idx] = tf.zeros_like(param)
-
-        xs = tuple([tensor_utils.new_tensor_like(p.name.split(":")[0], p) for p in params])
-
-        Hx_plain_splits = tf.gradients(
-            tf.reduce_sum(
-                tf.stack([tf.reduce_sum(g * x) for g, x in zip(constraint_grads, xs)])
-            ),
-            params
-        )
-        for idx, (Hx, param) in enumerate(zip(Hx_plain_splits, params)):
-            if Hx is None:
-                Hx_plain_splits[idx] = tf.zeros_like(param)
-        # Hx_plain_splits = tensor_utils.flatten_tensor_variables(Hx_plain_splits)
-
-        self._all_inputs = inputs + xs
-        self.hx_plain = Hx_plain_splits
-
-    def build_eval(self, inputs):
-        def eval(x):
-            ret = tf.get_default_session().run(self.hx_plain, feed_dict=dict(list(zip(self._all_inputs, inputs + x)))) + self.reg_coeff * x
-            return ret
-
-        return eval
-
-# TODO: fix this
 class FiniteDifferenceHvp(object):
     def __init__(self, base_eps=1e-8, symmetric=True, grad_clip=None):
         self.base_eps = base_eps
         self.symmetric = symmetric
         self.grad_clip = grad_clip
+        self._target = None
+        self.reg_coeff = None
+        self._constraint_gradient = None
+        self._all_inputs = None
 
-    def update_opt(self, f, target, inputs, reg_coeff):
-        self.target = target
+    def build_graph(self, constraint_obj, target, inputs, reg_coeff):
+        """
+        Sets the objective function and target weights for the optimize function
+
+        Args:
+            constraint_obj (tf_op) : constraint objective
+            target (Policy) : Policy whose values we are optimizing over
+            inputs (list) : tuple of tf.placeholders for input data which may be subsampled. The first dimension corresponds to the number of data points
+            reg_coeff (float): regularization coefficient
+        """
+        self._target = target
         self.reg_coeff = reg_coeff
+        self._all_inputs = inputs
 
-        params = target.get_params(trainable=True)
+        params = list(target.get_params().values())
+        constraint_grads = tf.gradients(constraint_obj, xs=params)
 
-        constraint_grads = tf.gradients(f, xs=params)
         for idx, (grad, param) in enumerate(zip(constraint_grads, params)):
             if grad is None:
                 constraint_grads[idx] = tf.zeros_like(param)
 
-        flat_grad = tensor_utils.flatten_tensor_variables(constraint_grads)
+        constraint_gradient = tf.concat([tf.reshape(grad, [-1]) for grad in constraint_grads], axis=0)
 
-        def f_Hx_plain(*args):
-            inputs_ = args[:len(inputs)]
-            xs = args[len(inputs):]
-            flat_xs = np.concatenate([np.reshape(x, (-1,)) for x in xs])
-            param_val = self.target.get_param_values(trainable=True)
-            eps = np.cast['float32'](self.base_eps / (np.linalg.norm(param_val) + 1e-8))
-            self.target.set_param_values(param_val + eps * flat_xs, trainable=True)
-            flat_grad_dvplus = self.opt_fun["f_grad"](*inputs_)
-            self.target.set_param_values(param_val, trainable=True)
-            if self.symmetric:
-                self.target.set_param_values(param_val - eps * flat_xs, trainable=True)
-                flat_grad_dvminus = self.opt_fun["f_grad"](*inputs_)
-                hx = (flat_grad_dvplus - flat_grad_dvminus) / (2 * eps)
-                self.target.set_param_values(param_val, trainable=True)
-            else:
-                flat_grad = self.opt_fun["f_grad"](*inputs_)
-                hx = (flat_grad_dvplus - flat_grad) / eps
-            return hx
+        self._constraint_gradient = constraint_gradient
 
-        self.opt_fun = ext.lazydict(
-            f_grad=lambda: tensor_utils.compile_function(
-                inputs=inputs,
-                outputs=flat_grad,
-                log_name="f_grad",
-            ),
-            f_Hx_plain=lambda: f_Hx_plain,
-        )
+    def constraint_gradient(self, inputs):
+        """
+        Computes the gradient of the constraint objective
+
+        Args:
+            inputs (list): inputs needed to compute the gradient
+
+        Returns:
+            (np.ndarray): flattened gradient
+        """
+        assert isinstance(inputs, list)
+
+        sess = tf.get_default_session()
+        constraint_gradient = sess.run(self._constraint_gradient, feed_dict=dict(list(zip(self._all_inputs, inputs))))
+        return constraint_gradient
+
+    def Hx(self, inputs, x):
+        """
+        Compute the second derivative of the constraint val in the direction of the vector x
+        Args:
+            inputs (list): inputs needed to compute the gradient of the constraint objective
+            x (np.ndarray): vector indicating the direction on which the Hessian has to be computed
+
+        Returns: (np.ndarray): second derivative in the direction of x
+
+        """
+        assert isinstance(inputs, list)
+        assert isinstance(x, np.ndarray)
+
+        param_vals = self._target.get_param_values()
+        flat_param_vals = _flatten_params(param_vals)
+        eps = np.cast['float32'](self.base_eps / (np.linalg.norm(flat_param_vals) + 1e-8))
+        params_plus_eps_vals = _unflatten_params(flat_param_vals + eps * x, params_example=param_vals)
+        self._target.set_param_values(params_plus_eps_vals)
+        constraint_grad_plus_eps = self.constraint_gradient(inputs)
+        self._target.set_param_values(param_vals)
+
+        if self.symmetric:
+            params_minus_eps_vals = _unflatten_params(flat_param_vals - eps * x, params_example=param_vals)
+            self._target.set_param_values(params_minus_eps_vals)
+            constraint_grad_minus_eps = self.constraint_gradient(inputs)
+            self._target.set_param_values(param_vals)
+            hx = (constraint_grad_plus_eps - constraint_grad_minus_eps)/(2 * eps)
+
+        else:
+            constraint_grad = self.constraint_gradient(inputs)
+            hx = (constraint_grad_plus_eps - constraint_grad)/eps
+        return hx
 
     def build_eval(self, inputs):
-        def eval(x):
-            xs = tuple(self.target.flat_to_params(x, trainable=True))
-            ret = sliced_fun(self.opt_fun["f_Hx_plain"], self._num_slices)(inputs,xs) + self.reg_coeff * x
-            return ret
+        """
+        Build the Hessian evaluation function. It let's you evaluate the hessian of the constraint objective
+        in any direction.
+        Args:
+            inputs (list): inputs needed to compute the gradient of the constraint objective
 
-        return eval
+        Returns:
+            (function): function that evaluates the Hessian of the constraint objective in the input direction
+        """
+        def evaluate_hessian(x):
+            return self.Hx(inputs, x) + self.reg_coeff * x
+
+        return evaluate_hessian
 
 
 class ConjugateGradientOptimizer(object):
@@ -129,7 +133,7 @@ class ConjugateGradientOptimizer(object):
             max_backtracks=15,
             debug_nan=False,
             accept_violation=False,
-            hvp_approach=None,
+            hvp_approach=FiniteDifferenceHvp(),
             ):
 
         self._cg_iters = cg_iters
@@ -143,126 +147,193 @@ class ConjugateGradientOptimizer(object):
         self._constraint_name = None
         self._debug_nan = debug_nan
         self._accept_violation = accept_violation
-        if hvp_approach is None:
-            hvp_approach = PerlmutterHvp()
         self._hvp_approach = hvp_approach
+        self._loss = None
+        self._gradient = None
+        self._constraint_objective = None
+        self._all_inputs = None
 
-    def update_opt(self, loss, target, inputs, leq_constraint, extra_inputs=(), constraint_name="constraint"):
+    def build_graph(self, loss, target, inputs, leq_constraint, extra_inputs=[], constraint_name="constraint"):
         """
         Sets the objective function and target weights for the optimize function
 
         Args:
             loss (tf_op) : minimization objective
             target (Policy) : Policy whose values we are optimizing over
-            inputs (tuple) : tuple of tf.placeholders for input data which may be subsampled. The first dimension corresponds to the number of data points
-            extra_inputs (tuple) : tuple of tf.placeholders for hyperparameters (e.g. learning rate, if annealed)
+            inputs (list) : tuple of tf.placeholders for input data which may be subsampled. The first dimension corresponds to the number of data points
+            extra_inputs (list) : tuple of tf.placeholders for hyperparameters (e.g. learning rate, if annealed)
             leq_constraint (tuple) : A constraint provided as a tuple (f, epsilon), of the form f(*inputs) <= epsilon.
         """
-        assert isinstance(inputs, tuple)
-        assert isinstance(extra_inputs, tuple)
+        assert isinstance(inputs, list)
+        assert isinstance(extra_inputs, list)
         
-        constraint_term, constraint_value = leq_constraint
+        constraint_objective, constraint_value = leq_constraint
 
-        params = target.get_params()
+        self._target = target
+        self._constraint_objective = constraint_objective
+        self._max_constraint_val = constraint_value
+        self._constraint_name = constraint_name
+        self._all_inputs = inputs + extra_inputs
+        self._loss = loss
+
+        # build the graph of the hessian vector product (hvp)
+        self._hvp_approach.build_graph(f=constraint_objective, target=target, inputs=inputs + extra_inputs,
+                                       reg_coeff=self._reg_coeff)
+
+        # build the graph of the gradients
+        params = list(target.get_params().values())
         grads = tf.gradients(loss, xs=params)
         for idx, (grad, param) in enumerate(zip(grads, params)):
             if grad is None:
                 grads[idx] = tf.zeros_like(param)
-        flat_grad = tensor_utils.flatten_tensor_variables(grads)
+        gradient = tf.concat([tf.reshape(grad, [-1]) for grad in grads], axis=0)
 
-        self._hvp_approach.update_opt(f=constraint_term, target=target, inputs=inputs + extra_inputs,
-                                      reg_coeff=self._reg_coeff)
+        self._gradient = gradient
 
-        self._target = target
-        self._max_constraint_val = constraint_value
-        self._constraint_name = constraint_name
+    def loss(self, inputs, extra_inputs=[]):
+        """
+        Computes the value of the loss for given inputs
 
-        self._all_input_ph = inputs + extra_inputs
+        Args:
+            inputs (list): inputs needed to compute the loss function
+            extra_inputs (list): additional inputs needed to compute the loss function
 
-        self._loss = loss
-        self._flat_grad = flat_grad
-        self._constraint_term = constraint_term
+        Returns:
+            (float): value of the loss
+        """
+        assert isinstance(inputs, list)
+        assert isinstance(extra_inputs, list)
 
-    def loss(self, inputs, extra_inputs=()):
-        assert isinstance(inputs, tuple)
-        assert isinstance(extra_inputs, tuple)
-        return tf.get_default_session().run(self._loss, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
-
-    def constraint_val(self, inputs, extra_inputs=()):
-        assert isinstance(inputs, tuple)
-        assert isinstance(extra_inputs, tuple)
-        return tf.get_default_session().run(self._constraint_term, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
-
-    def optimize(self, inputs, extra_inputs=(), subsample_grouped_inputs=None):
-        prev_param = np.copy(self._target.get_param_values())
-        assert isinstance(inputs, tuple)
-        assert isinstance(extra_inputs, tuple)
-
-        if self._subsample_factor < 1:
-            if subsample_grouped_inputs is None:
-                subsample_grouped_inputs = [inputs]
-            subsample_inputs = tuple()
-            for inputs_grouped in subsample_grouped_inputs:
-                n_samples = len(inputs_grouped[0])
-                inds = np.random.choice(
-                    n_samples, int(n_samples * self._subsample_factor), replace=False)
-                subsample_inputs += tuple([x[inds] for x in inputs_grouped])
-        else:
-            subsample_inputs = inputs
-
-        logger.log("Start CG optimization: #parameters: %d, #inputs: %d, #subsample_inputs: %d"%(len(prev_param),len(inputs[0]), len(subsample_inputs[0])))
         sess = tf.get_default_session()
+        loss = sess.run(self._loss, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+        return loss
+
+    def constraint_val(self, inputs, extra_inputs=[]):
+        """
+        Computes the value of the KL-divergence between pre-update policies for given inputs
+
+        Args:
+            inputs (list): inputs needed to compute the inner KL
+            extra_inputs (list): additional inputs needed to compute the inner KL
+
+        Returns:
+            (float): value of the loss
+        """
+        assert isinstance(inputs, list)
+        assert isinstance(extra_inputs, list)
+
+        sess = tf.get_default_session()
+        constrain_val = sess.run(self._constraint_objective,
+                                 feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+        return constrain_val
+
+    def gradient(self, inputs, extra_inputs=[]):
+        """
+        Computes the gradient of the loss function
+
+        Args:
+            inputs (list): inputs needed to compute the gradient
+            extra_inputs (list): additional inputs needed to compute the loss function
+
+        Returns:
+            (np.ndarray): flattened gradient
+        """
+        assert isinstance(inputs, list)
+        assert isinstance(extra_inputs, list)
+
+        sess = tf.get_default_session()
+        gradient = sess.run(self._gradient, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+        return gradient
+
+    def optimize(self, inputs, extra_inputs=[], subsample_grouped_inputs=None):
+        assert isinstance(inputs, list)
+        assert isinstance(extra_inputs, list)
+
+        subsample_inputs = self._get_subsample(inputs,
+                                               subsample_factor=self._subsample_factor,
+                                               subsample_grouped_inputs=subsample_grouped_inputs)
+
+        logger.log("Start CG optimization")
 
         logger.log("computing loss before")
-        loss_before = sess.run(self._loss, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+        loss_before = self.loss(inputs, extra_inputs)
+
         logger.log("performing update")
 
         logger.log("computing gradient")
-        flat_g = sess.run(self._flat_grad, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+        gradient = self.gradient(inputs, extra_inputs)
         logger.log("gradient computed")
 
         logger.log("computing descent direction")
         Hx = self._hvp_approach.build_eval(subsample_inputs + extra_inputs)
-
-        descent_direction = cg(Hx, flat_g, cg_iters=self._cg_iters)
-
-        initial_step_size = np.sqrt(
-            2.0 * self._max_constraint_val * (1. / (descent_direction.dot(Hx(descent_direction)) + 1e-8))
-        )
-        if np.isnan(initial_step_size):
-            initial_step_size = 1.
-        flat_descent_step = initial_step_size * descent_direction
-
+        descent_direction = conjugate_gradients(Hx, gradient, cg_iters=self._cg_iters)
+        initial_step_size = np.sqrt(2.0 * self._max_constraint_val *
+                                    (1. / (descent_direction.dot(Hx(descent_direction)) + 1e-8)))
+        initial_descent_step = initial_step_size * descent_direction
         logger.log("descent direction computed")
 
-        n_iter = 0
+        prev_params = self._target.get_param_values()
+        prev_params_values = _flatten_params(prev_params)
+
         for n_iter, ratio in enumerate(self._backtrack_ratio ** np.arange(self._max_backtracks)):
-            cur_step = ratio * flat_descent_step
-            cur_param = prev_param - cur_step
-            self._target.set_param_values(cur_param)
-            loss, constraint_val = sess.run([self._loss, self._constraint_term], feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
-            if self._debug_nan and np.isnan(constraint_val):
-                import ipdb;
-                ipdb.set_trace()
+            cur_step = ratio * initial_descent_step
+            cur_params_values = prev_params_values - cur_step
+            cur_params = _unflatten_params(cur_params_values, params_example=prev_params)
+            self._target.set_param_values(cur_params)
+
+            loss, constraint_val = self.loss(inputs, extra_inputs), self.constraint_val(inputs, extra_inputs)
             if loss < loss_before and constraint_val <= self._max_constraint_val:
                 break
-        if (np.isnan(loss) or np.isnan(constraint_val) or loss >= loss_before or constraint_val >=
-            self._max_constraint_val) and not self._accept_violation:
+
+        if np.isnan(loss):
+            logger.log("Line search violated because loss is NaN")
+        if np.isnan(constraint_val):
+            logger.log("Line search violated because constraint %s is NaN" % self._constraint_name)
+        if loss >= loss_before:
+            logger.log("Line search violated because loss not improving")
+        if constraint_val >= self._max_constraint_val:
+            logger.log("Line search violated because constraint %s is violated" % self._constraint_name)
+
+        if not self._accept_violation:
             logger.log("Line search condition violated. Rejecting the step!")
-            if np.isnan(loss):
-                logger.log("Violated because loss is NaN")
-            if np.isnan(constraint_val):
-                logger.log("Violated because constraint %s is NaN" % self._constraint_name)
-            if loss >= loss_before:
-                logger.log("Violated because loss not improving")
-            if constraint_val >= self._max_constraint_val:
-                logger.log("Violated because constraint %s is violated" % self._constraint_name)
-            self._target.set_param_values(prev_param, trainable=True)
+            self._target.set_param_values(prev_params, trainable=True)
+
         logger.log("backtrack iters: %d" % n_iter)
         logger.log("computing loss after")
         logger.log("optimization finished")
 
-def cg(f_Ax, b, cg_iters=10, verbose=False, residual_tol=1e-10):
+    def _get_subsample(self, inputs, subsample_factor=1., subsample_grouped_inputs=None):
+        if subsample_factor < 1:
+            if subsample_grouped_inputs is None:
+                subsample_grouped_inputs = [inputs]
+            subsample_inputs = list()
+            for inputs_grouped in subsample_grouped_inputs:
+                n_samples = len(inputs_grouped[0])
+                inds = np.random.choice(
+                    n_samples, int(n_samples * self._subsample_factor), replace=False)
+                subsample_inputs += [x[inds] for x in inputs_grouped]
+        else:
+            subsample_inputs = inputs
+
+        return subsample_inputs
+
+
+def _unflatten_params(flat_params, params_example):
+    unflat_params = []
+    idx = 0
+    for key, param in params_example.items():
+        size_param = np.prod(param.shape)
+        reshaped_param = np.reshape(flat_params[idx:idx+size_param], newshape=param.shape)
+        unflat_params.append((key, reshaped_param))
+        idx += size_param
+    return OrderedDict(unflat_params)
+
+
+def _flatten_params(params):
+    return np.concatenate([param.reshape(-1) for param in params.values()])
+
+
+def conjugate_gradients(f_Ax, b, cg_iters=10, verbose=False, residual_tol=1e-10):
     """
     Demmel p 312
     """
@@ -276,8 +347,6 @@ def cg(f_Ax, b, cg_iters=10, verbose=False, residual_tol=1e-10):
     if verbose: print(titlestr % ("iter", "residual norm", "soln norm"))
 
     for i in range(cg_iters):
-        if callback is not None:
-            callback(x)
         if verbose: print(fmtstr % (i, rdotr, np.linalg.norm(x)))
         z = f_Ax(p)
         v = rdotr / p.dot(z)
@@ -291,5 +360,6 @@ def cg(f_Ax, b, cg_iters=10, verbose=False, residual_tol=1e-10):
         if rdotr < residual_tol:
             break
 
-    if verbose: print(fmtstr % (i + 1, rdotr, np.linalg.norm(x)))  # pylint: disable=W0631
+    if verbose: print(fmtstr % (i + 1, rdotr, np.linalg.norm(x)))
+
     return x
