@@ -2,12 +2,13 @@ import numpy as np
 from maml_zoo.envs.base import MetaEnv
 from maml_zoo.logger import logger
 import gym
+from gym.envs.mujoco.mujoco_env import MujocoEnv
 
 
-class HalfCheetahRandDirecEnv(MetaEnv, gym.utils.EzPickle):
+class HalfCheetahRandDirecEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
     def __init__(self, goal_direction=None):
         self.goal_direction = goal_direction if goal_direction else 1.0
-        MetaEnv.__init__(self, 'half_cheetah.xml', 5)
+        MujocoEnv.__init__(self, 'half_cheetah.xml', 5)
         gym.utils.EzPickle.__init__(self, goal_direction)
 
     def sample_tasks(self, n_tasks):
@@ -62,4 +63,4 @@ class HalfCheetahRandDirecEnv(MetaEnv, gym.utils.EzPickle):
         logger.logkv(prefix+'AverageForwardProgress', np.mean(progs))
         logger.logkv(prefix+'MaxForwardProgress', np.max(progs))
         logger.logkv(prefix+'MinForwardProgress', np.min(progs))
-        logger.logkv(prefix+'StdForwardProgress', np.std(progs))   
+        logger.logkv(prefix+'StdForwardProgress', np.std(progs))

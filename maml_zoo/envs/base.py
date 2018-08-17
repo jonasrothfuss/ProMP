@@ -1,7 +1,7 @@
-from gym.envs.mujoco.mujoco_env import MujocoEnv
+from gym.core import Env
 import numpy as np
 
-class MetaEnv(MujocoEnv):
+class MetaEnv(Env):
     def sample_tasks(self, n_tasks):
         """
         Samples task of the meta-environment
