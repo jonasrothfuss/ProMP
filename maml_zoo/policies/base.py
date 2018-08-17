@@ -3,6 +3,7 @@ from maml_zoo.utils import Serializable
 from maml_zoo.policies.distributions.base import Distribution
 
 import tensorflow as tf
+import collections
 from collections import OrderedDict
 
 
@@ -226,25 +227,13 @@ class MetaPolicy(Policy):
         """
         raise NotImplementedError
 
-    def _create_placeholders_for_vars(self, scopes, meta_batch_size=1, graph_keys=tf.GraphKeys.TRAINABLE_VARIABLES):
-        assert isinstance(scopes, list) or isinstance(scopes, tuple)
-        placeholders = []
-
-        for scope in scopes:
-            var_list = tf.get_collection(graph_keys, scope=scope)
-            placeholders.append([OrderedDict([(remove_scope_from_name(var.name, scope),
-                                              tf.placeholder(tf.float32, shape=var.shape))
-                                             for var in var_list])
-                                for _ in range(meta_batch_size)
-                                 ])
-        return placeholders
-
     def switch_to_pre_update(self):
         """
         Switches get_action to pre-update policy
         """
         self._pre_update_mode = True
-        self.policies_params_vals = self.get_param_values()
+        # replicate pre-update policy params meta_batch_size times
+        self.policies_params_vals = [self.get_param_values()] * self.meta_batch_size
 
     def get_actions(self, observations):
         if self._pre_update_mode:
@@ -270,8 +259,17 @@ class MetaPolicy(Policy):
         """
         Args:
             updated_policies_parameters (list): List of size meta-batch size. Each contains a dict with the policies
-            parameters
+            parameters as numpy arrays
         """
         self.policies_params_vals = updated_policies_parameters
         self._pre_update_mode = False
+
+    def _create_placeholders_for_vars(self, scope, graph_keys=tf.GraphKeys.TRAINABLE_VARIABLES):
+        var_list = tf.get_collection(graph_keys, scope=scope)
+        placeholders = []
+        for var in var_list:
+            var_name = remove_scope_from_name(var.name, scope.split('/')[0])
+            placeholders.append((var_name, tf.placeholder(tf.float32, shape=var.shape, name="%s_ph" % var_name)))
+        return OrderedDict(placeholders)
+
 

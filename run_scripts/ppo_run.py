@@ -1,5 +1,5 @@
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
-from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
+from maml_zoo.envs.point_env_2d import MetaPointEnv
 from maml_zoo.meta_algos.ppo_maml import MAMLPPO
 from maml_zoo.meta_trainer import Trainer
 from maml_zoo.samplers.maml_sampler import MAMLSampler
@@ -7,57 +7,68 @@ from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
 from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
-
+import numpy as np
+import tensorflow as tf
 baseline = LinearFeatureBaseline()
 
-env = HalfCheetahRandDirecEnv() # Wrappers? normalization?
-
-sampler = MAMLSampler(
-
-
-	)
-
-sample_processor = MAMLSampleProcessor(
-		discount=0.99,
-        gae_lambda=1,
-        center_adv=False,
-        positive_adv=False,
-	)
+env = MetaPointEnv() # Wrappers? normalization?
 
 policy = MetaGaussianMLPPolicy(
+        name="meta-policy",
+        obs_dim=np.prod(env.observation_space.shape),
+        action_dim=np.prod(env.action_space.shape),
+        meta_batch_size=10,
+        hidden_sizes=(16, 16),
+        learn_std=True,
+        hidden_nonlinearity=tf.tanh,
+        output_nonlinearity=None,
+    )
 
-	)
+sampler = MAMLSampler(
+    env=env,
+    policy=policy,
+    batch_size=2,
+    meta_batch_size=10,
+    max_path_length=50,
+    parallel=False,
+)
 
+sample_processor = MAMLSampleProcessor(
+    baseline=baseline,
+    discount=0.99,
+    gae_lambda=1.0,
+    normalize_adv=True,
+    positive_adv=False,
+)
 
 algo = MAMLPPO(
-		optimizer=None, # Todo: how to define optimizer?
-        inner_lr=0.1,
-        clip_eps=0.5, 
-        clip_outer=True,
-        target_outer_step=0.001,
-        target_inner_step=0.01,
-        init_outer_kl_penalty=1e-3,
-        init_inner_kl_penalty=1e-2,
-        adaptive_outer_kl_penalty=True,
-        adaptive_inner_kl_penalty=True,
-        anneal_factor=1,
-        multi_adam=False,
-        num_inner_grad_steps=1,
-	)
+    policy=policy,
+    inner_lr=0.1,
+    meta_batch_size=10,
+    num_inner_grad_steps=2,
+    learning_rate=1e-3,
+    max_epochs=300,
+    num_minibatches=1,
+    clip_eps=0.5,
+    clip_outer=True,
+    target_outer_step=0,
+    target_inner_step=2e-2,
+    init_outer_kl_penalty=0,
+    init_inner_kl_penalty=1e-3,
+    adaptive_outer_kl_penalty=False,
+    adaptive_inner_kl_penalty=True,
+    anneal_factor=1.0,
+    entropy_bonus=0.0,
+)
 
 trainer = Trainer(
-        algo=algo,
-        env=env,
-        sampler=sampler,
-        baseline=baseline,
-        policy=policy,
-        n_itr=100,
-        meta_batch_size=40,
-        num_grad_updates=1,
-        scope=None,
-        load_policy=None,
-	)
+    algo=algo,
+    policy=policy,
+    env=env,
+    sampler=sampler,
+    sample_processor=sample_processor,
+    n_itr=300,
+    num_inner_grad_steps=2,
+)
 
 trainer.train()
-
-# variant generator, run_experiment code goes here

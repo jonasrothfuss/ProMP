@@ -7,6 +7,7 @@ from maml_zoo.policies.networks.mlp import forward_mlp
 
 class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
     def __init__(self, meta_batch_size,  *args, **kwargs):
+        self.quick_init(locals()) # store init arguments for serialization
         self.meta_batch_size = meta_batch_size
 
         self.pre_update_action_var = None
@@ -17,7 +18,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
         self.post_update_mean_var = None
         self.post_update_log_std_var = None
 
-        self.policies_params_ph = None
+        self.policies_params_phs = None
         self.policy_params_keys = None
         self.policies_params_vals = None
 
@@ -30,47 +31,61 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
         Builds computational graph for policy
         """
 
-        # Create pre-update policy graph
+        # Create pre-update policy by calling build_graph of the super class
         super(MetaGaussianMLPPolicy, self).build_graph()
         self.pre_update_action_var = tf.split(self.action_var, self.meta_batch_size)
         self.pre_update_mean_var = tf.split(self.mean_var, self.meta_batch_size)
         self.pre_update_log_std_var = [self.log_std_var for _ in range(self.meta_batch_size)]
 
-        # Create post-update policy graph
-        with tf.variable_scope(self.name):
-            current_scope = self.name # Todo: is this wrong?
-            scopes = [current_scope + '/mean_network', current_scope + '/log_std_network']
-
-            mean_network_ph, log_std_network_ph = self._create_placeholders_for_vars(scopes, meta_batch_size=self.meta_batch_size)
-
-            assert len(log_std_network_ph[0]) == 1
+        # Create lightweight policy graph that takes the policy parameters as placeholders
+        with tf.variable_scope(self.name + "_ph_graph"):
+            mean_network_phs_meta_batch, log_std_network_phs_meta_batch = [], []
 
             self.post_update_action_var = []
             self.post_update_mean_var = []
             self.post_update_log_std_var = []
 
-            obs_var = tf.split(self.obs_var, self.meta_batch_size, axis=0)
+            # build meta_batch_size graphs for post-update policies --> thereby the policy parameters are placeholders
+            obs_var_per_task = tf.split(self.obs_var, self.meta_batch_size, axis=0)
+
             for idx in range(self.meta_batch_size):
-                _, mean_var = forward_mlp(output_dim=self.action_dim,
+                with tf.variable_scope("task_%i"%idx):
+
+                    with tf.variable_scope("mean_network"):
+                        # create mean network parameter placeholders
+                        mean_network_phs = self._create_placeholders_for_vars(
+                            scope=self.name + "/mean_network")  # -> returns ordered dict
+                        mean_network_phs_meta_batch.append(mean_network_phs)
+
+                        # forward pass through the mean mpl
+                        _, mean_var = forward_mlp(output_dim=self.action_dim,
                                                 hidden_sizes=self.hidden_sizes,
                                                 hidden_nonlinearity=self.hidden_nonlinearity,
                                                 output_nonlinearity=self.output_nonlinearity,
-                                                input_var=obs_var[idx],
-                                                mlp_params=mean_network_ph[idx],
+                                                input_var=obs_var_per_task[idx],
+                                                mlp_params=mean_network_phs,
                                                 )
-                log_std_var = list(log_std_network_ph[idx].values())[0] # ?
-                action_var = mean_var + tf.random_normal(shape=tf.shape(mean_var)) * tf.exp(log_std_var)
 
-                self.post_update_action_var.append(action_var)
-                self.post_update_mean_var.append(mean_var)
-                self.post_update_log_std_var.append(log_std_var)
+                    with tf.variable_scope("log_std_network"):
+                        # create log_stf parameter placeholders
+                        log_std_network_phs = self._create_placeholders_for_vars(scope=self.name + "/log_std_network") # -> returns ordered dict
+                        log_std_network_phs_meta_batch.append(log_std_network_phs)
 
-            self.policies_params_ph = []
-            for idx, odict in enumerate(mean_network_ph): # Mutate mean_network_ph here    
-                odict.update(log_std_network_ph[idx])
-                self.policies_params_ph.append(odict)
+                        log_std_var = list(log_std_network_phs.values())[0] # weird stuff since log_std_network_phs is ordered dict
 
-            self.policy_params_keys = list(self.policies_params_ph[0].keys())
+                    action_var = mean_var + tf.random_normal(shape=tf.shape(mean_var)) * tf.exp(log_std_var)
+
+                    self.post_update_action_var.append(action_var)
+                    self.post_update_mean_var.append(mean_var)
+                    self.post_update_log_std_var.append(log_std_var)
+
+            # merge mean_network_phs and log_std_network_phs into policies_params_phs
+            self.policies_params_phs = []
+            for idx, odict in enumerate(mean_network_phs_meta_batch): # Mutate mean_network_ph here
+                odict.update(log_std_network_phs_meta_batch[idx])
+                self.policies_params_phs.append(odict)
+
+            self.policy_params_keys = list(self.policies_params_phs[0].keys())
 
     def get_actions(self, observations):
         """
@@ -78,13 +93,16 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
             observations (list): List of size meta-batch size with numpy arrays of shape batch_size x obs_dim
 
         Returns:
-            (tuple) : A tuple containing a list of lists of action, and a list of list of dicts of agent infos
+            (tuple) : A tuple containing a list of numpy arrays of action, and a list of list of dicts of agent infos
         """
+        assert len(observations) == self.meta_batch_size
+
         if self._pre_update_mode:
             actions, agent_infos = self._get_pre_update_actions(observations)
         else:
             actions, agent_infos = self._get_post_update_actions(observations)
 
+        assert len(actions) == self.meta_batch_size
         return actions, agent_infos
 
     def _get_pre_update_actions(self, observations):
@@ -118,7 +136,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
         assert self.policies_params_vals is not None
         obs_stack = np.concatenate(observations, axis=0)
         feed_dict = {self.obs_var: obs_stack}
-        feed_dict_params = dict([(self.policies_params_ph[idx][key], self.policies_params_vals[idx][key])
+        feed_dict_params = dict([(self.policies_params_phs[idx][key], self.policies_params_vals[idx][key])
                                 for key in self.policy_params_keys for idx in range(self.meta_batch_size)])
         feed_dict.update(feed_dict_params)
 

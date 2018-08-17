@@ -16,15 +16,18 @@ def get_original_tf_name(name):
 
 def remove_scope_from_name(name, scope):
     """
-    # Todo: rename this
     Args:
         name (str): full name of the tf variable with all the scopes
 
     Returns:
         (str): full name of the variable with the scope removed
     """
-    return '/'.join(name.split("/")[1:]).split(":")[0]
-    # return name.replace(scope + '/', "").split(":")[0]
+    result = name.split(scope)[1]
+    result = result[1:] if result[0] == '/' else result
+    return result.split(":")[0]
+
+def remove_first_scope_from_name(name):
+    return name.replace(name + '/', "").split(":")[0]
 
 def get_last_scope(name):
     """

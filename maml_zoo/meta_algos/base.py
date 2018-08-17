@@ -126,10 +126,8 @@ class MAMLAlgo(MetaAlgo):
         self.adapted_policies_params = None
         self.step_sizes = None
         self.meta_batch_size = meta_batch_size
-        self.policies_params_ph = self.policy.policies_params_ph
-        self.policy_params = self.policy.policy_params
 
-    def make_input_placeholders(self, prefix='', scope=''):
+    def make_input_placeholders(self, prefix=''):
         """
         Args:
             prefix (str) : a string to prepend to the name of each variable
@@ -141,29 +139,28 @@ class MAMLAlgo(MetaAlgo):
         obs_phs, action_phs, adv_phs, dist_info_phs, dist_info_phs_list = [], [], [], [], []
         dist_info_specs = self.policy.distribution.dist_info_specs
 
-        with tf.variable_scope(scope):
-            for i in range(self.meta_batch_size):
-                obs_phs.append(tf.placeholder(
-                    dtype=tf.float32,
-                    shape=[None, self.policy.obs_dim],
-                    name='obs' + prefix + '_' + str(i)
-                ))
-                action_phs.append(tf.placeholder(
-                    dtype=tf.float32,
-                    shape=[None, self.policy.action_dim],
-                    name='action' + prefix + '_' + str(i),
-                ))
-                adv_phs.append(tf.placeholder(
-                    dtype=tf.float32,
-                    shape=[None],
-                    name='advantage' + prefix + '_' + str(i),
-                ))
-                dist_info_phs.append({k: tf.placeholder(
-                    dtype=tf.float32,
-                    shape=[None] + list(shape), name='%s%s_%i' % (k, prefix, i))
-                    for k, shape in dist_info_specs
-                })
-                dist_info_phs_list.append([dist_info_phs[-1][k] for k, _ in dist_info_specs])
+        for i in range(self.meta_batch_size):
+            obs_phs.append(tf.placeholder(
+                dtype=tf.float32,
+                shape=[None, self.policy.obs_dim],
+                name='obs' + prefix + '_' + str(i)
+            ))
+            action_phs.append(tf.placeholder(
+                dtype=tf.float32,
+                shape=[None, self.policy.action_dim],
+                name='action' + prefix + '_' + str(i),
+            ))
+            adv_phs.append(tf.placeholder(
+                dtype=tf.float32,
+                shape=[None],
+                name='advantage' + prefix + '_' + str(i),
+            ))
+            dist_info_phs.append({k: tf.placeholder(
+                dtype=tf.float32,
+                shape=[None] + list(shape), name='%s%s_%i' % (k, prefix, i))
+                for k, shape in dist_info_specs
+            })
+            dist_info_phs_list.append([dist_info_phs[-1][k] for k, _ in dist_info_specs])
 
         all_phs = obs_phs + action_phs + adv_phs + list(sum(list(zip(*dist_info_phs_list)), ()))
         return obs_phs, action_phs, adv_phs, dist_info_phs, all_phs
@@ -180,11 +177,13 @@ class MAMLAlgo(MetaAlgo):
             (dict):  dict of tf.Tensors for adapted policy params
         """
         # TODO: Fix this if we want to learn the learning rate (it isn't supported right now).
-        update_param_keys = params_var.keys()
+        update_param_keys = list(params_var.keys())
 
         grads = tf.gradients(surr_obj, [params_var[key] for key in update_param_keys])
         gradients = dict(zip(update_param_keys, grads))
+        self.grads.append(grads) #TODO remove
 
+        # gradient descent
         adapted_policy_params = [params_var[key] - tf.multiply(self.step_sizes[key], gradients[key])
                           for key in update_param_keys]
 
@@ -207,13 +206,12 @@ class MAMLAlgo(MetaAlgo):
         sess = tf.get_default_session()
 
         # prepare feed dict
-        input_list = self._extract_input_list([samples], self._optimization_keys) #TODO make sure that this works
         num_tasks = len(samples)
         assert num_tasks == self.meta_batch_size
         input_list = self._extract_input_list([samples], self._optimization_keys)
 
         feed_dict_inputs = list(zip(self.adapt_input_list_ph, input_list))
-        feed_dict_params = list((self.policy.policies_params_ph[i][key], self.policy.policies_params_vals[i][key])
+        feed_dict_params = list((self.policy.policies_params_phs[i][key], self.policy.policies_params_vals[i][key])
                                 for i in range(self.meta_batch_size) for key in self.policy.policy_params_keys)
 
         feed_dict = dict(feed_dict_inputs + feed_dict_params)

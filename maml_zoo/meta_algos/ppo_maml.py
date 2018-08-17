@@ -3,7 +3,6 @@ import numpy as np
 from maml_zoo.logger import logger
 from maml_zoo.meta_algos.base import MAMLAlgo
 from maml_zoo.optimizers.maml_first_order_optimizer import MAMLPPOOptimizer
-
 class MAMLPPO(MAMLAlgo):
     """
     Algorithm for PPO MAML
@@ -26,12 +25,11 @@ class MAMLPPO(MAMLAlgo):
         adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
         anneal_factor (float) : multiplicative factor for clip_eps, updated every iteration
         entropy_bonus (float) : scaling factor for policy entropy
-
     """
     def __init__(
             self,
             learning_rate,
-            max_epochs,
+            max_epochs, #TODO: does this make sense?
             num_minibatches,
             *args,
             clip_eps=0.2, 
@@ -43,6 +41,7 @@ class MAMLPPO(MAMLAlgo):
             adaptive_outer_kl_penalty=True,
             adaptive_inner_kl_penalty=True,
             anneal_factor=1.0,
+            trainable_inner_step_size=False,
             name="ppo_maml",
             **kwargs
             ):
@@ -62,6 +61,7 @@ class MAMLPPO(MAMLAlgo):
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']
         self.name = name
         self.kl_coeff = [init_inner_kl_penalty] * self.meta_batch_size * self.num_inner_grad_steps
+        self.trainable_inner_step_size = trainable_inner_step_size
         self.step_sizes = None
 
         self.build_graph()
@@ -81,15 +81,29 @@ class MAMLPPO(MAMLAlgo):
         """
         adapted_policies_params = []
 
-        for i in range(self.meta_batch_size):
-            # inner surrogate objective
-            likelihood_ratio_adapt = self.policy.likelihood_ratio_sym(obs_phs[i], action_phs[i],
-                                                                      dist_info_phs[i], self.policies_params_ph[i])
-            surr_obj_adapt = -tf.reduce_mean(likelihood_ratio_adapt * adv_phs[i])
+        self.lrs = [] #TODO remove
+        self.advs = []
+        self.grads = []
+        self.params_vars = []
 
-            # get tf operation for adapted (post-update) policy
-            adapted_policy_param = self.adapt_sym(surr_obj_adapt, self.policies_params_ph[i])
-            adapted_policies_params.append(adapted_policy_param)
+        for i in range(self.meta_batch_size):
+            with tf.variable_scope("adapt_task_%i"%i):
+                with tf.variable_scope("adapt_objective"):
+                    # inner surrogate objective
+                    with tf.variable_scope("likelihood_ratio"):
+                        likelihood_ratio_adapt = self.policy.likelihood_ratio_sym(obs_phs[i], action_phs[i],
+                                                                              dist_info_phs[i], self.policy.policies_params_phs[i])
+                    with tf.variable_scope("surrogate_loss"):
+                        surr_obj_adapt = -tf.reduce_mean(likelihood_ratio_adapt * adv_phs[i])
+
+                self.lrs.append(likelihood_ratio_adapt) #TODO remove
+                self.advs.append(adv_phs)
+                self.params_vars.append(self.policy.policies_params_phs[i])
+
+                # get tf operation for adapted (post-update) policy
+                with tf.variable_scope("adapt_step"):
+                    adapted_policy_param = self.adapt_sym(surr_obj_adapt, self.policy.policies_params_phs[i])
+                adapted_policies_params.append(adapted_policy_param)
 
         return adapted_policies_params
 
@@ -111,92 +125,94 @@ class MAMLPPO(MAMLAlgo):
         """
 
         """ Create Variables """
-        step_sizes, inner_kl_coeffs, anneal_ph, outer_kl_coeffs = self._create_opt_variables(scope=self.name)
+        #TODO: check why we have an multiple inner kl coefs
+        with tf.variable_scope(self.name):
+            step_sizes, inner_kl_coeffs, anneal_ph, outer_kl_coeffs = self._create_opt_variables()
 
-        kl_coeffs = inner_kl_coeffs + outer_kl_coeffs
-        self.step_sizes = step_sizes
+            kl_coeffs = inner_kl_coeffs + outer_kl_coeffs # TODO sth is wrong here
+            self.step_sizes = step_sizes
 
-        """ Prepare some stuff """
-        obs_phs, action_phs, adv_phs, dist_info_phs, all_phs = self.make_input_placeholders('init', scope=self.name)
-        all_surr_objs, all_inputs, all_entropies, all_inner_kls = [], [], [], []
-        distribution_info_vars, current_policy_params = [], []
-        all_inputs = all_phs
-                # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
+            """ Prepare some stuff """
+            obs_phs, action_phs, adv_phs, dist_info_phs, all_phs = self.make_input_placeholders('_adapt')
+            all_surr_objs, all_inputs, all_entropies, all_inner_kls = [], [], [], []
+            distribution_info_vars, current_policy_params = [], []
 
-        """ --- Build inner update graph for adapting the policy and sampling trajectories --- """
-        # this graph is only used for adapting the policy and not computing the meta-updates
+            """ --- Build inner update graph for adapting the policy and sampling trajectories --- """
+            # this graph is only used for adapting the policy and not computing the meta-updates
 
-        self.adapted_policies_params = self._build_inner_adaption(obs_phs, action_phs, adv_phs, dist_info_phs)
-        self.adapt_input_list_ph = all_phs
-        """ ----- Build graph for the meta-update ----- """
+            self.adapted_policies_params = self._build_inner_adaption(obs_phs, action_phs, adv_phs, dist_info_phs)
+            self.adapt_input_list_ph = all_phs
 
-        for i in range(self.meta_batch_size):
-            # Train
-            dist_info_var = self.policy.distribution_info_sym(obs_phs[i], params=None)
-            distribution_info_vars.append(dist_info_var)
-            current_policy_params.append(self.policy_params)
-
-        """ Inner updates"""
-        for j in range(self.num_inner_grad_steps):
-            surr_objs, entropies, kls = [], [], []
-            adapted_policy_params = []
-            adapted_policy_dist_info_vars = []
-            # Create objective for gradient step
-            for i in range(self.meta_batch_size):
-                output_inner_build = self._build_inner_objective(obs_phs[i], action_phs[i],
-                                                                 adv_phs[i], dist_info_phs[i],
-                                                                 distribution_info_vars[i], current_policy_params[i])
-
-                kl_loss, entropy, surr_loss, dist_info_var, adapted_params_var = output_inner_build
-
-                adapted_policy_dist_info_vars.append(dist_info_var)
-                adapted_policy_params.append(adapted_params_var)
-                entropies.append(entropy)
-                kls.append(kl_loss)
-                surr_objs.append(surr_loss)
-
-            all_surr_objs.append(surr_objs)
-            all_entropies.append(entropies)
-            all_inner_kls.append(kls)
-
-            # Update graph for next gradient step
-            obs_phs, action_phs, adv_phs, dist_info_phs, all_phs = self.make_input_placeholders(str(j), scope=self.name)
-
-            current_policy_params = adapted_policy_params
-            distribution_info_vars = adapted_policy_dist_info_vars
-
-            all_inputs += all_phs # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
-
-        """ Outer objective """
-        surr_objs = []
-        outer_kls = []
-
-        for i in range(self.meta_batch_size):
-            all_inner_kls_i = [all_inner_kls[j][i] for j in range(self.num_inner_grad_steps)] # Todo: make this cleaner
-            inner_kl_coeffs_i = [inner_kl_coeffs[j][i] for j in range(self.num_inner_grad_steps)]
-            all_entropies_i = [all_entropies[j][i] for j in range(self.num_inner_grad_steps)]
-            surr_obj, outer_kl = self._build_outer_objective(all_inner_kls_i, inner_kl_coeffs_i, all_entropies_i,
-                                                             action_phs[i], adv_phs[i], dist_info_phs[i],
-                                                             distribution_info_vars[i], anneal_ph, outer_kl_coeffs[i])
-
-            surr_objs.append(surr_obj)
-            outer_kls.append(outer_kl)
-
-        """ Sum over meta tasks """
-        meta_objective = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)
-
-        kl_coeffs = sum(kl_coeffs, [])
-        extra_inputs = kl_coeffs + [anneal_ph]
-        input_list = all_inputs
-
-        self.optimizer.build_graph(
-            loss=meta_objective,
-            target=self.policy,
-            inputs=input_list,
-            extra_inputs=extra_inputs,
-            inner_kl=all_inner_kls,
-            outer_kl=outer_kls,
-        )
+            # """ ----- Build graph for the meta-update ----- """
+            # all_inputs = all_phs  # [obs_phs, action_phs, adv_phs, dist_info1_ph, dist_info2_ph, ...]
+            #
+            # for i in range(self.meta_batch_size):
+            #     # Train
+            #     dist_info_var = self.policy.distribution_info_sym(obs_phs[i], params=None)
+            #     distribution_info_vars.append(dist_info_var)
+            #     current_policy_params.append(self.policy_params)
+            #
+            # """ Inner updates"""
+            # for j in range(self.num_inner_grad_steps):
+            #     surr_objs, entropies, kls = [], [], []
+            #     adapted_policy_params = []
+            #     adapted_policy_dist_info_vars = []
+            #     # Create objective for gradient step
+            #     for i in range(self.meta_batch_size):
+            #         output_inner_build = self._build_inner_objective(obs_phs[i], action_phs[i],
+            #                                                          adv_phs[i], dist_info_phs[i],
+            #                                                          distribution_info_vars[i], current_policy_params[i])
+            #
+            #         kl_loss, entropy, surr_loss, dist_info_var, adapted_params_var = output_inner_build
+            #
+            #         adapted_policy_dist_info_vars.append(dist_info_var)
+            #         adapted_policy_params.append(adapted_params_var)
+            #         entropies.append(entropy)
+            #         kls.append(kl_loss)
+            #         surr_objs.append(surr_loss)
+            #
+            #     all_surr_objs.append(surr_objs)
+            #     all_entropies.append(entropies)
+            #     all_inner_kls.append(kls)
+            #
+            #     # Update graph for next gradient step
+            #     obs_phs, action_phs, adv_phs, dist_info_phs, all_phs = self.make_input_placeholders(str(j), scope=self.name)
+            #
+            #     current_policy_params = adapted_policy_params
+            #     distribution_info_vars = adapted_policy_dist_info_vars
+            #
+            #     all_inputs += all_phs # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
+            #
+            # """ Outer objective """
+            # surr_objs = []
+            # outer_kls = []
+            #
+            # for i in range(self.meta_batch_size):
+            #     all_inner_kls_i = [all_inner_kls[j][i] for j in range(self.num_inner_grad_steps)] # Todo: make this cleaner
+            #     inner_kl_coeffs_i = [inner_kl_coeffs[j][i] for j in range(self.num_inner_grad_steps)]
+            #     all_entropies_i = [all_entropies[j][i] for j in range(self.num_inner_grad_steps)]
+            #     surr_obj, outer_kl = self._build_outer_objective(all_inner_kls_i, inner_kl_coeffs_i, all_entropies_i,
+            #                                                      action_phs[i], adv_phs[i], dist_info_phs[i],
+            #                                                      distribution_info_vars[i], anneal_ph, outer_kl_coeffs[i])
+            #
+            #     surr_objs.append(surr_obj)
+            #     outer_kls.append(outer_kl)
+            #
+            # """ Sum over meta tasks """
+            # meta_objective = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)
+            #
+            # kl_coeffs = sum(kl_coeffs, [])
+            # extra_inputs = kl_coeffs + [anneal_ph]
+            # input_list = all_inputs
+            #
+            # self.optimizer.build_graph(
+            #     loss=meta_objective,
+            #     target=self.policy,
+            #     inputs=input_list,
+            #     extra_inputs=extra_inputs,
+            #     inner_kl=all_inner_kls,
+            #     outer_kl=outer_kls,
+            # )
 
     def optimize_policy(self, all_samples_data, log=True):
         """
@@ -296,30 +312,27 @@ class MAMLPPO(MAMLAlgo):
             elif kl > kl_target * 1.5:
                 kl_params[i] *= 2
 
-    def _create_opt_variables(self, scope):
-        with tf.variable_scope(scope):
-            # TODO: Make the option of having a trainable step size
-            # Step sizes
+    def _create_opt_variables(self):
+        # Step sizes
+        with tf.variable_scope('inner_step_sizes'):
             step_sizes = dict()
-            for key, param in self.policy_params.items():
+            for key, param in self.policy.policy_params.items():
                 shape = param.get_shape().as_list()
                 init_stepsize = np.ones(shape, dtype=np.float32) * self.inner_lr
                 step_sizes[key] = tf.Variable(initial_value=init_stepsize,
                                               name='%s_step_size' % key,
-                                              dtype=tf.float32)
-            # Inner KL coeffs
-            inner_kl_coeffs = [list(tf.placeholder(tf.float32, shape=[], name='kl_%s_%s' % (j, i))
-                                    for i in range(self.meta_batch_size))
-                               for j in range(self.num_inner_grad_steps)]
+                                              dtype=tf.float32, trainable=self.trainable_inner_step_size)
+        # Inner KL coeffs
+        inner_kl_coeffs = [tf.placeholder(tf.float32, shape=[], name='kl_coef_%i'%j) for j in range(self.num_inner_grad_steps)]
 
-            # Annealing ph
-            anneal_ph = tf.placeholder(tf.float32, shape=[], name='clip_ph')
+        # Annealing ph
+        anneal_ph = tf.placeholder(tf.float32, shape=[], name='clip_ph')
 
-            # Outer KL coeffs
-            outer_kl_coeffs = [list() for _ in range(self.meta_batch_size)]
-            if not self.clip_outer:
-                outer_kl_coeffs = [tf.placeholder(tf.float32, shape=[], name='kl_outer_%s' % i)
-                                   for i in range(self.meta_batch_size)]
+        # Outer KL coeffs
+        outer_kl_coeffs = [list() for _ in range(self.meta_batch_size)]
+        if not self.clip_outer:
+            outer_kl_coeffs = [tf.placeholder(tf.float32, shape=[], name='kl_outer_%s' % i)
+                               for i in range(self.meta_batch_size)]
 
         return step_sizes, inner_kl_coeffs, anneal_ph, outer_kl_coeffs
 
