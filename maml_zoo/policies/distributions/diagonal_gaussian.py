@@ -80,8 +80,10 @@ class DiagonalGaussian(Distribution):
         Returns:
             (tf.Tensor): likelihood ratio
         """
-        logli_new = self.log_likelihood_sym(x_var, new_dist_info_vars)
-        logli_old = self.log_likelihood_sym(x_var, old_dist_info_vars)
+        with tf.variable_scope("log_li_new"):
+            logli_new = self.log_likelihood_sym(x_var, new_dist_info_vars)
+        with tf.variable_scope("log_li_old"):
+            logli_old = self.log_likelihood_sym(x_var, old_dist_info_vars)
         return tf.exp(logli_new - logli_old)
 
     def log_likelihood_sym(self, x_var, dist_info_vars):

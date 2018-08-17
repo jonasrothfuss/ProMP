@@ -152,6 +152,42 @@ class MAMLAlgo(MetaAlgo):
 
         return obs_phs, action_phs, adv_phs, dist_info_phs, all_phs_dict
 
+    def adapt_objective_sym(self, action_sym, adv_sym, dist_info_old_sym, dist_info_new_sym):
+        raise NotImplementedError
+
+    def _build_inner_adaption(self):
+        """
+        Creates the symbolic graph for the one-step inner gradient update (It'll be called several times if
+        more gradient steps are needed)
+
+        Args:
+            some placeholders
+
+        Returns:
+            adapted_policies_params (list): list of Ordered Dict containing the symbolic post-update parameters
+            adapt_input_list_ph (list): list of placeholders
+
+        """
+        obs_phs, action_phs, adv_phs, dist_info_old_phs, adapt_input_ph_dict = self.make_input_placeholders('adapt')
+
+        adapted_policies_params = []
+
+        for i in range(self.meta_batch_size):
+            with tf.variable_scope("adapt_task_%i"%i):
+                with tf.variable_scope("adapt_objective"):
+                    distribution_info_new = self.policy.distribution_info_sym(obs_phs[i], params=self.policy.policies_params_phs[i])
+
+                    # inner surrogate objective
+                    surr_obj_adapt = self.adapt_objective_sym(action_phs[i], adv_phs[i],
+                                                              dist_info_old_phs[i], distribution_info_new)
+
+                # get tf operation for adapted (post-update) policy
+                with tf.variable_scope("adapt_step"):
+                    adapted_policy_param = self.adapt_sym(surr_obj_adapt, self.policy.policies_params_phs[i])
+                adapted_policies_params.append(adapted_policy_param)
+
+        return adapted_policies_params, adapt_input_ph_dict
+
     def adapt_sym(self, surr_obj, params_var):
         """
         Creates the symbolic representation of the tf policy after one gradient step towards the surr_obj
@@ -168,7 +204,6 @@ class MAMLAlgo(MetaAlgo):
 
         grads = tf.gradients(surr_obj, [params_var[key] for key in update_param_keys])
         gradients = dict(zip(update_param_keys, grads))
-        self.grads.append(grads) #TODO remove
 
         # gradient descent
         adapted_policy_params = [params_var[key] - tf.multiply(self.step_sizes[key], gradients[key])
