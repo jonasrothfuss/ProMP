@@ -220,6 +220,8 @@ class MetaPolicy(Policy):
         super(MetaPolicy, self).__init__(*args, **kwargs)
         self._pre_update_mode = True
         self.policies_params_vals = None
+        self.policies_params_phs = None
+        self.meta_batch_size = None
 
     def build_graph(self):
         """
@@ -271,5 +273,14 @@ class MetaPolicy(Policy):
             var_name = remove_scope_from_name(var.name, scope.split('/')[0])
             placeholders.append((var_name, tf.placeholder(tf.float32, shape=var.shape, name="%s_ph" % var_name)))
         return OrderedDict(placeholders)
+
+    @property
+    def policies_params_feed_dict(self):
+        """
+            returns fully prepared feed dict for feeding the currently saved policy parameter values
+            into the lightweght policy graph
+        """
+        return dict(list((self.policies_params_phs[i][key], self.policies_params_vals[i][key])
+                  for i in range(self.meta_batch_size) for key in self.policy_params_keys))
 
 

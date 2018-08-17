@@ -81,10 +81,6 @@ class MAMLPPO(MAMLAlgo):
         """
         adapted_policies_params = []
 
-        self.lrs = [] #TODO remove
-        self.advs = []
-        self.grads = []
-        self.params_vars = []
 
         for i in range(self.meta_batch_size):
             with tf.variable_scope("adapt_task_%i"%i):
@@ -92,13 +88,9 @@ class MAMLPPO(MAMLAlgo):
                     # inner surrogate objective
                     with tf.variable_scope("likelihood_ratio"):
                         likelihood_ratio_adapt = self.policy.likelihood_ratio_sym(obs_phs[i], action_phs[i],
-                                                                              dist_info_phs[i], self.policy.policies_params_phs[i])
+                                                                                  dist_info_phs[i], self.policy.policies_params_phs[i])
                     with tf.variable_scope("surrogate_loss"):
                         surr_obj_adapt = -tf.reduce_mean(likelihood_ratio_adapt * adv_phs[i])
-
-                self.lrs.append(likelihood_ratio_adapt) #TODO remove
-                self.advs.append(adv_phs)
-                self.params_vars.append(self.policy.policies_params_phs[i])
 
                 # get tf operation for adapted (post-update) policy
                 with tf.variable_scope("adapt_step"):
@@ -133,7 +125,7 @@ class MAMLPPO(MAMLAlgo):
             self.step_sizes = step_sizes
 
             """ Prepare some stuff """
-            obs_phs, action_phs, adv_phs, dist_info_phs, all_phs = self.make_input_placeholders('_adapt')
+            obs_phs, action_phs, adv_phs, dist_info_phs, all_phs_dict = self.make_input_placeholders('adapt')
             all_surr_objs, all_inputs, all_entropies, all_inner_kls = [], [], [], []
             distribution_info_vars, current_policy_params = [], []
 
@@ -141,7 +133,7 @@ class MAMLPPO(MAMLAlgo):
             # this graph is only used for adapting the policy and not computing the meta-updates
 
             self.adapted_policies_params = self._build_inner_adaption(obs_phs, action_phs, adv_phs, dist_info_phs)
-            self.adapt_input_list_ph = all_phs
+            self.adapt_input_ph_dict = all_phs_dict
 
             # """ ----- Build graph for the meta-update ----- """
             # all_inputs = all_phs  # [obs_phs, action_phs, adv_phs, dist_info1_ph, dist_info2_ph, ...]
