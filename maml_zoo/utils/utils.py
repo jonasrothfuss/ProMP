@@ -145,3 +145,20 @@ def flatten_first_dimension(array):
     Flattens an array of size [a x b x c ...] to [(a*b) x c x ...]
     Used for 
     """
+
+def create_feed_dict(placeholder_dict, value_dict):
+    """
+    matches the placeholders with their values given a placeholder and value_dict.
+    The keys in both dicts must match
+
+    Args:
+        placeholder_dict (dict): dict of placeholders
+        value_dict (dict): dict of values to be fed to the placeholders
+
+    Returns: feed dict
+
+    """
+    assert set(placeholder_dict.keys()) <= set(value_dict.keys()), \
+        "value dict must provide the necessary data to serve all placeholders in placeholder_dict"
+    # match the placeholders with their values
+    return dict([(placeholder_dict[key], value_dict[key]) for key in placeholder_dict.keys()])

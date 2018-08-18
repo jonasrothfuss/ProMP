@@ -2,7 +2,6 @@ from maml_zoo.logger import logger
 from maml_zoo.optimizers.base import Optimizer
 import tensorflow as tf
 
-
 class MAMLFirstOrderOptimizer(Optimizer):
     """
     Optimizer for first order methods (SGD, Adam)
@@ -44,81 +43,76 @@ class MAMLFirstOrderOptimizer(Optimizer):
         self._all_inputs = None
         self._train_op = None
         self._loss = None
+        self._input_ph_dict = None
         
-    def build_graph(self, loss, target, inputs, extra_inputs=[], **kwargs):
-        # TODO: Can we get rid of the extra_inputs?? And just have them for the auxiliary objectives
-        # and not for the main loss
+    def build_graph(self, loss, target, input_ph_dict):
         """
         Sets the objective function and target weights for the optimize function
 
         Args:
             loss (tf_op) : minimization objective
             target (Policy) : Policy whose values we are optimizing over
-            inputs (list) : list of tf.placeholders for input data
-            extra_inputs (list) : list of tf.placeholders for hyperparameters (e.g. learning rate, if annealed)
+            input_ph_dict (dict) : dict containing the placeholders of the computation graph corresponding to loss
         """
-        assert isinstance(inputs, list)
-        assert isinstance(extra_inputs, list)
+        assert isinstance(loss, tf.Tensor)
+        assert hasattr(target, 'get_params')
+        assert isinstance(input_ph_dict, dict)
 
         self._target = target
-        self._train_op = self._tf_optimizer.minimize(loss, var_list=target.get_params())
-        self._all_inputs = inputs + extra_inputs
+        self._input_ph_dict = input_ph_dict
         self._loss = loss
+        self._train_op = self._tf_optimizer.minimize(loss, var_list=target.get_params())
 
-    def loss(self, inputs, extra_inputs=[]):
+    def loss(self, input_val_dict):
         """
         Computes the value of the loss for given inputs
 
         Args:
-            inputs (list): inputs needed to compute the loss function
-            extra_inputs (list): additional inputs needed to compute the loss function
+            input_val_dict (dict): dict containing the values to be fed into the computation graph
 
         Returns:
             (float): value of the loss
 
         """
-        assert isinstance(inputs, list)
-        assert isinstance(extra_inputs, list)
-
         sess = tf.get_default_session()
-        loss = sess.run(self._loss, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+        feed_dict = self.create_feed_dict(input_val_dict)
+        loss = sess.run(self._loss, feed_dict=feed_dict)
         return loss
 
-    def optimize(self, inputs, extra_inputs=[]):
+    def optimize(self, input_val_dict):
         """
         Carries out the optimization step
 
         Args:
-            inputs (list): inputs for the optimization
-            extra_inputs (list): extra inputs for the optimization
+            input_val_dict (dict): dict containing the values to be fed into the computation graph
+
+        Returns:
+            (float) loss before optimization
 
         """
-        assert isinstance(inputs, list)
-        assert isinstance(extra_inputs, list)
 
         sess = tf.get_default_session()
-
-        last_loss = sess.run(self._loss, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+        feed_dict = self.create_feed_dict(input_val_dict)
 
         # Overload self._batch size
         # dataset = MAMLBatchDataset(inputs, num_batches=self._batch_size, extra_inputs=extra_inputs, meta_batch_size=self.meta_batch_size, num_grad_updates=self.num_grad_updates)
         # Todo: reimplement minibatches
-        all_inputs = inputs + extra_inputs
 
+        loss_before_opt = None
         for epoch in range(self._max_epochs):
             if self._verbose:
                 logger.log("Epoch %d" % epoch)
 
-            sess.run(self._train_op, dict(list(zip(self._all_inputs, all_inputs))))
-                
-            new_loss = tf.get_default_session().run(self._loss, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+            loss, _ = sess.run([self._loss, self._train_op], feed_dict)
+            if not loss_before_opt: initial_loss = loss
 
-            if self._verbose:
-                logger.log("Epoch: %d | Loss: %f" % (epoch, new_loss))
-
-            if abs(last_loss - new_loss) < self._tolerance:
-                break
-            last_loss = new_loss
+            # if self._verbose:
+            #     logger.log("Epoch: %d | Loss: %f" % (epoch, new_loss))
+            #
+            # if abs(last_loss - new_loss) < self._tolerance:
+            #     break
+            # last_loss = new_loss
+        return loss_before_opt
 
 
 class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
@@ -132,57 +126,41 @@ class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
         self._inner_kl = None
         self._outer_kl = None
 
-    def build_graph(self, loss, target, inputs, inner_kl=None, outer_kl=None, extra_inputs=[], **kwargs):
+    def build_graph(self, loss, target, input_ph_dict, inner_kl=None, outer_kl=None):
         """
         Sets the objective function and target weights for the optimize function
 
         Args:
-            loss (tf_op) : minimization objective
+            loss (tf.Tensor) : minimization objective
             target (Policy) : Policy whose values we are optimizing over
-            inputs (list) : list of tf.placeholders for input data
+            input_ph_dict (dict) : dict containing the placeholders of the computation graph corresponding to loss
             inner_kl (list): list with the inner kl loss for each task
             outer_kl (list): list with the outer kl loss for each task
-            extra_inputs (list) : list of tf.placeholders for hyperparameters (e.g. learning rate, if annealed)
         """
-        super(MAMLPPOOptimizer, self).build_graph(loss, target, inputs, extra_inputs)
+        super(MAMLPPOOptimizer, self).build_graph(loss, target, input_ph_dict)
         assert inner_kl is not None
 
         self._inner_kl = inner_kl
         self._outer_kl = outer_kl
 
-    def inner_kl(self, inputs, extra_inputs=[]):
+    def compute_stats(self, input_val_dict):
         """
-        Computes the value of the KL-divergence between pre-update policies for given inputs
+        Computes the value the loss, the outer KL and the inner KL-divergence between the current policy and the
+        provided dist_info_data
 
         Args:
-            inputs (list): inputs needed to compute the inner KL
-            extra_inputs (list): additional inputs needed to compute the inner KL
+           inputs (list): inputs needed to compute the inner KL
+           extra_inputs (list): additional inputs needed to compute the inner KL
 
         Returns:
-            (float): value of the loss
+           (float): value of the loss
+           (ndarray): inner kls - numpy array of shape (num_inner_grad_steps,)
+           (float): outer_kl
         """
-        assert isinstance(inputs, list)
-        assert isinstance(extra_inputs, list)
-
         sess = tf.get_default_session()
-        inner_kl = sess.run(self._inner_kl, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
-        return inner_kl
+        feed_dict = self.create_feed_dict(input_val_dict)
+        loss, inner_kl, outer_kl = sess.run([self._loss, self._inner_kl, self._outer_kl], feed_dict=feed_dict)
+        return loss, inner_kl, outer_kl
 
-    def outer_kl(self, inputs, extra_inputs=[]):
-        """
-        Computes the value of the KL-divergence between post-update policies for given inputs
 
-        Args:
-            inputs (list): inputs needed to compute the outer KL
-            extra_inputs (list): additional inputs needed to compute the outer KL
-
-        Returns:
-            (float): value of the loss
-        """
-        assert isinstance(inputs, list)
-        assert isinstance(extra_inputs, list)
-
-        sess = tf.get_default_session()
-        outer_kl = sess.run(self._outer_kl, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
-        return outer_kl
 

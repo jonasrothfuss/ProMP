@@ -1,40 +1,42 @@
+from maml_zoo import utils
+
 class Optimizer(object):
     def __init__(self):
         pass
 
-    def build_graph(self, loss, target, inputs, extra_inputs=()):
+    def build_graph(self, loss, target, input_ph_dict):
         """
         Sets the objective function and target weights for the optimize function
         
         Args:
             loss (tf_op) : minimization objective
             target (Policy) : Policy whose values we are optimizing over
-            inputs (tuple) : tuple of tf.placeholders for input data
-            extra_inputs (tuple) : tuple of tf.placeholders for hyperparameters (e.g. learning rate, if annealed)
+            input_ph_dict (dict) : dict containing the placeholders of the computation graph corresponding to loss
         """
         raise NotImplementedError
 
-    def optimize(self, inputs, extra_inputs):
+    def optimize(self, input_val_dict):
         """
         Carries out the optimization step
 
         Args:
-            inputs (tuple): inputs for the optimization
-            extra_inputs (tuple): extra inputs for the optimization
+            input_val_dict (dict): dict containing the values to be fed into the computation graph
 
         """
         raise NotImplementedError
 
-    def loss(self, inputs, extra_inputs):
+    def loss(self, input_val_dict):
         """
         Computes the value of the loss for given inputs
 
         Args:
-            inputs (tuple): inputs needed to compute the loss function
-            extra_inputs (tuple): additional inputs needed to compute the loss function
+            input_val_dict (dict): dict containing the values to be fed into the computation graph
 
         Returns:
             (float): value of the loss
 
         """
         raise NotImplementedError
+
+    def create_feed_dict(self, input_val_dict):
+        utils.create_feed_dict(placeholder_dict=self._input_ph_dict, value_dict=input_val_dict)
