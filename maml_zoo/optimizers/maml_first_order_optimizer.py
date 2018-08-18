@@ -104,7 +104,7 @@ class MAMLFirstOrderOptimizer(Optimizer):
                 logger.log("Epoch %d" % epoch)
 
             loss, _ = sess.run([self._loss, self._train_op], feed_dict)
-            if not loss_before_opt: initial_loss = loss
+            if not loss_before_opt: loss_before_opt = loss
 
             # if self._verbose:
             #     logger.log("Epoch: %d | Loss: %f" % (epoch, new_loss))

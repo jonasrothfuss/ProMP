@@ -1,8 +1,10 @@
-import tensorflow as tf
-import numpy as np
 from maml_zoo.logger import logger
 from maml_zoo.meta_algos.base import MAMLAlgo
 from maml_zoo.optimizers.maml_first_order_optimizer import MAMLPPOOptimizer
+from maml_zoo import utils
+
+import tensorflow as tf
+import numpy as np
 from collections import OrderedDict
 
 class MAMLPPO(MAMLAlgo):
@@ -56,8 +58,8 @@ class MAMLPPO(MAMLAlgo):
         self.target_inner_step = target_inner_step
         self.adaptive_outer_kl_penalty = adaptive_outer_kl_penalty
         self.adaptive_inner_kl_penalty = adaptive_inner_kl_penalty
-        self.inner_kl_coeff = [init_inner_kl_penalty] * self.meta_batch_size * self.num_inner_grad_steps
-        self.outer_kl_coeff = [init_outer_kl_penalty] * self.meta_batch_size
+        self.inner_kl_coeff = init_inner_kl_penalty * np.ones(self.num_inner_grad_steps)
+        self.outer_kl_coeff = init_outer_kl_penalty
         self.anneal_coeff = 1
         self.anneal_factor = anneal_factor
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']
@@ -100,14 +102,13 @@ class MAMLPPO(MAMLAlgo):
             # this graph is only used for adapting the policy and not computing the meta-updates
             self.adapted_policies_params, self.adapt_input_ph_dict = self._build_inner_adaption()
 
-        """ ----- Build graph for the meta-update ----- """
-        self.meta_op_phs_dict = OrderedDict()
-        obs_phs, action_phs, adv_phs, dist_info_old_phs, all_phs_dict = self.make_input_placeholders('step0')
-        self.meta_op_phs_dict.update(all_phs_dict)
+            """ ----- Build graph for the meta-update ----- """
+            self.meta_op_phs_dict = OrderedDict()
+            obs_phs, action_phs, adv_phs, dist_info_old_phs, all_phs_dict = self.make_input_placeholders('step0')
+            self.meta_op_phs_dict.update(all_phs_dict)
 
-        distribution_info_vars, current_policy_params = [], []
-        all_surr_objs, all_inner_kls = [], []
-
+            distribution_info_vars, current_policy_params = [], []
+            all_surr_objs, all_inner_kls = [], []
 
         for i in range(self.meta_batch_size):
             dist_info_sym = self.policy.distribution_info_sym(obs_phs[i], params=None)
@@ -134,7 +135,7 @@ class MAMLPPO(MAMLAlgo):
                 all_inner_kls.append(kls)
 
                 # Create new placeholders for the next step
-                obs_phs, action_phs, adv_phs, dist_info_phs, all_phs = self.make_input_placeholders('step%i'%(step_id))
+                obs_phs, action_phs, adv_phs, dist_info_phs, all_phs_dict = self.make_input_placeholders('step%i'%(step_id))
                 self.meta_op_phs_dict.update(all_phs_dict)
 
                 # dist_info_vars_for_next_step
@@ -143,7 +144,7 @@ class MAMLPPO(MAMLAlgo):
                 current_policy_params = adapted_policy_params
 
             # per step: compute mean of kls over tasks
-            mean_kl_per_step = tf.stack([tf.reduce_mean(tf.stack(inner_kls)) for inner_kls in all_inner_kls])
+            mean_inner_kl_per_step = tf.stack([tf.reduce_mean(tf.stack(inner_kls)) for inner_kls in all_inner_kls])
 
             """ Outer objective """
             surr_objs, outer_kls = [], []
@@ -152,50 +153,50 @@ class MAMLPPO(MAMLAlgo):
             inner_kl_coeff = tf.placeholder(tf.float32, shape=[self.num_inner_grad_steps], name='inner_kl_coeff')
             self.meta_op_phs_dict['inner_kl_coeff'] = inner_kl_coeff
 
-            if not self.clip_outer:
+            if self.clip_outer:
                 clip_eps_ph = tf.placeholder(tf.float32, shape=[], name='clip_eps')
                 self.meta_op_phs_dict['clip_eps'] = clip_eps_ph
             else:
                 outer_kl_coeff = tf.placeholder(tf.float32, shape=[], name='outer_kl_coef')
-                self.meta_op_phs_dict['outer_kl_coeff'] = outer_kl_coeff #TODO not sure if we should do that
+                self.meta_op_phs_dict['outer_kl_coeff'] = outer_kl_coeff
 
             # meta-objective
             for i in range(self.meta_batch_size):
                 likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(action_phs[i], dist_info_phs[i],
                                                                                  distribution_info_vars[i])
-                inner_kl_penalty = tf.reduce_mean(inner_kl_coeff * mean_kl_per_step)
+                outer_kl = tf.reduce_mean(self.policy.distribution.kl_sym(dist_info_phs[i], distribution_info_vars[i]))
 
                 if self.clip_outer: # clipped likelihood ratio
                     clipped_obj = tf.minimum(likelihood_ratio * adv_phs[i],
                                              tf.clip_by_value(likelihood_ratio,
                                                               1 - clip_eps_ph,
                                                               1 + clip_eps_ph) * adv_phs[i])
-                    surr_obj = - tf.reduce_mean(clipped_obj) + inner_kl_penalty
+                    surr_obj = - tf.reduce_mean(clipped_obj)
 
                 else: # outer kl penalty
-                    outer_kl = tf.reduce_mean(self.policy.distribution.kl_sym(dist_info_phs[i], distribution_info_vars[i]))
                     outer_kl_penalty = outer_kl_coeff * outer_kl
-                    surr_obj = - tf.reduce_mean(likelihood_ratio * adv_phs[i]) + inner_kl_penalty + outer_kl_penalty
+                    surr_obj = - tf.reduce_mean(likelihood_ratio * adv_phs[i]) + outer_kl_penalty
 
                 surr_objs.append(surr_obj)
                 outer_kls.append(outer_kl)
 
-            """ Sum over meta tasks """
-            meta_objective = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)
+            mean_outer_kl = tf.reduce_mean(tf.stack(outer_kls))
+            inner_kl_penalty = tf.reduce_mean(inner_kl_coeff * mean_inner_kl_per_step)
 
-            input_list = all_inputs #TODO how do tho his with the input list of the optimizer
+            """ Mean over meta tasks """
+            meta_objective = tf.reduce_mean(tf.stack(surr_objs, 0)) + inner_kl_penalty
 
             self.optimizer.build_graph(
                 loss=meta_objective,
                 target=self.policy,
-                inputs=input_list,
-                extra_inputs=extra_inputs,
-                inner_kl=all_inner_kls,
-                outer_kl=outer_kls,
+                input_ph_dict=self.meta_op_phs_dict,
+                inner_kl=mean_inner_kl_per_step,
+                outer_kl=mean_outer_kl,
             )
+
     def optimize_policy(self, all_samples_data, log=True):
         """
-        Performs MAML outer step for each task
+        Performs MAML outer step
 
         Args:
             all_samples_data (list) : list of lists of lists of samples (each is a dict) split by gradient update and
@@ -205,53 +206,42 @@ class MAMLPPO(MAMLAlgo):
         Returns:
             None
         """
-        assert len(all_samples_data) == self.num_inner_grad_steps + 1  # we collected the rollouts to compute the grads and then the test!
+        meta_op_input_dict = self._extract_input_dict_meta_op(all_samples_data, self._optimization_keys)
 
-        input_list = self._extract_input_list(all_samples_data, self._optimization_keys)
-
-        extra_inputs = self.inner_kl_coeff
-        if not self.clip_outer:
-            extra_inputs += self.outer_kl_coeff
-
-        extra_inputs += [self.anneal_coeff]
-        self.anneal_coeff *= self.anneal_factor
-
-        if log: logger.log("Computing loss before")
-        loss_before = self.optimizer.loss(input_list, extra_inputs=extra_inputs)
+        # add kl_coeffs / clip_eps to meta_op_input_dict
+        meta_op_input_dict['inner_kl_coeff'] = self.inner_kl_coeff
+        if self.clip_outer:
+            meta_op_input_dict['clip_eps'] = self.clip_eps
+        else:
+            meta_op_input_dict['outer_kl_coeff'] = self.outer_kl_coeff
 
         if log: logger.log("Optimizing")
-        self.optimizer.optimize(input_list, extra_inputs=extra_inputs)
+        loss_before = self.optimizer.optimize(input_val_dict=meta_op_input_dict)
 
-        if log: logger.log("Computing loss after")
-        loss_after = self.optimizer.loss(input_list, extra_inputs=extra_inputs)
+        if log: logger.log("Computing statistics")
+        loss_after, inner_kls, outer_kl = self.optimizer.compute_stats(input_val_dict=meta_op_input_dict)
 
-        inner_kls = self.optimizer.inner_kl(input_list, extra_inputs=extra_inputs)
         if self.adaptive_inner_kl_penalty:
             if log: logger.log("Updating inner KL loss coefficients")
-            for step_inner_kl_coeff, step_inner_kls in zip(self.inner_kl_coeff, inner_kls):
-                self._adapt_kl_coeff(step_inner_kl_coeff, step_inner_kls, self.target_inner_step)
+            self.inner_kl_coeff = self.adapt_kl_coeff(self.inner_kl_coeff, inner_kls, self.target_inner_step)
 
-        outer_kls = self.optimizer.outer_kl(input_list, extra_inputs=extra_inputs)
         if self.adaptive_outer_kl_penalty:
             if log: logger.log("Updating outer KL loss coefficients")
-            self._adapt_kl_coeff(self.outer_kl_coeff, outer_kls, self.target_outer_step)
+            self.outer_kl_coeff = self.adapt_kl_coeff(self.outer_kl_coeff, outer_kl, self.target_outer_step)
 
         if log:
             logger.logkv('LossBefore', loss_before)
             logger.logkv('LossAfter', loss_after)
-            logger.logkv('dLoss', loss_before - loss_after)
-            logger.logkv('klDiff', np.mean(inner_kls))
-            logger.logkv('klCoeff', np.mean(self.inner_kl_coeff))
-            if not self.clip_outer: logger.logkv('outerklDiff', np.mean(outer_kls))
+            logger.logkv('KLInner', np.mean(inner_kls))
+            logger.logkv('KLCoeffInner', np.mean(self.inner_kl_coeff))
+            if not self.clip_outer: logger.logkv('KLOuter', outer_kl)
 
-
-    def _adapt_kl_coeff(self, kl_params, kl_values, kl_target):
-        for i, kl in enumerate(kl_values):
-            if kl < kl_target/1.5:
-                kl_params[i] /= 2
-
-            elif kl > kl_target * 1.5:
-                kl_params[i] *= 2
+    def adapt_kl_coeff(self, kl_coeff, kl_values, kl_target):
+        if hasattr(kl_values, '__iter__'):
+            assert len(kl_coeff) == len(kl_values)
+            return np.array([_adapt_kl_coeff(kl_coeff[i], kl, kl_target) for i, kl in enumerate(kl_values)])
+        else:
+            return _adapt_kl_coeff(kl_coeff, kl_values, kl_target)
 
     def _create_step_size_vars(self):
         # Step sizes
@@ -265,3 +255,10 @@ class MAMLPPO(MAMLAlgo):
                                               dtype=tf.float32, trainable=self.trainable_inner_step_size)
         return step_sizes
 
+def _adapt_kl_coeff(kl_coeff, kl, kl_target):
+    if kl < kl_target / 1.5:
+        kl_coeff /= 2
+
+    elif kl > kl_target * 1.5:
+        kl_coeff *= 2
+    return kl_coeff

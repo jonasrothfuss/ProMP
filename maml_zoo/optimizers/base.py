@@ -39,4 +39,4 @@ class Optimizer(object):
         raise NotImplementedError
 
     def create_feed_dict(self, input_val_dict):
-        utils.create_feed_dict(placeholder_dict=self._input_ph_dict, value_dict=input_val_dict)
+        return utils.create_feed_dict(placeholder_dict=self._input_ph_dict, value_dict=input_val_dict)

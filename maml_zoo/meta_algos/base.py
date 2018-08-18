@@ -1,8 +1,10 @@
+from maml_zoo import utils
+from maml_zoo.policies.base import Policy
+
+from collections import OrderedDict
 import tensorflow as tf
 import numpy as np
-from maml_zoo.policies.base import Policy
-from collections import OrderedDict
-from maml_zoo.utils.utils import extract
+
 
 class MetaAlgo(object):
     """
@@ -145,7 +147,7 @@ class MAMLAlgo(MetaAlgo):
             # distribution / agent info
             dist_info_ph_dict = {}
             for info_key, shape in dist_info_specs:
-                ph = tf.placeholder(dtype=tf.float32, shape=[None] + list(shape), name='%s%s_%i' % (info_key, prefix, task_id))
+                ph = tf.placeholder(dtype=tf.float32, shape=[None] + list(shape), name='%s_%s_%i' % (info_key, prefix, task_id))
                 all_phs_dict['%s_task%i_agent_infos/%s' % (prefix, task_id, info_key)] = ph
                 dist_info_ph_dict[info_key] = ph
             dist_info_phs.append(dist_info_ph_dict)
@@ -229,7 +231,7 @@ class MAMLAlgo(MetaAlgo):
         input_dict = self._extract_input_dict(samples, self._optimization_keys, prefix='adapt')
         input_ph_dict = self.adapt_input_ph_dict
 
-        feed_dict_inputs = self._create_feed_dict(placeholder_dict=input_ph_dict, value_dict=input_dict)
+        feed_dict_inputs = utils.create_feed_dict(placeholder_dict=input_ph_dict, value_dict=input_dict)
         feed_dict_params = self.policy.policies_params_feed_dict
 
         feed_dict = {**feed_dict_inputs, **feed_dict_params} # merge the two feed dicts
@@ -239,24 +241,6 @@ class MAMLAlgo(MetaAlgo):
 
         # store the new parameter values in the policy
         self.policy.update_task_parameters(adapted_policies_params_vals)
-
-    def _create_feed_dict(self, placeholder_dict, value_dict):
-        """
-        matches the placeholders with their values given a placeholder and value_dict.
-        The keys in both dicts must match
-
-        Args:
-            placeholder_dict (dict): dict of placeholders
-            value_dict (dict): dict of values to be fed to the placeholders
-
-        Returns: feed dict
-
-        """
-        assert set(placeholder_dict.keys()) <= set(value_dict.keys()), \
-            "value dict must provide the necessary data to serve all placeholders in placeholder_dict"
-        # match the placeholders with their values
-        return dict([(placeholder_dict[key], value_dict[key]) for key in placeholder_dict.keys()])
-
 
 
     def _extract_input_dict(self, samples_data_meta_batch, keys, prefix=''):
@@ -278,7 +262,7 @@ class MAMLAlgo(MetaAlgo):
         input_dict = OrderedDict()
 
         for meta_task in range(self.meta_batch_size):
-            extracted_data = extract(
+            extracted_data = utils.extract(
                 samples_data_meta_batch[meta_task], *keys
             )
 
