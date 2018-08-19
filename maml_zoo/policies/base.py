@@ -160,7 +160,6 @@ class Policy(Serializable):
         log_likelihood = self._dist.log_likelihood_sym(action, distribution_info_var)
         return log_likelihood
 
-
     """ --- methods for serialization --- """
 
     def get_params(self):
@@ -200,7 +199,6 @@ class Policy(Serializable):
             feed_dict[assign_placeholder] = var_value
         tf.get_default_session().run(assign_ops, feed_dict=feed_dict)
 
-
     def __getstate__(self):
         state = {
             'init_args': Serializable.__getstate__(self),
@@ -220,6 +218,7 @@ class MetaPolicy(Policy):
         super(MetaPolicy, self).__init__(*args, **kwargs)
         self._pre_update_mode = True
         self.policies_params_vals = None
+        self.policy_params_keys = None
         self.policies_params_phs = None
         self.meta_batch_size = None
 
@@ -235,7 +234,7 @@ class MetaPolicy(Policy):
         """
         self._pre_update_mode = True
         # replicate pre-update policy params meta_batch_size times
-        self.policies_params_vals = [self.get_param_values()] * self.meta_batch_size
+        self.policies_params_vals = [self.get_param_values() for _ in range(self.meta_batch_size)]
 
     def get_actions(self, observations):
         if self._pre_update_mode:
@@ -278,9 +277,9 @@ class MetaPolicy(Policy):
     def policies_params_feed_dict(self):
         """
             returns fully prepared feed dict for feeding the currently saved policy parameter values
-            into the lightweght policy graph
+            into the lightweight policy graph
         """
         return dict(list((self.policies_params_phs[i][key], self.policies_params_vals[i][key])
-                  for i in range(self.meta_batch_size) for key in self.policy_params_keys))
+                         for key in self.policy_params_keys for i in range(self.meta_batch_size)))
 
 

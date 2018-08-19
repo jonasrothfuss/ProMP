@@ -175,9 +175,10 @@ class MAMLAlgo(MetaAlgo):
         adapted_policies_params = []
 
         for i in range(self.meta_batch_size):
-            with tf.variable_scope("adapt_task_%i"%i):
+            with tf.variable_scope("adapt_task_%i" % i):
                 with tf.variable_scope("adapt_objective"):
-                    distribution_info_new = self.policy.distribution_info_sym(obs_phs[i], params=self.policy.policies_params_phs[i])
+                    distribution_info_new = self.policy.distribution_info_sym(obs_phs[i],
+                                                                              params=self.policy.policies_params_phs[i])
 
                     # inner surrogate objective
                     surr_obj_adapt = self.adapt_objective_sym(action_phs[i], adv_phs[i],
@@ -234,7 +235,7 @@ class MAMLAlgo(MetaAlgo):
         feed_dict_inputs = utils.create_feed_dict(placeholder_dict=input_ph_dict, value_dict=input_dict)
         feed_dict_params = self.policy.policies_params_feed_dict
 
-        feed_dict = {**feed_dict_inputs, **feed_dict_params} # merge the two feed dicts
+        feed_dict = {**feed_dict_inputs, **feed_dict_params}  # merge the two feed dicts
 
         # compute the post-update / adapted policy parameters
         adapted_policies_params_vals = sess.run(self.adapted_policies_params, feed_dict=feed_dict)

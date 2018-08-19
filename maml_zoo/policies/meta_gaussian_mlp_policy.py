@@ -18,12 +18,6 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
         self.post_update_mean_var = None
         self.post_update_log_std_var = None
 
-        self.policies_params_phs = None
-        self.policy_params_keys = None
-        self.policies_params_vals = None
-
-        self._pre_update_mode = True
-
         super(MetaGaussianMLPPolicy, self).__init__(*args, **kwargs)
 
     def build_graph(self):
@@ -59,12 +53,12 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
 
                         # forward pass through the mean mpl
                         _, mean_var = forward_mlp(output_dim=self.action_dim,
-                                                hidden_sizes=self.hidden_sizes,
-                                                hidden_nonlinearity=self.hidden_nonlinearity,
-                                                output_nonlinearity=self.output_nonlinearity,
-                                                input_var=obs_var_per_task[idx],
-                                                mlp_params=mean_network_phs,
-                                                )
+                                                  hidden_sizes=self.hidden_sizes,
+                                                  hidden_nonlinearity=self.hidden_nonlinearity,
+                                                  output_nonlinearity=self.output_nonlinearity,
+                                                  input_var=obs_var_per_task[idx],
+                                                  mlp_params=mean_network_phs,
+                                                  )
 
                     with tf.variable_scope("log_std_network"):
                         # create log_stf parameter placeholders
@@ -136,9 +130,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
         assert self.policies_params_vals is not None
         obs_stack = np.concatenate(observations, axis=0)
         feed_dict = {self.obs_var: obs_stack}
-        feed_dict_params = dict([(self.policies_params_phs[idx][key], self.policies_params_vals[idx][key])
-                                for key in self.policy_params_keys for idx in range(self.meta_batch_size)])
-        feed_dict.update(feed_dict_params)
+        feed_dict.update(self.policies_params_feed_dict)
 
         sess = tf.get_default_session()
         actions, means, log_stds = sess.run([self.post_update_action_var,

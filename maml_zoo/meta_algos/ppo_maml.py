@@ -71,6 +71,8 @@ class MAMLPPO(MAMLAlgo):
         self.build_graph()
 
     def adapt_objective_sym(self, action_sym, adv_sym, dist_info_old_sym, dist_info_new_sym):
+        # if step_id > 1:
+        #     import pdb; pdb.set_trace()
         with tf.variable_scope("likelihood_ratio"):
             likelihood_ratio_adapt = self.policy._dist.likelihood_ratio_sym(action_sym,
                                                                             dist_info_old_sym, dist_info_new_sym)
@@ -112,7 +114,7 @@ class MAMLPPO(MAMLAlgo):
 
         for i in range(self.meta_batch_size):
             dist_info_sym = self.policy.distribution_info_sym(obs_phs[i], params=None)
-            distribution_info_vars.append(dist_info_sym) # step 0
+            distribution_info_vars.append(dist_info_sym)  # step 0
             current_policy_params.append(self.policy.policy_params) # set to real policy_params (tf.Variable)
 
         with tf.variable_scope(self.name):
@@ -135,7 +137,7 @@ class MAMLPPO(MAMLAlgo):
                 all_inner_kls.append(kls)
 
                 # Create new placeholders for the next step
-                obs_phs, action_phs, adv_phs, dist_info_phs, all_phs_dict = self.make_input_placeholders('step%i'%(step_id))
+                obs_phs, action_phs, adv_phs, dist_info_old_phs, all_phs_dict = self.make_input_placeholders('step%i' % step_id)
                 self.meta_op_phs_dict.update(all_phs_dict)
 
                 # dist_info_vars_for_next_step
@@ -162,11 +164,11 @@ class MAMLPPO(MAMLAlgo):
 
             # meta-objective
             for i in range(self.meta_batch_size):
-                likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(action_phs[i], dist_info_phs[i],
+                likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(action_phs[i], dist_info_old_phs[i],
                                                                                  distribution_info_vars[i])
-                outer_kl = tf.reduce_mean(self.policy.distribution.kl_sym(dist_info_phs[i], distribution_info_vars[i]))
+                outer_kl = tf.reduce_mean(self.policy.distribution.kl_sym(dist_info_old_phs[i], distribution_info_vars[i]))
 
-                if self.clip_outer: # clipped likelihood ratio
+                if self.clip_outer:  # clipped likelihood ratio
                     clipped_obj = tf.minimum(likelihood_ratio * adv_phs[i],
                                              tf.clip_by_value(likelihood_ratio,
                                                               1 - clip_eps_ph,

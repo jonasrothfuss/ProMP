@@ -66,7 +66,7 @@ class Trainer(object):
             start_time = time.time()
             for itr in range(self.start_itr, self.n_itr):
                 itr_start_time = time.time()
-                logger.log("------------- Iteration %d -------------" % itr)
+                logger.log("\n ---------------- Iteration %d ----------------" % itr)
                 logger.log("Sampling set of tasks/goals for this meta-batch...")
 
                 self.sampler.update_tasks()
@@ -82,7 +82,7 @@ class Trainer(object):
 
                     logger.log("Obtaining samples...")
                     time_env_sampling_start = time.time()
-                    paths = self.sampler.obtain_samples(log_prefix=str(step))
+                    paths = self.sampler.obtain_samples(log=True, log_prefix='Step_%d-' % step)
                     list_sampling_time.append(time.time() - time_env_sampling_start)
                     all_paths.append(paths)
 
@@ -90,7 +90,7 @@ class Trainer(object):
 
                     logger.log("Processing samples...")
                     time_proc_samples_start = time.time()
-                    samples_data = self.sample_processor.process_samples(paths, log=False)
+                    samples_data = self.sample_processor.process_samples(paths, log='reward', log_prefix='Step_%d-' % step)
                     all_samples_data.append(samples_data)
                     list_proc_samples_time.append(time.time() - time_proc_samples_start)
 
@@ -100,7 +100,7 @@ class Trainer(object):
                     if step < self.num_inner_grad_steps:
                         logger.log("Computing inner policy updates...")
                         self.algo.adapt(samples_data)
-                    train_writer = tf.summary.FileWriter('/home/jonasrothfuss/Desktop/maml_zoo_graph',
+                    train_writer = tf.summary.FileWriter('/home/ignasi/Desktop/maml_zoo_graph',
                                                          sess.graph)
                     list_inner_step_time.append(time.time() - time_inner_step_start)
                 total_inner_time = time.time() - start_total_inner_time

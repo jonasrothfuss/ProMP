@@ -34,7 +34,7 @@ class MAMLSampleProcessor(SampleProcessor):
             all_paths.extend(paths)
 
         # 7) log statistics if desired
-        self._log_path_stats(all_paths, log=log, log_prefix='')
+        self._log_path_stats(all_paths, log=log, log_prefix=log_prefix)
 
         assert all([samples_data.keys() >= {'observations', 'actions', 'rewards', 'advantages', 'returns'}
                     for samples_data in samples_data_meta_batch])
