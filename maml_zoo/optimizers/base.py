@@ -2,7 +2,7 @@ from maml_zoo import utils
 
 class Optimizer(object):
     def __init__(self):
-        pass
+        self._input_ph_dict = None
 
     def build_graph(self, loss, target, input_ph_dict):
         """

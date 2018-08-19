@@ -43,7 +43,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
             obs_var_per_task = tf.split(self.obs_var, self.meta_batch_size, axis=0)
 
             for idx in range(self.meta_batch_size):
-                with tf.variable_scope("task_%i"%idx):
+                with tf.variable_scope("task_%i" % idx):
 
                     with tf.variable_scope("mean_network"):
                         # create mean network parameter placeholders

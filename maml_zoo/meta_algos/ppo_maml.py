@@ -74,8 +74,8 @@ class MAMLPPO(MAMLAlgo):
         # if step_id > 1:
         #     import pdb; pdb.set_trace()
         with tf.variable_scope("likelihood_ratio"):
-            likelihood_ratio_adapt = self.policy._dist.likelihood_ratio_sym(action_sym,
-                                                                            dist_info_old_sym, dist_info_new_sym)
+            likelihood_ratio_adapt = self.policy.distribution.likelihood_ratio_sym(action_sym,
+                                                                                   dist_info_old_sym, dist_info_new_sym)
         with tf.variable_scope("surrogate_loss"):
             surr_obj_adapt = -tf.reduce_mean(likelihood_ratio_adapt * adv_sym)
         return surr_obj_adapt

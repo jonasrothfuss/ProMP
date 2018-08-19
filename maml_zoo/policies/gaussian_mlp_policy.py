@@ -27,7 +27,7 @@ class GaussianMLPPolicy(Policy):
 
     """
 
-    def __init__(self, *args, init_std=1, min_std=1e-6, **kwargs):
+    def __init__(self, *args, init_std=1., min_std=1e-6, **kwargs):
         # store the init args for serialization and call the super constructors
         Serializable.quick_init(self, locals())
         Policy.__init__(self, *args, **kwargs)
@@ -52,12 +52,12 @@ class GaussianMLPPolicy(Policy):
         with tf.variable_scope(self.name):
             # build the actual policy network
             self.obs_var, self.mean_var = create_mlp(name='mean_network',
-                                           output_dim=self.action_dim,
-                                           hidden_sizes=self.hidden_sizes,
-                                           hidden_nonlinearity=self.hidden_nonlinearity,
-                                           output_nonlinearity=self.output_nonlinearity,
-                                           input_dim=(None, self.obs_dim,)
-                                           )
+                                                     output_dim=self.action_dim,
+                                                     hidden_sizes=self.hidden_sizes,
+                                                     hidden_nonlinearity=self.hidden_nonlinearity,
+                                                     output_nonlinearity=self.output_nonlinearity,
+                                                     input_dim=(None, self.obs_dim,)
+                                                     )
 
             with tf.variable_scope("log_std_network"):
                 log_std_var = tf.get_variable(name='log_std_var',
@@ -77,7 +77,6 @@ class GaussianMLPPolicy(Policy):
             current_scope = tf.get_default_graph().get_name_scope()
             trainable_policy_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=current_scope)
             self.policy_params = OrderedDict([(remove_scope_from_name(var.name, current_scope), var) for var in trainable_policy_vars])
-
 
     def get_action(self, observation):
         """
