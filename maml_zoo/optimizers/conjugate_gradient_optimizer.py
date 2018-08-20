@@ -6,7 +6,7 @@ from maml_zoo.optimizers.base import Optimizer
 
 
 class FiniteDifferenceHvp(Optimizer):
-    def __init__(self, base_eps=1e-6, symmetric=True, grad_clip=None):
+    def __init__(self, base_eps=1e-5, symmetric=True, grad_clip=None):
         self.base_eps = base_eps
         self.symmetric = symmetric
         self.grad_clip = grad_clip
@@ -265,6 +265,10 @@ class ConjugateGradientOptimizer(Optimizer):
         descent_direction = conjugate_gradients(Hx, gradient, cg_iters=self._cg_iters)
         initial_step_size = np.sqrt(2.0 * self._max_constraint_val *
                                     (1. / (descent_direction.dot(Hx(descent_direction)) + 1e-6)))
+        if np.isnan(initial_step_size):
+            logger.log("Initial step size is NaN! Rejecting the step!")
+            return
+
         initial_descent_step = initial_step_size * descent_direction
         logger.log("descent direction computed")
 
