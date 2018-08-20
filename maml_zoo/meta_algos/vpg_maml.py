@@ -1,178 +1,188 @@
+from maml_zoo.logger import logger
 from maml_zoo.meta_algos.base import MAMLAlgo
 from maml_zoo.optimizers.maml_first_order_optimizer import MAMLFirstOrderOptimizer
+from maml_zoo import utils
 
-class MAMLVPG(MAMLAlgo):
+import tensorflow as tf
+import numpy as np
+from collections import OrderedDict
+
+
+class VPGMAML(MAMLAlgo):
     """
-    Algorithm for TRPO MAML
+    Algorithm for PPO MAML
 
     Args:
-        optimizer (Optimizer) : Optimizer to use
-        inner_type (str) : log_likelihood, likelihood_ratio, or dice
+        policy (Policy) : policy object
+        inner_lr (float) : gradient step size used for inner step
+        meta_batch_size (int): number of meta-tasks
         num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
+        learning_rate (float) : 
+        max_epochs (int) :
+        num_minibatches (int) : Currently not implemented
+        clip_eps (float) :
+        clip_outer (bool) : whether to use L^CLIP or L^KLPEN on outer gradient update
+        target_outer_step (float) : target outer kl divergence, used only with L^KLPEN and when adaptive_outer_kl_penalty is true
+        target_inner_step (float) : target inner kl divergence, used only when adaptive_inner_kl_penalty is true
+        init_outer_kl_penalty (float) : initial penalty for outer kl, used only with L^KLPEN
+        init_inner_kl_penalty (float) : initial penalty for inner kl
+        adaptive_outer_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on outer gradient update
+        adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
+        anneal_factor (float) : multiplicative factor for clip_eps, updated every iteration
+        entropy_bonus (float) : scaling factor for policy entropy
     """
     def __init__(
             self,
-            inner_lr,
+            learning_rate,
             inner_type,
-            learning_rate=1e-3,
-            num_inner_grad_steps=1,
-            entropy_bonus=0,
+            *args,
+            trainable_inner_step_size=False,
+            name="vpg_maml",
+            **kwargs
             ):
-        
+        super(VPGMAML, self).__init__(*args, **kwargs)
         assert inner_type in ["log_likelihood", "likelihood_ratio", "dice"]
-        super(MAMLVPG, self).__init__(inner_lr, num_inner_grad_steps, entropy_bonus)
+
         self.optimizer = MAMLFirstOrderOptimizer(learning_rate=learning_rate)
         self.inner_type = inner_type
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']
+        self.name = name
+        self.trainable_inner_step_size = trainable_inner_step_size
+        self.step_sizes = None
 
-    def build_graph(self, policy, meta_batch_size):
+        self.build_graph()
+
+    def adapt_objective_sym(self, action_sym, adv_sym, dist_info_old_sym, dist_info_new_sym):
+        if self.inner_type == 'likelihood_ratio':
+            with tf.variable_scope("likelihood_ratio"):
+                likelihood_ratio_adapt = self.policy.distribution.likelihood_ratio_sym(action_sym,
+                                                                                       dist_info_old_sym, dist_info_new_sym)
+            with tf.variable_scope("surrogate_loss"):
+                surr_obj_adapt = -tf.reduce_mean(likelihood_ratio_adapt * adv_sym)
+
+        elif self.inner_type == 'log_likelihood':
+            with tf.variable_scope("log_likelihood"):
+                log_likelihood_adapt = self.policy.distribution.log_likelihood_sym(action_sym, dist_info_new_sym)
+            with tf.variable_scope("surrogate_loss"):
+                surr_obj_adapt = -tf.reduce_mean(log_likelihood_adapt * adv_sym)
+
+        else:
+            raise NotImplementedError
+
+        return surr_obj_adapt
+
+    def build_graph(self):
         """
-        Creates computation graph
+        Creates the computation graph
 
-        Args:
-            policy (Policy) : policy for this algorithm
-            meta_batch_size (int) : number of metalearning tasks
-            
-        Pseudocode:
-        for task in meta_batch_size:
-            make_vars
-            init_init_dist_sym
-        for step in num_inner_grad_steps:
+        Notes:
+            Pseudocode:
             for task in meta_batch_size:
                 make_vars
-                update_init_dist_sym
-        set objectives for optimizer
+                init_init_dist_sym
+            for step in num_inner_grad_steps:
+                for task in meta_batch_size:
+                    make_vars
+                    update_init_dist_sym
+            set objectives for optimizer
         """
-        self.meta_batch_size = meta_batch_size
-        self.policy = policy
-        dist = policy.distribution
 
-        all_surr_objs, input_list = [], []
-        entropy_list = [] # Total entropy across all gradient steps
+        """ Create Variables """
+        with tf.variable_scope(self.name):
+            self.step_sizes = self._create_step_size_vars()
 
-        obs_phs, action_phs, adv_phs, dist_info_phs = self.make_placeholders('init')
-        _surr_objs_ph = [] # Used for computing fast gradient step
-        dist_info_vars_list, new_params = [], []
+            """ --- Build inner update graph for adapting the policy and sampling trajectories --- """
+            # this graph is only used for adapting the policy and not computing the meta-updates
+            self.adapted_policies_params, self.adapt_input_ph_dict = self._build_inner_adaption()
 
-        for i in range(self.meta_batch_size):    
-            dist_info_vars, params = self.init_dist_sym(obs_phs[i], all_params=self.all_params)
-            dist_info_vars_list.append(dist_info_vars)
-            new_params.append(params)
-            _dist_info_vars, _ = self.init_dist_sym(obs_phs[i], all_params=self.all_params_ph[i])
-            
-            if self.inner_type == 'log_likelihood':
-                _dist_info_vars, _ = self.init_dist_sym(obs_phs[i], all_params=self.all_params_ph[i])
-                _logli = dist.log_likelihood_sym(action_phs[i], _dist_info_vars)
-                _surr_objs_ph.append(-tf.reduce_mean(_logli * adv_phs[i]))
-            elif self.inner_type == 'likelihood_ratio':
-                _dist_info_vars, _ = self.init_dist_sym(obs_phs[i], all_params=self.all_params_ph[i])
-                _lr = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], _dist_info_vars)
-                _surr_objs_ph.append(-tf.reduce_mean(_lr * adv_phs[i]))
-            else:
-                raise NotImplementedError
+            """ ----- Build graph for the meta-update ----- """
+            self.meta_op_phs_dict = OrderedDict()
+            obs_phs, action_phs, adv_phs, dist_info_old_phs, all_phs_dict = self.make_input_placeholders('step0')
+            self.meta_op_phs_dict.update(all_phs_dict)
 
-        input_list += obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), []) # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...
-        # For computing the fast update for sampling
-        self.set_inner_obj(input_list, _surr_objs_ph)
-        
-        for j in range(self.num_inner_grad_steps):
-            surr_objs = []
-            entropies = []
-            # Create graph for gradient step
-            for i in range(self.meta_batch_size):
-                if self.entropy_bonus > 0:
-                    entropy = self.entropy_bonus * tf.reduce_mean(dist.entropy_sym(dist_info_vars_list[i]))
-                else: # Save a computation
-                    entropy = 0
-                entropies.append(entropy)
-
-                if self.inner_type == 'log_likelihood':
-                    logli = dist.log_likelihood_sym(action_phs[i], dist_info_vars_list[i])
-                    surr_objs.append(- tf.reduce_mean(logli * adv_phs[i]))
-                elif self.inner_type == 'likelihood_ratio':
-                    lr = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], dist_info_vars_list[i])
-                    surr_objs.append(- tf.reduce_mean(lr * adv_phs[i]))
-                else:
-                    raise NotImplementedError
-
-            all_surr_objs.append(surr_objs)
-            entropy_list.append(entropies)
-            
-            # Update graph for next gradient step
-            obs_phs, action_phs, adv_phs, dist_info_phs = self.make_placeholders(str(j))
-
-            cur_params = new_params
-            new_params = []  # if there are several grad_updates the new_params are overwritten
-
-            for i in range(self.meta_batch_size):
-                dist_info_vars, params = self.compute_updated_dist_sym(i, surr_objs[i], obs_phs[i],
-                                                                            params_dict=cur_params[i])
-                dist_info_vars_list[i] = dist_info_vars
-                new_params.append(params)
-
-            input_list += obs_phs + action_phs + adv_phs + sum(list(zip(*dist_info_phs)), []) # [obs_phs], [action_phs], [adv_phs], [dist_info1_ph], [dist_info2_ph], ...         
-            
-        """ TRPO-Objective """
-        surr_objs = []
+            distribution_info_vars, current_policy_params = [], []
+            all_surr_objs = []
 
         for i in range(self.meta_batch_size):
-            entropy_bonus = sum(list(entropy_list[j][i] for j in range(self.num_grad_updates)))
+            dist_info_sym = self.policy.distribution_info_sym(obs_phs[i], params=None)
+            distribution_info_vars.append(dist_info_sym)  # step 0
+            current_policy_params.append(self.policy.policy_params) # set to real policy_params (tf.Variable)
 
-            if self.inner_type == 'log_likelihood':
-                logli = dist.log_likelihood_sym(action_phs[i], dist_info_vars_list[i])
-                surr_objs.append(- tf.reduce_mean(logli * adv_phs[i]) - entropy_bonus)
-            elif self.inner_type == 'likelihood_ratio':
-                lr = dist.likelihood_ratio_sym(action_phs[i], dist_info_phs[i], dist_info_vars_list[i])
-                surr_objs.append(- tf.reduce_mean(lr * adv_phs[i]) - entropy_bonusn)
-            else:
-                raise NotImplementedError
-            
-        """ Sum over meta tasks """        
-        meta_obj = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)
+        with tf.variable_scope(self.name):
+            """ Inner updates"""
+            for step_id in range(1, self.num_inner_grad_steps+1):
+                surr_objs, adapted_policy_params = [], []
 
-        self.optimizer.update_opt(
-            loss=surr_obj,
-            target=self.policy,
-            inputs=input_list,
-        )
+                # inner adaptation step for each task
+                for i in range(self.meta_batch_size):
+                    surr_loss = self.adapt_objective_sym(action_phs[i], adv_phs[i], dist_info_old_phs[i], distribution_info_vars[i])
+
+                    adapted_params_var = self.adapt_sym(surr_loss, current_policy_params[i])
+
+                    adapted_policy_params.append(adapted_params_var)
+                    surr_objs.append(surr_loss)
+
+                all_surr_objs.append(surr_objs)
+                # Create new placeholders for the next step
+                obs_phs, action_phs, adv_phs, dist_info_old_phs, all_phs_dict = self.make_input_placeholders('step%i' % step_id)
+                self.meta_op_phs_dict.update(all_phs_dict)
+
+                # dist_info_vars_for_next_step
+                distribution_info_vars = [self.policy.distribution_info_sym(obs_phs[i], params=adapted_policy_params[i])
+                                          for i in range(self.meta_batch_size)]
+                current_policy_params = adapted_policy_params
+
+            """ Outer objective """
+            surr_objs = []
+
+            # meta-objective
+            for i in range(self.meta_batch_size):
+                likelihood_ratio = self.policy.distribution.log_likelihood_sym(action_phs[i], distribution_info_vars[i])
+                surr_obj = - tf.reduce_mean(likelihood_ratio * adv_phs[i])
+                surr_objs.append(surr_obj)
+
+            """ Mean over meta tasks """
+            meta_objective = tf.reduce_mean(tf.stack(surr_objs, 0))
+
+            self.optimizer.build_graph(
+                loss=meta_objective,
+                target=self.policy,
+                input_ph_dict=self.meta_op_phs_dict,
+            )
 
     def optimize_policy(self, all_samples_data, log=True):
         """
-        Performs MAML outer step for each task
+        Performs MAML outer step
 
         Args:
-            all_samples_data (list) : list of lists of lists of samples (each is a dict) split by gradient update and meta task
+            all_samples_data (list) : list of lists of lists of samples (each is a dict) split by gradient update and
+             meta task
             log (bool) : whether to log statistics
 
         Returns:
             None
         """
-        assert len(all_samples_data) == self.num_grad_updates + 1  # we collected the rollouts to compute the grads and then the test!
+        meta_op_input_dict = self._extract_input_dict_meta_op(all_samples_data, self._optimization_keys)
 
-        input_list = []
-        for step in range(len(all_samples_data)):  # these are the gradient steps
-            obs_list, action_list, adv_list, dist_info_list = [], [], [], []
-            for i in range(self.meta_batch_size):
+        if log: logger.log("Optimizing")
+        loss_before = self.optimizer.optimize(input_val_dict=meta_op_input_dict)
 
-                inputs = ext.extract(
-                    all_samples_data[step][i], *self._optimization_keys
-                )
-                obs_list.append(inputs[0])
-                action_list.append(inputs[1])
-                adv_list.append(inputs[2])
-                dist_info_list.append([inputs[3][k] for k in self.policy.distribution.dist_info_keys])
-
-            input_list += obs_list + action_list + adv_list + sum(list(zip(*dist_info_list)), [])  # [ [obs_0], [act_0], [adv_0], [dist1_0], [dist2_0], [obs_1], ... ]
-
-        if log: logger.log("Computing loss before")
-        loss_before = self.optimizer.loss(input_list)
-        if log: logger.log("Optimizing")    
-        self.optimizer.optimize(input_list)
-        if log: logger.log("Computing loss after")
-        loss_after = self.optimizer.loss(input_list)
+        if log: logger.log("Computing statistics")
+        loss_after = self.optimizer.loss(input_val_dict=meta_op_input_dict)
 
         if log:
             logger.logkv('LossBefore', loss_before)
             logger.logkv('LossAfter', loss_after)
-            logger.logkv('dLoss', loss_before - loss_after)
-            logger.logkv('klDiff', np.mean(inner_kls))
+
+    def _create_step_size_vars(self):
+        # Step sizes
+        with tf.variable_scope('inner_step_sizes'):
+            step_sizes = dict()
+            for key, param in self.policy.policy_params.items():
+                shape = param.get_shape().as_list()
+                init_stepsize = np.ones(shape, dtype=np.float32) * self.inner_lr
+                step_sizes[key] = tf.Variable(initial_value=init_stepsize,
+                                              name='%s_step_size' % key,
+                                              dtype=tf.float32, trainable=self.trainable_inner_step_size)
+        return step_sizes
+

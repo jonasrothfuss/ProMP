@@ -7,7 +7,7 @@ import tensorflow as tf
 import numpy as np
 from collections import OrderedDict
 
-class MAMLPPO(MAMLAlgo):
+class PPOMAML(MAMLAlgo):
     """
     Algorithm for PPO MAML
 
@@ -49,7 +49,7 @@ class MAMLPPO(MAMLAlgo):
             name="ppo_maml",
             **kwargs
             ):
-        super(MAMLPPO, self).__init__(*args, **kwargs)
+        super(PPOMAML, self).__init__(*args, **kwargs)
 
         self.optimizer = MAMLPPOOptimizer(learning_rate=learning_rate, max_epochs=max_epochs, num_minibatches=num_minibatches)
         self.clip_eps = clip_eps

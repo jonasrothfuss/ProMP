@@ -9,6 +9,7 @@ import tensorflow as tf
 import numpy as np
 from collections import OrderedDict
 
+
 class GaussianMLPPolicy(Policy):
     """
     Gaussian multi-layer perceptron policy (diagonal covariance matrix)

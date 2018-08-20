@@ -90,7 +90,7 @@ class Trainer(object):
 
                     logger.log("Processing samples...")
                     time_proc_samples_start = time.time()
-                    samples_data = self.sample_processor.process_samples(paths, log='reward', log_prefix='Step_%d-' % step)
+                    samples_data = self.sample_processor.process_samples(paths, log='all', log_prefix='Step_%d-' % step)
                     all_samples_data.append(samples_data)
                     list_proc_samples_time.append(time.time() - time_proc_samples_start)
 
@@ -125,7 +125,7 @@ class Trainer(object):
 
                 logger.log("Saving snapshot...")
                 params = self.get_itr_snapshot(itr)  # , **kwargs)
-                # logger.save_itr_params(itr, params) # Todo
+                logger.save_itr_params(itr, params) # Todo
                 logger.log("Saved")
 
                 logger.logkv('Time', time.time() - start_time)

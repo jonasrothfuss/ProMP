@@ -2,19 +2,20 @@ from maml_zoo.logger import logger
 import numpy as np
 import tensorflow as tf
 from collections import OrderedDict
+from maml_zoo.optimizers.base import Optimizer
 
 
-class FiniteDifferenceHvp(object):
-    def __init__(self, base_eps=1e-8, symmetric=True, grad_clip=None):
+class FiniteDifferenceHvp(Optimizer):
+    def __init__(self, base_eps=1e-6, symmetric=True, grad_clip=None):
         self.base_eps = base_eps
         self.symmetric = symmetric
         self.grad_clip = grad_clip
         self._target = None
         self.reg_coeff = None
         self._constraint_gradient = None
-        self._all_inputs = None
+        self._input_ph_dict = None
 
-    def build_graph(self, constraint_obj, target, inputs, reg_coeff):
+    def build_graph(self, constraint_obj, target, input_val_dict, reg_coeff):
         """
         Sets the objective function and target weights for the optimize function
 
@@ -26,7 +27,7 @@ class FiniteDifferenceHvp(object):
         """
         self._target = target
         self.reg_coeff = reg_coeff
-        self._all_inputs = inputs
+        self._input_ph_dict = input_val_dict
 
         params = list(target.get_params().values())
         constraint_grads = tf.gradients(constraint_obj, xs=params)
@@ -39,7 +40,7 @@ class FiniteDifferenceHvp(object):
 
         self._constraint_gradient = constraint_gradient
 
-    def constraint_gradient(self, inputs):
+    def constraint_gradient(self, input_val_dict):
         """
         Computes the gradient of the constraint objective
 
@@ -49,13 +50,13 @@ class FiniteDifferenceHvp(object):
         Returns:
             (np.ndarray): flattened gradient
         """
-        assert isinstance(inputs, list)
 
         sess = tf.get_default_session()
-        constraint_gradient = sess.run(self._constraint_gradient, feed_dict=dict(list(zip(self._all_inputs, inputs))))
+        feed_dict = self.create_feed_dict(input_val_dict)
+        constraint_gradient = sess.run(self._constraint_gradient, feed_dict)
         return constraint_gradient
 
-    def Hx(self, inputs, x):
+    def Hx(self, input_val_dict, x):
         """
         Compute the second derivative of the constraint val in the direction of the vector x
         Args:
@@ -65,26 +66,25 @@ class FiniteDifferenceHvp(object):
         Returns: (np.ndarray): second derivative in the direction of x
 
         """
-        assert isinstance(inputs, list)
         assert isinstance(x, np.ndarray)
 
-        param_vals = self._target.get_param_values()
+        param_vals = self._target.get_param_values().copy()
         flat_param_vals = _flatten_params(param_vals)
-        eps = np.cast['float32'](self.base_eps / (np.linalg.norm(flat_param_vals) + 1e-8))
+        eps = self.base_eps / (np.linalg.norm(flat_param_vals) + 1e-8)
         params_plus_eps_vals = _unflatten_params(flat_param_vals + eps * x, params_example=param_vals)
-        self._target.set_param_values(params_plus_eps_vals)
-        constraint_grad_plus_eps = self.constraint_gradient(inputs)
-        self._target.set_param_values(param_vals)
+        self._target.set_params(params_plus_eps_vals)
+        constraint_grad_plus_eps = self.constraint_gradient(input_val_dict)
+        self._target.set_params(param_vals)
 
         if self.symmetric:
             params_minus_eps_vals = _unflatten_params(flat_param_vals - eps * x, params_example=param_vals)
-            self._target.set_param_values(params_minus_eps_vals)
-            constraint_grad_minus_eps = self.constraint_gradient(inputs)
-            self._target.set_param_values(param_vals)
+            self._target.set_params(params_minus_eps_vals)
+            constraint_grad_minus_eps = self.constraint_gradient(input_val_dict)
+            self._target.set_params(param_vals)
             hx = (constraint_grad_plus_eps - constraint_grad_minus_eps)/(2 * eps)
 
         else:
-            constraint_grad = self.constraint_gradient(inputs)
+            constraint_grad = self.constraint_gradient(input_val_dict)
             hx = (constraint_grad_plus_eps - constraint_grad)/eps
         return hx
 
@@ -104,7 +104,7 @@ class FiniteDifferenceHvp(object):
         return evaluate_hessian
 
 
-class ConjugateGradientOptimizer(object):
+class ConjugateGradientOptimizer(Optimizer):
     """
     Performs constrained optimization via line search. The search direction is computed using a conjugate gradient
     algorithm, which gives x = A^{-1}g, where A is a second order approximation of the constraint and g is the gradient
@@ -144,16 +144,16 @@ class ConjugateGradientOptimizer(object):
 
         self._target = None
         self._max_constraint_val = None
-        self._constraint_name = None
+        self._constraint_name = "kl-div"
         self._debug_nan = debug_nan
         self._accept_violation = accept_violation
         self._hvp_approach = hvp_approach
         self._loss = None
         self._gradient = None
         self._constraint_objective = None
-        self._all_inputs = None
+        self._input_ph_dict = None
 
-    def build_graph(self, loss, target, inputs, leq_constraint, extra_inputs=[]):
+    def build_graph(self, loss, target, input_ph_dict, leq_constraint):
         """
         Sets the objective function and target weights for the optimize function
 
@@ -164,20 +164,20 @@ class ConjugateGradientOptimizer(object):
             extra_inputs (list) : tuple of tf.placeholders for hyperparameters (e.g. learning rate, if annealed)
             leq_constraint (tuple) : A constraint provided as a tuple (f, epsilon), of the form f(*inputs) <= epsilon.
         """
-        assert isinstance(inputs, list)
-        assert isinstance(extra_inputs, list)
+        assert isinstance(loss, tf.Tensor)
+        assert hasattr(target, 'get_params')
+        assert isinstance(input_ph_dict, dict)
         
         constraint_objective, constraint_value = leq_constraint
 
         self._target = target
         self._constraint_objective = constraint_objective
         self._max_constraint_val = constraint_value
-        self._all_inputs = inputs + extra_inputs
+        self._input_ph_dict = input_ph_dict
         self._loss = loss
 
         # build the graph of the hessian vector product (hvp)
-        self._hvp_approach.build_graph(f=constraint_objective, target=target, inputs=inputs + extra_inputs,
-                                       reg_coeff=self._reg_coeff)
+        self._hvp_approach.build_graph(constraint_objective, target, self._input_ph_dict, self._reg_coeff)
 
         # build the graph of the gradients
         params = list(target.get_params().values())
@@ -189,7 +189,7 @@ class ConjugateGradientOptimizer(object):
 
         self._gradient = gradient
 
-    def loss(self, inputs, extra_inputs=[]):
+    def loss(self, input_val_dict):
         """
         Computes the value of the loss for given inputs
 
@@ -200,14 +200,13 @@ class ConjugateGradientOptimizer(object):
         Returns:
             (float): value of the loss
         """
-        assert isinstance(inputs, list)
-        assert isinstance(extra_inputs, list)
 
         sess = tf.get_default_session()
-        loss = sess.run(self._loss, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+        feed_dict = self.create_feed_dict(input_val_dict)
+        loss = sess.run(self._loss, feed_dict=feed_dict)
         return loss
 
-    def constraint_val(self, inputs, extra_inputs=[]):
+    def constraint_val(self, input_val_dict):
         """
         Computes the value of the KL-divergence between pre-update policies for given inputs
 
@@ -218,15 +217,13 @@ class ConjugateGradientOptimizer(object):
         Returns:
             (float): value of the loss
         """
-        assert isinstance(inputs, list)
-        assert isinstance(extra_inputs, list)
 
         sess = tf.get_default_session()
-        constrain_val = sess.run(self._constraint_objective,
-                                 feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+        feed_dict = self.create_feed_dict(input_val_dict)
+        constrain_val = sess.run(self._constraint_objective, feed_dict)
         return constrain_val
 
-    def gradient(self, inputs, extra_inputs=[]):
+    def gradient(self, input_val_dict):
         """
         Computes the gradient of the loss function
 
@@ -237,14 +234,12 @@ class ConjugateGradientOptimizer(object):
         Returns:
             (np.ndarray): flattened gradient
         """
-        assert isinstance(inputs, list)
-        assert isinstance(extra_inputs, list)
-
         sess = tf.get_default_session()
-        gradient = sess.run(self._gradient, feed_dict=dict(list(zip(self._all_inputs, inputs + extra_inputs))))
+        feed_dict = self.create_feed_dict(input_val_dict)
+        gradient = sess.run(self._gradient, feed_dict)
         return gradient
 
-    def optimize(self, inputs, extra_inputs=[], subsample_grouped_inputs=None):
+    def optimize(self, input_val_dict):
         """
         Carries out the optimization step
 
@@ -254,29 +249,22 @@ class ConjugateGradientOptimizer(object):
             subsample_grouped_inputs (None or list): subsample data from each element of the list
 
         """
-        assert isinstance(inputs, list)
-        assert isinstance(extra_inputs, list)
-
-        subsample_inputs = self._get_subsample(inputs,
-                                               subsample_factor=self._subsample_factor,
-                                               subsample_grouped_inputs=subsample_grouped_inputs)
-
         logger.log("Start CG optimization")
 
         logger.log("computing loss before")
-        loss_before = self.loss(inputs, extra_inputs)
+        loss_before = self.loss(input_val_dict)
 
         logger.log("performing update")
 
         logger.log("computing gradient")
-        gradient = self.gradient(inputs, extra_inputs)
+        gradient = self.gradient(input_val_dict)
         logger.log("gradient computed")
 
         logger.log("computing descent direction")
-        Hx = self._hvp_approach.build_eval(subsample_inputs + extra_inputs)
+        Hx = self._hvp_approach.build_eval(input_val_dict)
         descent_direction = conjugate_gradients(Hx, gradient, cg_iters=self._cg_iters)
         initial_step_size = np.sqrt(2.0 * self._max_constraint_val *
-                                    (1. / (descent_direction.dot(Hx(descent_direction)) + 1e-8)))
+                                    (1. / (descent_direction.dot(Hx(descent_direction)) + 1e-6)))
         initial_descent_step = initial_step_size * descent_direction
         logger.log("descent direction computed")
 
@@ -288,9 +276,9 @@ class ConjugateGradientOptimizer(object):
             cur_step = ratio * initial_descent_step
             cur_params_values = prev_params_values - cur_step
             cur_params = _unflatten_params(cur_params_values, params_example=prev_params)
-            self._target.set_param_values(cur_params)
+            self._target.set_params(cur_params)
 
-            loss, constraint_val = self.loss(inputs, extra_inputs), self.constraint_val(inputs, extra_inputs)
+            loss, constraint_val = self.loss(input_val_dict), self.constraint_val(input_val_dict)
             if loss < loss_before and constraint_val <= self._max_constraint_val:
                 break
 
@@ -310,26 +298,11 @@ class ConjugateGradientOptimizer(object):
 
         if violated and not self._accept_violation:
             logger.log("Line search condition violated. Rejecting the step!")
-            self._target.set_param_values(prev_params, trainable=True)
+            self._target.set_params(prev_params)
 
         logger.log("backtrack iters: %d" % n_iter)
         logger.log("computing loss after")
         logger.log("optimization finished")
-
-    def _get_subsample(self, inputs, subsample_factor=1., subsample_grouped_inputs=None):
-        if subsample_factor < 1:
-            if subsample_grouped_inputs is None:
-                subsample_grouped_inputs = [inputs]
-            subsample_inputs = list()
-            for inputs_grouped in subsample_grouped_inputs:
-                n_samples = len(inputs_grouped[0])
-                inds = np.random.choice(
-                    n_samples, int(n_samples * self._subsample_factor), replace=False)
-                subsample_inputs += [x[inds] for x in inputs_grouped]
-        else:
-            subsample_inputs = inputs
-
-        return subsample_inputs
 
 
 def _unflatten_params(flat_params, params_example):

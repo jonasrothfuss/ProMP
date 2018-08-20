@@ -45,7 +45,7 @@ class NormalizedEnv(Serializable):
                  ):
         Serializable.quick_init(self, locals())
 
-        self._scale_reward = 10
+        self._scale_reward = 1
         self._wrapped_env = env
 
         self._normalize_obs = normalize_obs

@@ -1,19 +1,15 @@
 import sys
-
 sys.path.append('.')
 import matplotlib
 import os
-
 matplotlib.use('Agg')
 import flask  # import Flask, render_template, send_from_directory
-from rllab.misc.ext import flatten
-from rllab.viskit import core
-from rllab.misc import ext
+from viskit import core
+from viskit.core import AttrDict, flatten
 import sys
 import argparse
 import json
 import numpy as np
-# import threading, webbrowser
 import plotly.offline as po
 import plotly.graph_objs as go
 
@@ -410,7 +406,7 @@ def get_plot_instruction(
                                 percentile50 = np.clip(percentile50, -clip_plot_value, clip_plot_value)
                                 percentile75 = np.clip(percentile75, -clip_plot_value, clip_plot_value)
                             to_plot.append(
-                                ext.AttrDict(percentile25=percentile25, percentile50=percentile50,
+                                AttrDict(percentile25=percentile25, percentile50=percentile50,
                                              percentile75=percentile75, legend=legend_post_processor(legend)))
                         elif use_five_numbers:
                             # min, 25%, median, 25%, max
@@ -442,7 +438,7 @@ def get_plot_instruction(
                                 percentile75 = np.clip(percentile75, -clip_plot_value, clip_plot_value)
                                 percentile100 = np.clip(percentile100, -clip_plot_value, clip_plot_value)
                             to_plot.append(
-                                ext.AttrDict(
+                                AttrDict(
                                     percentile0=percentile0,
                                     percentile25=percentile25,
                                     percentile50=percentile50,
@@ -465,7 +461,7 @@ def get_plot_instruction(
                                 means = np.clip(means, -clip_plot_value, clip_plot_value)
                                 stds = np.clip(stds, -clip_plot_value, clip_plot_value)
                             to_plot.append(
-                                ext.AttrDict(means=means, stds=stds, legend=legend_post_processor(legend)))
+                                AttrDict(means=means, stds=stds, legend=legend_post_processor(legend)))
                         if len(to_plot) > 0 and len(data) > 0:
                             to_plot[-1]["footnote"] = "%s; e.g. %s" % (
                             kv_string_best_regret, data[0].params.get("exp_name", "NA"))
@@ -517,7 +513,7 @@ def get_plot_instruction(
                             percentile50 = np.clip(percentile50, -clip_plot_value, clip_plot_value)
                             percentile75 = np.clip(percentile75, -clip_plot_value, clip_plot_value)
                         to_plot.append(
-                            ext.AttrDict(percentile25=percentile25, percentile50=percentile50,
+                            AttrDict(percentile25=percentile25, percentile50=percentile50,
                                          percentile75=percentile75, legend=legend_post_processor(group_legend)))
                     elif use_five_numbers:
                         # min, 25%, median, 25%, max
@@ -554,7 +550,7 @@ def get_plot_instruction(
                             percentile75 = np.clip(percentile75, -clip_plot_value, clip_plot_value)
                             percentile100 = np.clip(percentile100, -clip_plot_value, clip_plot_value)
                         to_plot.append(
-                            ext.AttrDict(
+                            AttrDict(
                                 percentile0=percentile0,
                                 percentile25=percentile25,
                                 percentile50=percentile50,
@@ -576,11 +572,10 @@ def get_plot_instruction(
                             means = np.clip(means, -clip_plot_value, clip_plot_value)
                             stds = np.clip(stds, -clip_plot_value, clip_plot_value)
                         to_plot.append(
-                            ext.AttrDict(means=means, stds=stds, legend=legend_post_processor(group_legend)))
+                            AttrDict(means=means, stds=stds, legend=legend_post_processor(group_legend)))
 
         if len(to_plot) > 0 and not gen_eps:
             fig_title = "%s: %s" % (split_key, split_legend)
-            # plots.append("<h3>%s</h3>" % fig_title)
             if squeeze_nan:
                 for to_plot_i in to_plot:
                     to_plot_i.custom_x = custom_x = np.where(np.logical_not(np.isnan(to_plot_i.means)))[0]
@@ -725,7 +720,7 @@ def reload_data():
     global distinct_params
     exps_data = core.load_exps_data(args.data_paths, args.disable_variant)
     plottable_keys = sorted(list(
-        set(flatten(list(exp.progress.keys()) for exp in exps_data)) - set([None]) ))
+        set(flatten(list(exp.progress.keys()) for exp in exps_data)) - {None}))
     distinct_params = sorted(core.extract_distinct_params(exps_data))
 
 

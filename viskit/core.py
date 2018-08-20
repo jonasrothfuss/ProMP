@@ -1,16 +1,13 @@
 import csv
-from rllab.misc import ext
 import os
 import numpy as np
-import base64
-import pickle
 import json
 import itertools
-# import ipywidgets
-# import IPython.display
-# import plotly.offline as po
-# import plotly.graph_objs as go
-import pdb
+
+class AttrDict(dict):
+    def __init__(self, *args, **kwargs):
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
 
 
 def unique(l):
@@ -38,23 +35,23 @@ def load_progress(progress_csv_path):
     return entries
 
 
-def to_json(stub_object):
-    from rllab.misc.instrument import StubObject
-    from rllab.misc.instrument import StubAttr
-    if isinstance(stub_object, StubObject):
-        assert len(stub_object.args) == 0
-        data = dict()
-        for k, v in stub_object.kwargs.items():
-            data[k] = to_json(v)
-        data["_name"] = stub_object.proxy_class.__module__ + \
-                        "." + stub_object.proxy_class.__name__
-        return data
-    elif isinstance(stub_object, StubAttr):
-        return dict(
-            obj=to_json(stub_object.obj),
-            attr=to_json(stub_object.attr_name)
-        )
-    return stub_object
+# def to_json(stub_object):
+#     from rllab.misc.instrument import StubObject
+#     from rllab.misc.instrument import StubAttr
+#     if isinstance(stub_object, StubObject):
+#         assert len(stub_object.args) == 0
+#         data = dict()
+#         for k, v in stub_object.kwargs.items():
+#             data[k] = to_json(v)
+#         data["_name"] = stub_object.proxy_class.__module__ + \
+#                         "." + stub_object.proxy_class.__name__
+#         return data
+#     elif isinstance(stub_object, StubAttr):
+#         return dict(
+#             obj=to_json(stub_object.obj),
+#             attr=to_json(stub_object.attr_name)
+#         )
+#     return stub_object
 
 
 def flatten_dict(d):
@@ -112,7 +109,7 @@ def load_exps_data(exp_folder_paths, disable_variant=False):
                     params = load_params(variant_json_path)
                 except IOError:
                     params = load_params(params_json_path)
-            exps_data.append(ext.AttrDict(
+            exps_data.append(AttrDict(
                 progress=progress, params=params, flat_params=flatten_dict(params)))
         except IOError as e:
             print(e)
@@ -135,17 +132,6 @@ def smart_repr(x):
 
 
 def extract_distinct_params(exps_data, excluded_params=('exp_name', 'seed', 'log_dir'), l=1):
-    # all_pairs = unique(flatten([d.flat_params.items() for d in exps_data]))
-    # if logger:
-    #     logger("(Excluding {excluded})".format(excluded=', '.join(excluded_params)))
-    # def cmp(x,y):
-    #     if x < y:
-    #         return -1
-    #     elif x > y:
-    #         return 1
-    #     else:
-    #         return 0
-
     try:
         stringified_pairs = sorted(
             map(
@@ -229,71 +215,3 @@ def hex_to_rgb(hex, opacity=1.0):
         hex = hex[1:]
     assert (len(hex) == 6)
     return "rgba({0},{1},{2},{3})".format(int(hex[:2], 16), int(hex[2:4], 16), int(hex[4:6], 16), opacity)
-
-# class VisApp(object):
-#
-#
-#     def __init__(self, exp_folder_path):
-#         self._logs = []
-#         self._plot_sequence = []
-#         self._exps_data = None
-#         self._distinct_params = None
-#         self._exp_filter = None
-#         self._plottable_keys = None
-#         self._plot_key = None
-#         self._init_data(exp_folder_path)
-#         self.redraw()
-#
-#     def _init_data(self, exp_folder_path):
-#         self.log("Loading data...")
-#         self._exps_data = load_exps_data(exp_folder_path)
-#         self.log("Loaded {nexp} experiments".format(nexp=len(self._exps_data)))
-#         self._distinct_params = extract_distinct_params(self._exps_data, logger=self.log)
-#         assert len(self._distinct_params) == 1
-#         self._exp_filter = self._distinct_params[0]
-#         self.log("******************************************")
-#         self.log("Found {nvary} varying parameter{plural}".format(nvary=len(self._distinct_params), plural="" if len(
-#             self._distinct_params) == 1 else "s"))
-#         for k, v in self._distinct_params:
-#             self.log(k, ':', ", ".join(map(str, v)))
-#         self.log("******************************************")
-#         self._plottable_keys = self._exps_data[0].progress.keys()
-#         assert len(self._plottable_keys) > 0
-#         if 'AverageReturn' in self._plottable_keys:
-#             self._plot_key = 'AverageReturn'
-#         else:
-#             self._plot_key = self._plottable_keys[0]
-#
-#     def log(self, *args, **kwargs):
-#         self._logs.append((args, kwargs))
-#
-#     def _display_dropdown(self, attr_name, options):
-#         def f(**kwargs):
-#             self.__dict__[attr_name] = kwargs[attr_name]
-#         IPython.display.display(ipywidgets.interactive(f, **{attr_name: options}))
-#
-#     def redraw(self):
-#         # print out all the logs
-#         for args, kwargs in self._logs:
-#             print(*args, **kwargs)
-#
-#         self._display_dropdown("_plot_key", self._plottable_keys)
-#
-#         k, vs = self._exp_filter
-#         selector = Selector(self._exps_data)
-#         to_plot = []
-#         for v in vs:
-#             filtered_data = selector.where(k, v).extract()
-#             returns = [exp.progress[self._plot_key] for exp in filtered_data]
-#             sizes = map(len, returns)
-#             max_size = max(sizes)
-#             for exp, retlen in zip(filtered_data, sizes):
-#                 if retlen < max_size:
-#                     self.log("Excluding {exp_name} since the trajectory is shorter: {thislen} vs. {maxlen}".format(
-#                         exp_name=exp.params["exp_name"], thislen=retlen, maxlen=max_size))
-#             returns = [ret for ret in returns if len(ret) == max_size]
-#             mean_returns = np.mean(returns, axis=0)
-#             std_returns = np.std(returns, axis=0)
-#             self._plot_sequence.append((''))
-#             to_plot.append(ext.AttrDict(means=mean_returns, stds=std_returns, legend=str(v)))
-#         make_plot(to_plot)

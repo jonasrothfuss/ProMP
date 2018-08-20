@@ -65,7 +65,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
                         log_std_network_phs = self._create_placeholders_for_vars(scope=self.name + "/log_std_network") # -> returns ordered dict
                         log_std_network_phs_meta_batch.append(log_std_network_phs)
 
-                        log_std_var = list(log_std_network_phs.values())[0] # weird stuff since log_std_network_phs is ordered dict
+                        log_std_var = list(log_std_network_phs.values())[0]  # weird stuff since log_std_network_phs is ordered dict
 
                     action_var = mean_var + tf.random_normal(shape=tf.shape(mean_var)) * tf.exp(log_std_var)
 

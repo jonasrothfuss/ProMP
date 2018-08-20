@@ -26,18 +26,18 @@ class MAMLSampler(Sampler):
             self,
             env,
             policy,
-            batch_size,
+            rollouts_per_meta_task,
             meta_batch_size,
             max_path_length,
             envs_per_task=None,
             parallel=False
             ):
-        super(MAMLSampler, self).__init__(env, policy, batch_size, max_path_length)
+        super(MAMLSampler, self).__init__(env, policy, rollouts_per_meta_task, max_path_length)
         assert hasattr(env, 'set_task')
 
-        self.envs_per_task = batch_size if envs_per_task is None else envs_per_task
+        self.envs_per_task = rollouts_per_meta_task if envs_per_task is None else envs_per_task
         self.meta_batch_size = meta_batch_size
-        self.total_samples = meta_batch_size * batch_size * max_path_length
+        self.total_samples = meta_batch_size * rollouts_per_meta_task * max_path_length
         self.parallel = parallel
 
         # setup vectorized environment

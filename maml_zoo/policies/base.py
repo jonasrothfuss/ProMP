@@ -1,9 +1,6 @@
 from maml_zoo.utils.utils import remove_scope_from_name
 from maml_zoo.utils import Serializable
-from maml_zoo.policies.distributions.base import Distribution
-
 import tensorflow as tf
-import collections
 from collections import OrderedDict
 
 
@@ -47,6 +44,9 @@ class Policy(Serializable):
         self.output_nonlinearity = output_nonlinearity
 
         self._dist = None
+        self.policy_params = None
+        self._assign_ops = None
+        self._assign_phs = None
 
     def build_graph(self):
         """
@@ -139,8 +139,7 @@ class Policy(Serializable):
         """
 
         distribution_info_new = self.distribution_info_sym(obs, params=policy_params)
-        likelihood_ratio = self._dist.likelihood_ratio_sym(action, dist_info_old,
-                                                                 distribution_info_new)
+        likelihood_ratio = self._dist.likelihood_ratio_sym(action, dist_info_old, distribution_info_new)
         return likelihood_ratio
 
     def log_likelihood_sym(self, obs, action, policy_params):
@@ -189,15 +188,19 @@ class Policy(Serializable):
             policy_params (dict): of variable names and corresponding parameter values
         """
         assert all([k1 == k2 for k1, k2 in zip(self.get_params().keys(), policy_params.keys())]), \
-            "parameter keys must match with vrariable"
+            "parameter keys must match with variable"
 
-        assign_ops, feed_dict = [], {}
-        for var, (param_name, var_value) in zip(self.get_params().values(), policy_params.items()):
-            assign_placeholder = tf.placeholder(dtype=var.dtype)
-            assign_op = tf.assign(var, assign_placeholder)
-            assign_ops.append(assign_op)
-            feed_dict[assign_placeholder] = var_value
-        tf.get_default_session().run(assign_ops, feed_dict=feed_dict)
+        if self._assign_ops is None:
+            assign_ops, assign_phs = [], []
+            for var in self.get_params().values():
+                assign_placeholder = tf.placeholder(dtype=var.dtype)
+                assign_op = tf.assign(var, assign_placeholder)
+                assign_ops.append(assign_op)
+                assign_phs.append(assign_placeholder)
+            self._assign_ops = assign_ops
+            self._assign_phs = assign_phs
+        feed_dict = dict(zip(self._assign_phs, policy_params.values()))
+        tf.get_default_session().run(self._assign_ops, feed_dict=feed_dict)
 
     def __getstate__(self):
         state = {

@@ -2,7 +2,7 @@ from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.envs.point_env_2d import MetaPointEnv
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.normalized_env import normalize
-from maml_zoo.meta_algos.ppo_maml import PPOMAML
+from maml_zoo.meta_algos import VPGMAML
 from maml_zoo.meta_trainer import Trainer
 from maml_zoo.samplers.maml_sampler import MAMLSampler
 from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
@@ -13,7 +13,6 @@ import json
 import numpy as np
 
 
-# env = MetaPointEnv() # Wrappers? normalization?
 maml_zoo_path = '/'.join(os.path.realpath(os.path.dirname(__file__)).split('/')[:-1])
 
 
@@ -46,24 +45,13 @@ def main(config):
         positive_adv=config['positive_adv'],
     )
 
-    algo = PPOMAML(
+    algo = VPGMAML(
         policy=policy,
-        inner_lr=config['inner_lr'],
+        inner_type=config['inner_type'],
         meta_batch_size=config['meta_batch_size'],
         num_inner_grad_steps=config['num_inner_grad_steps'],
-        learning_rate=config['learning_rate'],
-        max_epochs=config['max_epochs'],
-        num_minibatches=config['num_minibatches'],
-        clip_eps=config['clip_eps'],
-        clip_outer=config['clip_outer'],
-        target_outer_step=config['target_outer_step'],
-        target_inner_step=config['target_inner_step'],
-        init_outer_kl_penalty=config['init_outer_kl_penalty'],
-        init_inner_kl_penalty=config['init_inner_kl_penalty'],
-        adaptive_outer_kl_penalty=config['adaptive_outer_kl_penalty'],
-        adaptive_inner_kl_penalty=config['adaptive_inner_kl_penalty'],
-        anneal_factor=config['anneal_factor'],
-        entropy_bonus=config['entropy_bonus'],
+        inner_lr=config['inner_lr'],
+        learning_rate=config['learning_rate']
     )
 
     trainer = Trainer(
@@ -77,11 +65,11 @@ def main(config):
     )
     trainer.train()
 
+
 if __name__=="__main__":
     idx = np.random.randint(0, 1000)
-    data_path = maml_zoo_path + '/data/ppo/test_%d' % idx
-    logger.configure(dir=data_path, format_strs=['stdout', 'log', 'csv'],
+    logger.configure(dir=maml_zoo_path + '/data/vpg/test_%d' % idx, format_strs=['stdout', 'log', 'csv'],
                      snapshot_mode='last_gap')
-    config = json.load(open(maml_zoo_path + "/configs/ppo_maml_config.json", 'r'))
-    json.dump(config, open(data_path + '/params.json', 'w'))
+    config = json.load(open(maml_zoo_path + "/configs/vpg_maml_config.json", 'r'))
+    json.dump(config, open(maml_zoo_path + '/data/vpg/test_%d/params.json' % idx, 'w'))
     main(config)
