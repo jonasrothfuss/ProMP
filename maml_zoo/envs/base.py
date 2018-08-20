@@ -44,7 +44,6 @@ class MetaEnv(Env):
         """
         pass
 
-
 class RandomEnv(MetaEnv, MujocoEnv):
     """
     This class provides functionality for randomizing the physical parameters of a mujoco model
@@ -109,22 +108,10 @@ class RandomEnv(MetaEnv, MujocoEnv):
             param_variable = getattr(self.model, param)
             assert param_variable.shape == param_val.shape, 'shapes of new parameter value and old one must match'
             setattr(self.model, param, param_val)
+        self.cur_params = task
 
     def get_task(self):
-        if 'body_mass' in self.rand_params:
-            self.init_params['body_mass'] = self.model.body_mass
-
-        # body_inertia
-        if 'body_inertia' in self.rand_params:
-            self.init_params['body_inertia'] = self.model.body_inertia
-
-        # damping -> different multiplier for different dofs/joints
-        if 'dof_damping' in self.rand_params:
-            self.init_params['dof_damping'] = self.model.dof_damping
-
-        # friction at the body components
-        if 'geom_friction' in self.rand_params:
-            self.init_params['geom_friction'] = self.model.geom_friction
+        return self.cur_params
 
     def save_parameters(self):
         self.init_params = {}
@@ -142,3 +129,4 @@ class RandomEnv(MetaEnv, MujocoEnv):
         # friction at the body components
         if 'geom_friction' in self.rand_params:
             self.init_params['geom_friction'] = self.model.geom_friction
+        self.cur_params = self.init_params
