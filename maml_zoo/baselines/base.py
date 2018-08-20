@@ -46,7 +46,7 @@ class Baseline():
         """
         raise NotImplementedError
 
-    def log_diagnostics(self, paths):
+    def log_diagnostics(self, paths, prefix):
         """
         Log extra information per iteration based on the collected paths
         """

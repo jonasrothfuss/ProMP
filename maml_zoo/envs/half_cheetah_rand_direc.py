@@ -34,8 +34,8 @@ class HalfCheetahRandDirecEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
         self.do_simulation(action, self.frame_skip)
         xposafter = self.sim.data.qpos[0]
         ob = self._get_obs()
-        reward_ctrl = - 0.1 * np.square(action).sum()
-        reward_run = self.goal_direction * (xposafter - xposbefore)/self.dt
+        reward_ctrl = - 0.5 * 0.1 * np.square(action).sum()
+        reward_run = self.goal_direction * (xposafter - xposbefore) / self.dt
         reward = reward_ctrl + reward_run
         done = False
         return ob, reward, done, dict(reward_run=reward_run, reward_ctrl=reward_ctrl)
@@ -56,11 +56,10 @@ class HalfCheetahRandDirecEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
         self.viewer.cam.distance = self.model.stat.extent * 0.5
 
     def log_diagnostics(self, paths, prefix=''):
-        progs = [
-            path["observations"][-1][-3] - path["observations"][0][-3]
-            for path in paths
-        ]
-        logger.logkv(prefix+'AverageForwardProgress', np.mean(progs))
-        logger.logkv(prefix+'MaxForwardProgress', np.max(progs))
-        logger.logkv(prefix+'MinForwardProgress', np.min(progs))
-        logger.logkv(prefix+'StdForwardProgress', np.std(progs))
+        fwrd_vel = [path["env_infos"]['reward_run'] for path in paths]
+        final_fwrd_vel = [path["env_infos"]['reward_run'][-1] for path in paths]
+        ctrl_cost = [-path["env_infos"]['reward_ctrl'] for path in paths]
+
+        logger.logkv(prefix + 'AvgForwardVel', np.mean(fwrd_vel))
+        logger.logkv(prefix + 'AvgFinalForwardVel', np.mean(final_fwrd_vel))
+        logger.logkv(prefix + 'AvgCtrlCost', np.std(ctrl_cost))

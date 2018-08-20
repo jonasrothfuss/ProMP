@@ -14,8 +14,11 @@ class Serializable(object):
         self.__kwargs = kwargs
 
     def quick_init(self, locals_):
-        if getattr(self, "_serializable_initialized", False):
-            return
+        try:
+            if object.__getattribute__(self, "_serializable_initialized"):
+                return
+        except AttributeError:
+            pass
         if sys.version_info >= (3, 0):
             spec = inspect.getfullargspec(self.__init__)
             # Exclude the first "self" parameter

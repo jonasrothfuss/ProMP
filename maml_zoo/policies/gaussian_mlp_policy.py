@@ -3,6 +3,7 @@ from maml_zoo.policies.distributions.diagonal_gaussian import DiagonalGaussian
 from maml_zoo.policies.base import Policy
 from maml_zoo.utils import Serializable
 from maml_zoo.utils.utils import remove_scope_from_name
+from maml_zoo.logger import logger
 
 import tensorflow as tf
 import numpy as np
@@ -114,11 +115,12 @@ class GaussianMLPPolicy(Policy):
         assert actions.shape == (observations.shape[0], self.action_dim)
         return actions, dict(mean=means, log_std=logs_stds)
 
-    def log_diagnostics(self, paths):
+    def log_diagnostics(self, paths, prefix=''):
         """
         Log extra information per iteration based on the collected paths
         """
-        raise NotImplementedError
+        log_stds = np.vstack([path["agent_infos"]["log_std"] for path in paths])
+        logger.logkv(prefix+'AveragePolicyStd', np.mean(np.exp(log_stds)))
 
     def load_params(self, policy_params):
         """

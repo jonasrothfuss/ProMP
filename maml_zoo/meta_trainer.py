@@ -94,6 +94,8 @@ class Trainer(object):
                     all_samples_data.append(samples_data)
                     list_proc_samples_time.append(time.time() - time_proc_samples_start)
 
+                    self.log_diagnostics(sum(list(paths.values()), []), prefix='Step_%d-' % step)
+
                     """ ------------------- Inner Policy Update --------------------"""
 
                     time_inner_step_start = time.time()
@@ -138,10 +140,10 @@ class Trainer(object):
         """
         Gets the current policy and env for storage
         """
-        return dict(itr=itr, policy=self.policy, env=self.env)
+        return dict(itr=itr, policy=self.policy, env=self.env, baseline=self.baseline)
 
     def log_diagnostics(self, paths, prefix):
         # TODO: we aren't using it so far
         self.env.log_diagnostics(paths, prefix)
         self.policy.log_diagnostics(paths, prefix)
-        self.baseline.log_diagnostics(paths)
+        self.baseline.log_diagnostics(paths, prefix)

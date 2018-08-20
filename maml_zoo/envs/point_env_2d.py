@@ -27,7 +27,6 @@ class MetaPointEnv(MetaEnv):
         next_observation = np.copy(self._state)
         return next_observation, reward, done, {}
 
-
     def reset(self):
         """
         Resets the state of the environment, returning an initial observation.
