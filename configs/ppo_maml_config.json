@@ -1,4 +1,5 @@
 {
+  "algo": "PPO-MAML",
   "meta_batch_size": 20,
   "hidden_sizes": [
     64,
