@@ -129,6 +129,7 @@ class SampleProcessor(object):
             advantages=advantages,
             env_infos=env_infos,
             agent_infos=agent_infos,
+            paths=paths,
         )
 
         return samples_data, paths
