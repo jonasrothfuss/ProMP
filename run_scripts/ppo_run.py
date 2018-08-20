@@ -12,10 +12,7 @@ from maml_zoo.logger import logger
 import json
 import numpy as np
 
-
-# env = MetaPointEnv() # Wrappers? normalization?
 maml_zoo_path = '/'.join(os.path.realpath(os.path.dirname(__file__)).split('/')[:-1])
-
 
 def main(config):
     baseline = LinearFeatureBaseline()

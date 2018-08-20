@@ -7,9 +7,9 @@ from gym.envs.mujoco.mujoco_env import MujocoEnv
 
 class AntRandGoalEnv(MetaEnv, gym.utils.EzPickle, MujocoEnv):
     def __init__(self):
-        self.goal_pos = np.random.uniform((-3.0, 3.0), size=(2))
         MujocoEnv.__init__(self, 'ant.xml', 5)
         gym.utils.EzPickle.__init__(self)
+        self.set_task(self.sample_tasks(1)[0])
 
     def sample_tasks(self, n_tasks):
         # random target location

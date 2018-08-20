@@ -5,29 +5,29 @@ import gym
 from gym.envs.mujoco.mujoco_env import MujocoEnv
 
 
-class HalfCheetahRandDirecEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
-    def __init__(self, goal_direction=None):
-        self.goal_direction = goal_direction if goal_direction else 1.0
+class HalfCheetahRandVelEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
+    def __init__(self):
         MujocoEnv.__init__(self, 'half_cheetah.xml', 5)
-        gym.utils.EzPickle.__init__(self, goal_direction)
+        gym.utils.EzPickle.__init__(self)
+        self.set_task(self.sample_tasks(1)[0])
 
     def sample_tasks(self, n_tasks):
         # for fwd/bwd env, goal direc is backwards if - 1.0, forwards if + 1.0
-        return np.random.choice((-1.0, 1.0), (n_tasks, ))
+        return np.random.uniform(0.0, 2.0, (n_tasks, ))
 
     def set_task(self, task):
         """
         Args:
             task: task of the meta-learning environment
         """
-        self.goal_direction = task
+        self.goal_velocity = task
 
     def get_task(self):
         """
         Returns:
             task: task of the meta-learning environment
         """
-        return self.goal_direction
+        return self.goal_velocity
 
     def step(self, action):
         xposbefore = self.sim.data.qpos[0]
@@ -35,7 +35,7 @@ class HalfCheetahRandDirecEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
         xposafter = self.sim.data.qpos[0]
         ob = self._get_obs()
         reward_ctrl = - 0.5 * 0.1 * np.square(action).sum()
-        reward_run = self.goal_direction * (xposafter - xposbefore) / self.dt
+        reward_run = np.abs((xposafter - xposbefore) / self.dt - self.goal_velocity)
         reward = reward_ctrl + reward_run
         done = False
         return ob, reward, done, dict(reward_run=reward_run, reward_ctrl=reward_ctrl)
@@ -63,6 +63,3 @@ class HalfCheetahRandDirecEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
         logger.logkv(prefix + 'AvgForwardVel', np.mean(fwrd_vel))
         logger.logkv(prefix + 'AvgFinalForwardVel', np.mean(final_fwrd_vel))
         logger.logkv(prefix + 'AvgCtrlCost', np.std(ctrl_cost))
-
-    def __str__(self):
-        return 'HalfCheetahRandDirecEnv'

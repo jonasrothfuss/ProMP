@@ -84,7 +84,7 @@ class MAMLSampler(Sampler):
         obses = self.vec_env.reset()
         
         while n_samples < self.total_samples:
-
+            
             # execute policy
             t = time.time()
             obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
@@ -125,7 +125,7 @@ class MAMLSampler(Sampler):
             pbar.update(n_samples)
             obses = next_obses
         pbar.stop()
-
+        
         if log:
             logger.logkv(log_prefix+"PolicyExecTime", policy_time)
             logger.logkv(log_prefix+"EnvExecTime", env_time)

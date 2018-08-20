@@ -51,3 +51,6 @@ class Baseline():
         Log extra information per iteration based on the collected paths
         """
         pass
+
+    def __dict__(self):
+        return self.__class__.__name__

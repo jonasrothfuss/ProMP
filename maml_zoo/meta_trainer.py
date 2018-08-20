@@ -135,6 +135,7 @@ class Trainer(object):
                 logger.dumpkvs()
 
         logger.log("Training finished")
+        self.sess.close()        
 
     def get_itr_snapshot(self, itr):
         """
