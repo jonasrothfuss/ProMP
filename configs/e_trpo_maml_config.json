@@ -1,0 +1,20 @@
+{
+  "algo": "ETRPO-MAML",
+  "meta_batch_size": 40,
+  "hidden_sizes": [
+    64,
+    64
+  ],
+  "rollouts_per_meta_task": 10,
+  "parallel": true,
+  "max_path_length":100,
+  "discount": 0.99,
+  "gae_lambda": 1.0,
+  "normalize_adv": true,
+  "positive_adv": false,
+  "inner_lr": 0.1,
+  "num_inner_grad_steps": 1,
+  "step_size": 0.1,
+  "inner_type": "log_likelihood",
+  "n_itr": 300
+}

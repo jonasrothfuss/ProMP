@@ -8,7 +8,7 @@ import tensorflow as tf
 import numpy as np
 from collections import OrderedDict
 
-class TRPOMAML(MAMLAlgo):
+class ETRPOMAML(MAMLAlgo):
     """
     Algorithm for PPO MAML
 
@@ -40,7 +40,7 @@ class TRPOMAML(MAMLAlgo):
             name="trpo_maml",
             **kwargs
             ):
-        super(TRPOMAML, self).__init__(*args, **kwargs)
+        super(ETRPOMAML, self).__init__(*args, **kwargs)
 
         assert inner_type in ["log_likelihood", "likelihood_ratio", "dice"]
         self.optimizer = ConjugateGradientOptimizer()
@@ -58,7 +58,8 @@ class TRPOMAML(MAMLAlgo):
         if self.inner_type == 'likelihood_ratio':
             with tf.variable_scope("likelihood_ratio"):
                 likelihood_ratio_adapt = self.policy.distribution.likelihood_ratio_sym(action_sym,
-                                                                                       dist_info_old_sym, dist_info_new_sym)
+                                                                                       dist_info_old_sym,
+                                                                                       dist_info_new_sym)
             with tf.variable_scope("surrogate_loss"):
                 surr_obj_adapt = -tf.reduce_mean(likelihood_ratio_adapt * adv_sym)
 
@@ -90,6 +91,8 @@ class TRPOMAML(MAMLAlgo):
         """
 
         """ Create Variables """
+        assert self.num_inner_grad_steps == 1, "Not sure if the math is right for more than 1 inner step"
+
         with tf.variable_scope(self.name):
             self.step_sizes = self._create_step_size_vars()
 
@@ -110,12 +113,16 @@ class TRPOMAML(MAMLAlgo):
             distribution_info_vars.append(dist_info_sym)  # step 0
             current_policy_params.append(self.policy.policy_params) # set to real policy_params (tf.Variable)
 
+        initial_distribution_info_vars = distribution_info_vars
+        initial_action_phs = action_phs
+
         with tf.variable_scope(self.name):
             """ Inner updates"""
             for step_id in range(1, self.num_inner_grad_steps+1):
                 surr_objs, kls, adapted_policy_params = [], [], []
 
                 # inner adaptation step for each task
+                # The reduce mean is within the task -- fast batch size
                 for i in range(self.meta_batch_size):
                     surr_loss = self.adapt_objective_sym(action_phs[i], adv_phs[i], dist_info_old_phs[i], distribution_info_vars[i])
                     kl_loss = tf.reduce_mean(self.policy.distribution.kl_sym(dist_info_old_phs[i], distribution_info_vars[i]))
@@ -149,6 +156,10 @@ class TRPOMAML(MAMLAlgo):
                 outer_kl = tf.reduce_mean(self.policy.distribution.kl_sym(dist_info_old_phs[i], distribution_info_vars[i]))
 
                 surr_obj = - tf.reduce_mean(likelihood_ratio * adv_phs[i])
+
+                log_likelihood_inital = self.policy.distribution.log_likelihood_sym(initial_action_phs[i],
+                                                                                    initial_distribution_info_vars[i])
+                surr_obj += -tf.reduce_mean(adv_phs[i]) * tf.reduce_sum(log_likelihood_inital)
 
                 surr_objs.append(surr_obj)
                 outer_kls.append(outer_kl)
