@@ -73,6 +73,7 @@ class NormalizedEnv(Serializable):
             attr: attribute to get
 
         Returns:
+            attribute of the wrapped_env
 
         """
         orig_attr = self._wrapped_env.__getattribute__(attr)

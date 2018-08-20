@@ -1,12 +1,15 @@
 import numpy as np
-from gym import utils
 from maml_zoo.envs.base import MetaEnv
+from gym.envs.mujoco.mujoco_env import MujocoEnv
+from maml_zoo.logger import logger
+import gym
 
-class AntRandDirecEnv(MetaEnv, utils.EzPickle):
+
+class AntRandDirecEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
     def __init__(self, goal_direction=None):
         self.goal_direction = goal_direction if goal_direction else 1.0
-        MetaEnv.__init__(self, 'ant.xml', 5)
-        utils.EzPickle.__init__(self)
+        MujocoEnv.__init__(self, 'ant.xml', 5)
+        gym.utils.EzPickle.__init__(self)
 
     def sample_tasks(self, n_tasks):
         # for fwd/bwd env, goal direc is backwards if - 1.0, forwards if + 1.0
@@ -37,8 +40,7 @@ class AntRandDirecEnv(MetaEnv, utils.EzPickle):
         survive_reward = 1.0
         reward = forward_reward - ctrl_cost - contact_cost + survive_reward
         state = self.state_vector()
-        notdone = np.isfinite(state).all() \
-            and state[2] >= 0.2 and state[2] <= 1.0
+        notdone = np.isfinite(state).all() and 1.0 >= state[2] >= 0.
         done = not notdone
         ob = self._get_obs()
         return ob, reward, done, dict(
@@ -64,12 +66,14 @@ class AntRandDirecEnv(MetaEnv, utils.EzPickle):
         self.viewer.cam.distance = self.model.stat.extent * 0.5
 
     def log_diagnostics(self, paths, prefix=''):
-        progs = [
-            path["observations"][-1][-3] - path["observations"][0][-3]
-            for path in paths
-        ]
-        logger.record_tabular(prefix+'AverageForwardProgress', np.mean(progs))
-        logger.record_tabular(prefix+'MaxForwardProgress', np.max(progs))
-        logger.record_tabular(prefix+'MinForwardProgress', np.min(progs))
-        logger.record_tabular(prefix+'StdForwardProgress', np.std(progs))
+        progs = [np.mean(path["env_infos"]["reward_forward"]) for path in paths]
+        ctrl_cost = [-np.mean(path["env_infos"]["reward_ctrl"]) for path in paths]
+
+        logger.logkv(prefix+'AverageForwardReturn', np.mean(progs))
+        logger.logkv(prefix+'MaxForwardReturn', np.max(progs))
+        logger.logkv(prefix+'MinForwardReturn', np.min(progs))
+        logger.logkv(prefix+'StdForwardReturn', np.std(progs))
+
+        logger.logkv(prefix + 'AverageCtrlCost', np.mean(ctrl_cost))
+
 

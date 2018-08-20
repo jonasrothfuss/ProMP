@@ -1,7 +1,8 @@
 import numpy as np
-from maml_zoo.envs.base import MetaEnv
 from maml_zoo.envs.base import RandomEnv
 from gym import utils
+from maml_zoo.logger import logger
+
 
 class HopperRandParamsEnv(RandomEnv, utils.EzPickle):
     def __init__(self, log_scale_limit=3.0):
@@ -34,21 +35,15 @@ class HopperRandParamsEnv(RandomEnv, utils.EzPickle):
         self.set_state(qpos, qvel)
         return self._get_obs()
 
-    def viewer_setup(self):
-        self.viewer.cam.trackbodyid = 2
-        self.viewer.cam.distance = self.model.stat.extent * 0.75
-        # self.viewer.cam.lookat[2] += .8
-        self.viewer.cam.elevation = -20
-
     def log_diagnostics(self, paths, prefix=''):
         progs = [
             path["observations"][-1][-3] - path["observations"][0][-3]
             for path in paths
         ]
-        logger.record_tabular(prefix + 'AverageForwardProgress', np.mean(progs))
-        logger.record_tabular(prefix + 'MaxForwardProgress', np.max(progs))
-        logger.record_tabular(prefix + 'MinForwardProgress', np.min(progs))
-        logger.record_tabular(prefix + 'StdForwardProgress', np.std(progs))
+        logger.logkv(prefix + 'AverageForwardProgress', np.mean(progs))
+        logger.logkv(prefix + 'MaxForwardProgress', np.max(progs))
+        logger.logkv(prefix + 'MinForwardProgress', np.min(progs))
+        logger.logkv(prefix + 'StdForwardProgress', np.std(progs))
 
 if __name__ == "__main__":
 
