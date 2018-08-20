@@ -71,8 +71,6 @@ class PPOMAML(MAMLAlgo):
         self.build_graph()
 
     def adapt_objective_sym(self, action_sym, adv_sym, dist_info_old_sym, dist_info_new_sym):
-        # if step_id > 1:
-        #     import pdb; pdb.set_trace()
         with tf.variable_scope("likelihood_ratio"):
             likelihood_ratio_adapt = self.policy.distribution.likelihood_ratio_sym(action_sym,
                                                                                    dist_info_old_sym, dist_info_new_sym)
