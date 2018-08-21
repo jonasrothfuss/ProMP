@@ -4,7 +4,11 @@ from maml_zoo.policies.base import Policy
 from maml_zoo.samplers import MAMLSampler
 from maml_zoo.samplers import MAMLSampleProcessor
 from maml_zoo.samplers import SampleProcessor
+from maml_zoo.samplers import DiceSampleProcessor
+from maml_zoo.samplers import DiceMAMLSampleProcessor
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
+from maml_zoo.baselines.linear_time_baseline import LinearTimeBaseline
+
 
 class TestEnv():
     def __init__(self):
@@ -183,6 +187,66 @@ class TestSampler(unittest.TestCase):
                 samples_data = self.sample_processor.process_samples(paths)
                 self.assertEqual(len(samples_data.keys()), 7)
                 self.assertEqual(samples_data['advantages'].size, self.path_length*self.batch_size)
+
+class TestDiceSampleProcesor(unittest.TestCase):
+
+    def setUp(self):
+        self.test_env = TestEnv()
+        self.random_env = RandomEnv()
+        self.test_policy = TestPolicy(obs_dim=3, action_dim=4)
+        self.return_policy = ReturnPolicy(obs_dim=3, action_dim=4)
+        self.random_policy = RandomPolicy(obs_dim=3, action_dim=4)
+        self.meta_batch_size = 3
+        self.batch_size = 10
+        self.path_length = 5
+        self.it_sampler = MAMLSampler(self.test_env, self.test_policy, self.batch_size, self.meta_batch_size,
+                                      self.path_length, parallel=False)
+
+        self.paths = self.it_sampler.obtain_samples()
+        self.baseline = LinearTimeBaseline()
+        self.dics_sample_proc = DiceSampleProcessor(self.baseline, max_path_length=6)
+
+    def test_discounted_reward(self):
+        samples_data, paths = self.dics_sample_proc._compute_samples_data(self.paths[0])
+        self.assertAlmostEqual(paths[0]['discounted_rewards'][0], -1)
+        self.assertAlmostEqual(paths[0]['discounted_rewards'][3], -0.99**3)
+
+    def test_adjusted_reward(self):
+        paths = self.paths[0]
+        paths[0]['rewards'][0] = 0
+        paths[0]['rewards'][3] = -2
+        samples_data, paths = self.dics_sample_proc._compute_samples_data(paths)
+        self.assertGreaterEqual(paths[0]['adjusted_rewards'][0], 0.3)
+        self.assertLessEqual(paths[0]['adjusted_rewards'][3], -0.3)
+
+    def test_process_samples(self):
+        samples_data = self.dics_sample_proc.process_samples(self.paths[0])
+        self.assertAlmostEqual(samples_data['observations'].shape, (self.batch_size, 6, 1))
+        self.assertAlmostEqual(samples_data['actions'].ndim, 3)
+        self.assertAlmostEqual(samples_data['rewards'].ndim, 2)
+        self.assertAlmostEqual(samples_data['masks'].ndim, 2)
+        self.assertAlmostEqual(samples_data['masks'][2][5], 0)
+        self.assertAlmostEqual(samples_data['masks'][2][2], 1)
+        self.assertAlmostEqual(samples_data['env_infos']['e'][0][5], 0)
+        self.assertAlmostEqual(samples_data['env_infos']['e'][2][0], -5)
+
+    def test_dice_maml_processor(self):
+        maml_sample_processor = DiceMAMLSampleProcessor(self.baseline, max_path_length=6)
+        maml_samples_data = maml_sample_processor.process_samples(self.paths)
+        for samples_data in maml_samples_data:
+            self.assertAlmostEqual(samples_data['observations'].shape, (self.batch_size, 6, 1))
+            self.assertAlmostEqual(samples_data['actions'].ndim, 3)
+            self.assertAlmostEqual(samples_data['rewards'].ndim, 2)
+            self.assertAlmostEqual(samples_data['masks'].ndim, 2)
+            self.assertAlmostEqual(samples_data['masks'][2][5], 0)
+            self.assertAlmostEqual(samples_data['masks'][2][2], 1)
+            self.assertAlmostEqual(samples_data['env_infos']['e'][0][5], 0)
+            self.assertAlmostEqual(samples_data['env_infos']['e'][2][0], -5)
+
+
+
+
+
 
 
 if __name__ == '__main__':
