@@ -1,14 +1,8 @@
 import os
-import sys
-import argparse
 import json
-import itertools
-import doodad as dd
-import doodad.mount as mount
-import doodad.easy_sweep.launcher as launcher
-from doodad.easy_sweep.hyper_sweep import run_sweep_doodad
 import tensorflow as tf
 import numpy as np
+from run_scripts.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
@@ -24,8 +18,9 @@ INSTANCE_TYPE = 'c4.2xlarge'
 EXP_NAME = 'ppo/ppo-hyperparams'
 
 def run_experiment(**kwargs):
-    logger.configure(dir='./data', format_strs=['stdout', 'log', 'csv'], snapshot_mode='last_gap', snapshot_gap=50)
-    json.dump(kwargs, open('./data' + '/params.json', 'w'), indent=2, sort_keys=True, cls=ClassEncoder)
+    exp_dir = os.getcwd() + '/data'
+    logger.configure(dir=exp_dir, format_strs=['stdout', 'log', 'csv'], snapshot_mode='last_gap', snapshot_gap=50)
+    json.dump(kwargs, open(exp_dir + '/params.json', 'w'), indent=2, sort_keys=True, cls=ClassEncoder)
 
     # Instantiate classes
     set_seed(kwargs['seed'])
@@ -97,17 +92,9 @@ def run_experiment(**kwargs):
     trainer.train()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', type=str, default='local',
-                        help='Mode for running the experiments - local: runs on local machine, '
-                             'ec2: runs on AWS ec2 cluster (requires a proper configuration file)')
-
-    args = parser.parse_args(sys.argv[1:])
-
-    local_mount = mount.MountLocal(local_dir='~/maml_zoo', pythonpath=True)
 
     sweep_params = {
-        'seed': [1, 2, 3, 4, 5],
+        'seed': [1, 2, 3],
 
         'baseline': [LinearFeatureBaseline],
 
@@ -129,12 +116,12 @@ if __name__ == '__main__':
 
         'inner_lr': [0.1],
         'learning_rate': [1e-3],
-        'max_epochs': [5],
+        'max_epochs': [3, 5, 8],
         'num_minibatches': [1],
-        'clip_eps': [0.5],
+        'clip_eps': [0.1, 0.2],
         'clip_outer': [True],
         'target_outer_step': [0],
-        'target_inner_step': [2e-2],
+        'target_inner_step': [5e-3, 1e-2, 2e-2],
         'init_outer_kl_penalty': [0],
         'init_inner_kl_penalty': [1e-3],
         'adaptive_outer_kl_penalty': [False],
@@ -147,18 +134,5 @@ if __name__ == '__main__':
         'num_inner_grad_steps': [1],
         'scope': [None],
     }
-    
-    sweeper = launcher.DoodadSweeper([local_mount], docker_img="dennisl88/maml_zoo", docker_output_dir='./data')
-    if args.mode == 'ec2':
-        # print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format(EXP_NAME, len(itertools.product(sweep_params))))
-        sweeper.run_sweep_ec2(run_experiment, sweep_params, bucket_name='rllab-experiments', instance_type=INSTANCE_TYPE, s3_log_name=EXP_NAME, add_date_to_logname=False)
-    elif args.mode == 'local_docker':
-        mode_docker = dd.mode.LocalDocker(
-            image=sweeper.image,
-        )
-        run_sweep_doodad(run_experiment, sweep_params, run_mode=mode_docker, 
-                mounts=sweeper.mounts)
-    elif args.mode == 'local':
-        sweeper.run_sweep_serial(run_experiment, sweep_params)
-    else:
-        raise NotImplementedError
+
+    run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)
