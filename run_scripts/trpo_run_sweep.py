@@ -2,17 +2,18 @@ import os
 import sys
 import argparse
 import json
+import itertools
 import doodad as dd
 import doodad.mount as mount
 import doodad.easy_sweep.launcher as launcher
 from doodad.easy_sweep.hyper_sweep import run_sweep_doodad
 import tensorflow as tf
 import numpy as np
-from maml_zoo.utils.utils import set_seed
+from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.normalized_env import normalize
-from maml_zoo.meta_algos.ppo_maml import PPOMAML
+from maml_zoo.meta_algos.vpg_maml import VPGMAML
 from maml_zoo.meta_trainer import Trainer
 from maml_zoo.samplers.maml_sampler import MAMLSampler
 from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
@@ -20,10 +21,10 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'ppo-hyperparams'
+EXP_NAME = 'trpo-inner-comparison'
 
 def run_experiment(**kwargs):
-    full_path =  '~/data/ppo/%s_%d' % (EXP_NAME, np.random.randint(0, 1000))
+    full_path =  '~/data/trpo/%s_%d' % (EXP_NAME, np.random.randint(0, 1000))
     logger.configure(dir=full_path, format_strs=['stdout', 'log', 'csv'], snapshot_mode='last_gap', snapshot_gap=50)
     json.dump(kwargs, open(full_path + '/params.json', 'w'), indent=2, sort_keys=True, cls=ClassEncoder)
 
@@ -64,24 +65,14 @@ def run_experiment(**kwargs):
         positive_adv=kwargs['positive_adv'],
     )
 
-    algo = PPOMAML(
+    algo = TRPOMAML(
         policy=policy,
+        step_size=kwargs['step_size'],
+        inner_type=kwargs['inner_type'],
         inner_lr=kwargs['inner_lr'],
         meta_batch_size=kwargs['meta_batch_size'],
         num_inner_grad_steps=kwargs['num_inner_grad_steps'],
         learning_rate=kwargs['learning_rate'],
-        max_epochs=kwargs['max_epochs'],
-        num_minibatches=kwargs['num_minibatches'],
-        clip_eps=kwargs['clip_eps'], 
-        clip_outer=kwargs['clip_outer'],
-        target_outer_step=kwargs['target_outer_step'],
-        target_inner_step=kwargs['target_inner_step'],
-        init_outer_kl_penalty=kwargs['init_outer_kl_penalty'],
-        init_inner_kl_penalty=kwargs['init_inner_kl_penalty'],
-        adaptive_outer_kl_penalty=kwargs['adaptive_outer_kl_penalty'],
-        adaptive_inner_kl_penalty=kwargs['adaptive_inner_kl_penalty'],
-        anneal_factor=kwargs['anneal_factor'],
-        entropy_bonus=kwargs['entropy_bonus'],
     )
 
     trainer = Trainer(
@@ -96,7 +87,7 @@ def run_experiment(**kwargs):
 
     trainer.train()
 
-if __name__ == '__main__':
+if __name__ == '__main__':    
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', type=str, default='local',
                         help='Mode for running the experiments - local: runs on local machine, '
@@ -107,7 +98,7 @@ if __name__ == '__main__':
     local_mount = mount.MountLocal(local_dir='~/maml_zoo', pythonpath=True)
 
     sweep_params = {
-        'seed': [1, 2, 3, 4, 5],
+        'seed' : [1, 2, 3, 4, 5],
 
         'baseline': [LinearFeatureBaseline],
 
@@ -129,18 +120,8 @@ if __name__ == '__main__':
 
         'inner_lr': [0.1],
         'learning_rate': [1e-3],
-        'max_epochs': [5],
-        'num_minibatches': [1],
-        'clip_eps': [0.5],
-        'clip_outer': [True],
-        'target_outer_step': [0],
-        'target_inner_step': [2e-2],
-        'init_outer_kl_penalty': [0],
-        'init_inner_kl_penalty': [1e-3],
-        'adaptive_outer_kl_penalty': [False],
-        'adaptive_inner_kl_penalty': [True],
-        'anneal_factor': [1.0],
-        'entropy_bonus': [0.0],
+        'inner_type': ['log_likelihood' , 'likelihood_ratio'],
+        'step_size': [0.01],
 
         'n_itr': [300],
         'meta_batch_size': [40],
