@@ -43,7 +43,7 @@ class LinearTimeBaseline(Baseline):
 
     def _features(self, path):
         # TODO: Should we add the option of normalizing the obs??
-        path_length = len(path["rewards"])
+        path_length = len(path["discounted_rewards"])
         time_step = np.arange(path_length).reshape(-1, 1) / 100.0
         return np.concatenate([time_step, time_step ** 2, time_step ** 3, np.ones((path_length, 1))],
                               axis=1)
@@ -57,7 +57,7 @@ class LinearTimeBaseline(Baseline):
 
         """
         featmat = np.concatenate([self._features(path) for path in paths], axis=0)
-        rewards = np.concatenate([path["rewards"] for path in paths], axis=0)
+        rewards = np.concatenate([path["discounted_rewards"] for path in paths], axis=0)
         reg_coeff = self._reg_coeff
         for _ in range(5):
             self._coeffs = np.linalg.lstsq(

@@ -1,5 +1,5 @@
 from maml_zoo.samplers.base import SampleProcessor
-
+from maml_zoo.samplers.dice_sample_processor import DiceSampleProcessor
 
 class MAMLSampleProcessor(SampleProcessor):
 
@@ -36,6 +36,7 @@ class MAMLSampleProcessor(SampleProcessor):
         # 7) log statistics if desired
         self._log_path_stats(all_paths, log=log, log_prefix=log_prefix)
 
-        assert all([samples_data.keys() >= {'observations', 'actions', 'rewards', 'advantages', 'returns'}
-                    for samples_data in samples_data_meta_batch])
         return samples_data_meta_batch
+
+class DiceMAMLSampleProcessor(DiceSampleProcessor):
+    process_samples = MAMLSampleProcessor.process_samples

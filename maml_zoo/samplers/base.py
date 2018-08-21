@@ -110,10 +110,9 @@ class SampleProcessor(object):
 
         # 3) compute advantages and adjusted rewards
         paths = self._compute_advantages(paths, all_path_baselines)
-        paths = self._compute_adjusted_rewards(paths, all_path_baselines)
 
         # 4) stack path data
-        observations, actions, rewards, returns, advantages, env_infos, agent_infos, adjusted_rewards = self._stack_path_data(paths)
+        observations, actions, rewards, returns, advantages, env_infos, agent_infos = self._stack_path_data(paths)
 
         # 5) if desired normalize / shift advantages
         if self.normalize_adv:
@@ -130,8 +129,6 @@ class SampleProcessor(object):
             advantages=advantages,
             env_infos=env_infos,
             agent_infos=agent_infos,
-            adjusted_rewards=adjusted_rewards,
-            paths=paths,
         )
 
         return samples_data, paths
@@ -165,14 +162,6 @@ class SampleProcessor(object):
 
         return paths
 
-    def _compute_adjusted_rewards(self, paths, all_path_baselines):
-        assert len(paths) == len(all_path_baselines)
-
-        for idx, path in enumerate(paths):
-            path_baselines = all_path_baselines[idx]
-            deltas = path["rewards"] - path_baselines
-            path["adjusted_rewards"] = deltas
-        return paths
 
     def _stack_path_data(self, paths):
         observations = np.concatenate([path["observations"] for path in paths])
@@ -182,7 +171,5 @@ class SampleProcessor(object):
         advantages = np.concatenate([path["advantages"] for path in paths])
         env_infos = utils.concat_tensor_dict_list([path["env_infos"] for path in paths])
         agent_infos = utils.concat_tensor_dict_list([path["agent_infos"] for path in paths])
-        adjusted_rewards = np.concatenate([path["adjusted_rewards"] for path in paths])
-
-        return observations, actions, rewards, returns, advantages, env_infos, agent_infos, adjusted_rewards
+        return observations, actions, rewards, returns, advantages, env_infos, agent_infos
 
