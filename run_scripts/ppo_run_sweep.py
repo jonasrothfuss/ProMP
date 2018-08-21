@@ -2,13 +2,14 @@ import os
 import sys
 import argparse
 import json
+import itertools
 import doodad as dd
 import doodad.mount as mount
 import doodad.easy_sweep.launcher as launcher
 from doodad.easy_sweep.hyper_sweep import run_sweep_doodad
 import tensorflow as tf
 import numpy as np
-from maml_zoo.utils.utils import set_seed
+from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.normalized_env import normalize
@@ -20,12 +21,11 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'ppo-hyperparams'
+EXP_NAME = 'ppo/ppo-hyperparams'
 
 def run_experiment(**kwargs):
-    full_path =  '~/data/ppo/%s_%d' % (EXP_NAME, np.random.randint(0, 1000))
-    logger.configure(dir=full_path, format_strs=['stdout', 'log', 'csv'], snapshot_mode='last_gap', snapshot_gap=50)
-    json.dump(kwargs, open(full_path + '/params.json', 'w'), indent=2, sort_keys=True, cls=ClassEncoder)
+    logger.configure(dir='./data', format_strs=['stdout', 'log', 'csv'], snapshot_mode='last_gap', snapshot_gap=50)
+    json.dump(kwargs, open('./data' + '/params.json', 'w'), indent=2, sort_keys=True, cls=ClassEncoder)
 
     # Instantiate classes
     set_seed(kwargs['seed'])
@@ -142,16 +142,16 @@ if __name__ == '__main__':
         'anneal_factor': [1.0],
         'entropy_bonus': [0.0],
 
-        'n_itr': [300],
+        'n_itr': [301],
         'meta_batch_size': [40],
         'num_inner_grad_steps': [1],
         'scope': [None],
     }
     
-    sweeper = launcher.DoodadSweeper([local_mount], docker_img="dennisl88/maml_zoo")
+    sweeper = launcher.DoodadSweeper([local_mount], docker_img="dennisl88/maml_zoo", docker_output_dir='./data')
     if args.mode == 'ec2':
         # print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format(EXP_NAME, len(itertools.product(sweep_params))))
-        sweeper.run_sweep_ec2(run_experiment, sweep_params, bucket_name='rllab-experiments', instance_type=INSTANCE_TYPE, s3_log_name=EXP_NAME)
+        sweeper.run_sweep_ec2(run_experiment, sweep_params, bucket_name='rllab-experiments', instance_type=INSTANCE_TYPE, s3_log_name=full_path, add_date_to_logname=False)
     elif args.mode == 'local_docker':
         mode_docker = dd.mode.LocalDocker(
             image=sweeper.image,

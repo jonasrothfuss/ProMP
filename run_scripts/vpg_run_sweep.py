@@ -21,13 +21,11 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'vpg-inner-comparison'
+EXP_NAME = 'vpg/vpg-inner-comparison'
 
 def run_experiment(**kwargs):
-    full_path =  '../data/vpg/%s_%d' % (EXP_NAME, np.random.randint(0, 1000))
-    logger.configure(dir=full_path, format_strs=['stdout', 'log', 'csv'], snapshot_mode='last_gap', snapshot_gap=50)
-
-    json.dump(kwargs, open(full_path + '/params.json', 'w'), indent=2, sort_keys=True, cls=ClassEncoder)
+    logger.configure(dir='./data', format_strs=['stdout', 'log', 'csv'], snapshot_mode='last_gap', snapshot_gap=50)
+    json.dump(kwargs, open('./data' + '/params.json', 'w'), indent=2, sort_keys=True, cls=ClassEncoder)
 
     # Instantiate classes
     set_seed(kwargs['seed'])
@@ -122,16 +120,16 @@ if __name__ == '__main__':
         'learning_rate': [1e-3],
         'inner_type': ['log_likelihood' , 'likelihood_ratio'],
 
-        'n_itr': [300],
+        'n_itr': [301],
         'meta_batch_size': [40],
         'num_inner_grad_steps': [1],
         'scope': [None],
     }
     
-    sweeper = launcher.DoodadSweeper([local_mount], docker_img="dennisl88/maml_zoo")
+    sweeper = launcher.DoodadSweeper([local_mount], docker_img="dennisl88/maml_zoo", docker_output_dir='./data')
     if args.mode == 'ec2':
         # print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format(EXP_NAME, len(itertools.product(sweep_params))))
-        sweeper.run_sweep_ec2(run_experiment, sweep_params, bucket_name='rllab-experiments', instance_type=INSTANCE_TYPE, s3_log_name=EXP_NAME)
+        sweeper.run_sweep_ec2(run_experiment, sweep_params, bucket_name='rllab-experiments', instance_type=INSTANCE_TYPE, s3_log_name=EXP_NAME, add_date_to_logname=False)
     elif args.mode == 'local_docker':
         mode_docker = dd.mode.LocalDocker(
             image=sweeper.image,

@@ -10,26 +10,13 @@ from collections import OrderedDict
 
 class TRPOMAML(MAMLAlgo):
     """
-    Algorithm for PPO MAML
+    Algorithm for TRPO MAML
 
     Args:
         policy (Policy) : policy object
-        inner_lr (float) : gradient step size used for inner step
-        meta_batch_size (int): number of meta-tasks
-        num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
-        learning_rate (float) : 
-        max_epochs (int) :
-        num_minibatches (int) : Currently not implemented
-        clip_eps (float) :
-        clip_outer (bool) : whether to use L^CLIP or L^KLPEN on outer gradient update
-        target_outer_step (float) : target outer kl divergence, used only with L^KLPEN and when adaptive_outer_kl_penalty is true
-        target_inner_step (float) : target inner kl divergence, used only when adaptive_inner_kl_penalty is true
-        init_outer_kl_penalty (float) : initial penalty for outer kl, used only with L^KLPEN
-        init_inner_kl_penalty (float) : initial penalty for inner kl
-        adaptive_outer_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on outer gradient update
-        adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
-        anneal_factor (float) : multiplicative factor for clip_eps, updated every iteration
-        entropy_bonus (float) : scaling factor for policy entropy
+        step_size (int) : trust region size for outer policy
+        inner_type (str) : One of 'log_likelihood', 'likelihood_ratio', 'dice', choose which inner update to use
+        exploration (bool) : 
     """
     def __init__(
             self,
@@ -37,6 +24,7 @@ class TRPOMAML(MAMLAlgo):
             inner_type,
             *args,
             trainable_inner_step_size=False,
+            exploration=False,
             name="trpo_maml",
             **kwargs
             ):
@@ -51,6 +39,7 @@ class TRPOMAML(MAMLAlgo):
         self.name = name
         self.trainable_inner_step_size = trainable_inner_step_size
         self.step_sizes = None
+        self.exploration = exploration
 
         self.build_graph()
 
@@ -58,7 +47,8 @@ class TRPOMAML(MAMLAlgo):
         if self.inner_type == 'likelihood_ratio':
             with tf.variable_scope("likelihood_ratio"):
                 likelihood_ratio_adapt = self.policy.distribution.likelihood_ratio_sym(action_sym,
-                                                                                       dist_info_old_sym, dist_info_new_sym)
+                                                                                       dist_info_old_sym, 
+                                                                                       dist_info_new_sym)
             with tf.variable_scope("surrogate_loss"):
                 surr_obj_adapt = -tf.reduce_mean(likelihood_ratio_adapt * adv_sym)
 
@@ -90,6 +80,8 @@ class TRPOMAML(MAMLAlgo):
         """
 
         """ Create Variables """
+        assert self.num_inner_grad_steps == 1 or not self.exploration, "Not sure if the math is right for more than 1 inner step"
+
         with tf.variable_scope(self.name):
             self.step_sizes = self._create_step_size_vars()
 
@@ -109,6 +101,9 @@ class TRPOMAML(MAMLAlgo):
             dist_info_sym = self.policy.distribution_info_sym(obs_phs[i], params=None)
             distribution_info_vars.append(dist_info_sym)  # step 0
             current_policy_params.append(self.policy.policy_params) # set to real policy_params (tf.Variable)
+
+        initial_distribution_info_vars = distribution_info_vars
+        initial_action_phs = action_phs
 
         with tf.variable_scope(self.name):
             """ Inner updates"""
@@ -149,6 +144,11 @@ class TRPOMAML(MAMLAlgo):
                 outer_kl = tf.reduce_mean(self.policy.distribution.kl_sym(dist_info_old_phs[i], distribution_info_vars[i]))
 
                 surr_obj = - tf.reduce_mean(likelihood_ratio * adv_phs[i])
+
+                if self.exploration:
+                    log_likelihood_inital = self.policy.distribution.log_likelihood_sym(initial_action_phs[i],
+                                                                                        initial_distribution_info_vars[i])
+                    surr_obj += -tf.reduce_mean(adv_phs[i]) * tf.reduce_sum(log_likelihood_inital)
 
                 surr_objs.append(surr_obj)
                 outer_kls.append(outer_kl)
