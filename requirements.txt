@@ -1,7 +1,0 @@
-joblib==0.12.2
-PyPrind
-numpy
-scipy
-gym==0.10.5
-python_dateutil
-tensorflow>=1.4.0

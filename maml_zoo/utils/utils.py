@@ -1,7 +1,7 @@
 import numpy as np
 import scipy
 import scipy.signal
-
+import json
 
 def get_original_tf_name(name):
     """
@@ -183,3 +183,11 @@ def set_seed(seed):
     np.random.seed(seed)
     tf.set_random_seed(seed)
     print('using seed %s' % (str(seed)))
+
+class ClassEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, type):
+            return {'$class': o.__module__ + "." + o.__name__}
+        if callable(o):
+            return {'function': o.__name__}
+        return json.JSONEncoder.default(self, o)

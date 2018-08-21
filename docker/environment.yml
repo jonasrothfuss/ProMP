@@ -1,0 +1,30 @@
+name: maml_zoo
+channels:
+    - https://conda.anaconda.org/kne 
+    - https://conda.binstar.org/tlatorre 
+    - https://conda.anaconda.org/cjs14
+    - https://conda.anaconda.org/menpo
+    - jjhelmus
+dependencies:
+    - python=3.5
+    - scipy
+    - matplotlib
+    - opencv3=3.1.0
+    - scikit-learn
+    - patchelf
+    - pip:
+        - mpi4py
+        - Flask
+        - setuptools
+        - gym==0.10.5
+        - joblib==0.12.2
+        - numpy>=1.15
+        - PyPrind
+        - tensorflow
+        - cloudpickle
+        - click
+        - plotly
+        - boto3
+        - Pillow
+        - moviepy
+        - mujoco_py

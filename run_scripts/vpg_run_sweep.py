@@ -2,13 +2,14 @@ import os
 import sys
 import argparse
 import json
+import itertools
 import doodad as dd
 import doodad.mount as mount
 import doodad.easy_sweep.launcher as launcher
 from doodad.easy_sweep.hyper_sweep import run_sweep_doodad
 import tensorflow as tf
 import numpy as np
-from maml_zoo.utils.utils import set_seed
+from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.normalized_env import normalize
@@ -23,17 +24,12 @@ INSTANCE_TYPE = 'c4.2xlarge'
 EXP_NAME = 'vpg-inner-comparison'
 
 def run_experiment(**kwargs):
-    maml_zoo_path = '/'.join(os.path.realpath(os.path.dirname(__file__)).split('/')[:-1]) 
-    full_path = maml_zoo_path + '/data/vpg/%s_%d' % (EXP_NAME, np.random.randint(0, 1000))
+    full_path =  '../data/vpg/%s_%d' % (EXP_NAME, np.random.randint(0, 1000))
     logger.configure(dir=full_path, format_strs=['stdout', 'log', 'csv'], snapshot_mode='last_gap', snapshot_gap=50)
-    json.dump(kwargs, open(full_path + '/params.json', 'w'), indent=2, sort_keys=True,)
+
+    json.dump(kwargs, open(full_path + '/params.json', 'w'), indent=2, sort_keys=True, cls=ClassEncoder)
 
     # Instantiate classes
-    kwargs['env'] = globals()[kwargs['env']]
-    kwargs['baseline'] = globals()[kwargs['baseline']]
-    kwargs['hidden_nonlinearity'] = getattr(tf, kwargs['hidden_nonlinearity'], None)
-    kwargs['output_nonlinearity'] = getattr(tf, kwargs['output_nonlinearity'], None)
-
     set_seed(kwargs['seed'])
 
     baseline = kwargs['baseline']()
@@ -104,9 +100,9 @@ if __name__ == '__main__':
     sweep_params = {
         'seed' : [1, 2, 3, 4, 5],
 
-        'baseline': ['LinearFeatureBaseline'],
+        'baseline': [LinearFeatureBaseline],
 
-        'env': ['HalfCheetahRandDirecEnv'],
+        'env': [HalfCheetahRandDirecEnv],
 
         'rollouts_per_meta_task': [20],
         'max_path_length': [100],
@@ -119,8 +115,8 @@ if __name__ == '__main__':
 
         'hidden_sizes': [(64, 64)],
         'learn_std': [True],
-        'hidden_nonlinearity': ['tanh'],
-        'output_nonlinearity': [''],
+        'hidden_nonlinearity': [tf.tanh],
+        'output_nonlinearity': [None],
 
         'inner_lr': [0.1],
         'learning_rate': [1e-3],
@@ -132,17 +128,16 @@ if __name__ == '__main__':
         'scope': [None],
     }
     
-    sweeper = launcher.DoodadSweeper([local_mount], docker_img="jonasrothfuss/rllab3")
-    pre_cmd = ["yes | pip install tensorflow=='1.6.0'",
-               "yes | pip install --upgrade cloudpickle"]
+    sweeper = launcher.DoodadSweeper([local_mount], docker_img="dennisl88/maml_zoo")
     if args.mode == 'ec2':
-        sweeper.run_sweep_ec2(run_experiment, sweep_params, bucket_name='rllab-experiments', pre_cmd=pre_cmd, instance_type=INSTANCE_TYPE)
+        # print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format(EXP_NAME, len(itertools.product(sweep_params))))
+        sweeper.run_sweep_ec2(run_experiment, sweep_params, bucket_name='rllab-experiments', instance_type=INSTANCE_TYPE, s3_log_name=EXP_NAME)
     elif args.mode == 'local_docker':
         mode_docker = dd.mode.LocalDocker(
             image=sweeper.image,
         )
         run_sweep_doodad(run_experiment, sweep_params, run_mode=mode_docker, 
-                mounts=sweeper.mounts, pre_cmd=pre_cmd)
+                mounts=sweeper.mounts)
     elif args.mode == 'local':
         sweeper.run_sweep_serial(run_experiment, sweep_params)
     else:

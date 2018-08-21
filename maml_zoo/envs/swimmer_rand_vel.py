@@ -1,12 +1,12 @@
 import numpy as np
-from gym import utils
+import gym
 from maml_zoo.envs.base import MetaEnv
 from gym.envs.mujoco.mujoco_env import MujocoEnv
 
-class SwimmerRandVelEnv(MetaEnv, MujocoEnv, utils.EzPickle):
+class SwimmerRandVelEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
     def __init__(self):
         mujoco_env.MujocoEnv.__init__(self, 'swimmer.xml', 4)
-        utils.EzPickle.__init__(self)
+        gym.utils.EzPickle.__init__(self)
         self.set_task(self.sample_tasks(1)[0])
 
     def sample_tasks(self, n_tasks):
