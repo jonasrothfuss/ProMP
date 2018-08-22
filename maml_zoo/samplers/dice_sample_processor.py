@@ -58,7 +58,7 @@ class DiceSampleProcessor(SampleProcessor):
 
         Returns:
             (dict) : Processed sample data. A dict containing the following items with respective shapes:
-                    - masks: (batch_size, max_path_length)
+                    - mask: (batch_size, max_path_length)
                     - observations: (batch_size, max_path_length, ndim_act)
                     - actions: (batch_size, max_path_length, ndim_obs)
                     - rewards: (batch_size, max_path_length)
@@ -77,7 +77,7 @@ class DiceSampleProcessor(SampleProcessor):
         # 7) log statistics if desired
         self._log_path_stats(paths, log=log, log_prefix='')
 
-        assert samples_data.keys() >= {'observations', 'actions', 'rewards', 'adjusted_rewards', 'masks'}
+        assert samples_data.keys() >= {'observations', 'actions', 'rewards', 'adjusted_rewards', 'mask'}
         return samples_data
 
     """ helper functions """
@@ -96,7 +96,7 @@ class DiceSampleProcessor(SampleProcessor):
         paths = self._compute_adjusted_rewards(paths, all_path_baselines)
 
         # 4) stack path data
-        masks, observations, actions, rewards, adjusted_rewards, env_infos, agent_infos = self._pad_and_stack_paths(paths)
+        mask, observations, actions, rewards, adjusted_rewards, env_infos, agent_infos = self._pad_and_stack_paths(paths)
 
         # 5) if desired normalize / shift adjusted_rewards
         if self.normalize_adv:
@@ -106,7 +106,7 @@ class DiceSampleProcessor(SampleProcessor):
 
         # 6) create samples_data object
         samples_data = dict(
-            masks=masks,
+            mask=mask,
             observations=observations,
             actions=actions,
             rewards=rewards,
@@ -152,13 +152,13 @@ class DiceSampleProcessor(SampleProcessor):
         return paths
 
     def _pad_and_stack_paths(self, paths):
-        masks, observations, actions, rewards, adjusted_rewards, env_infos, agent_infos = [], [], [], [], [], [], []
+        mask, observations, actions, rewards, adjusted_rewards, env_infos, agent_infos = [], [], [], [], [], [], []
         for path in paths:
-            # zero-pad paths if they don't have full length +  create masks
+            # zero-pad paths if they don't have full length +  create mask
             path_length = path["observations"].shape[0]
             assert self.max_path_length >= path_length
 
-            masks.append(self._pad(np.ones(path_length), path_length))
+            mask.append(self._pad(np.ones(path_length), path_length))
             observations.append(self._pad(path["observations"], path_length))
             actions.append(self._pad(path["actions"], path_length))
             rewards.append(self._pad(path["rewards"], path_length))
@@ -167,7 +167,7 @@ class DiceSampleProcessor(SampleProcessor):
             agent_infos.append((dict([(key, self._pad(array, path_length)) for key, array in path["agent_infos"].items()])))
 
         # stack
-        masks = np.stack(masks, axis=0) # shape: (batch_size, max_path_length)
+        mask = np.stack(mask, axis=0) # shape: (batch_size, max_path_length)
         observations = np.stack(observations, axis=0) # shape: (batch_size, max_path_length, ndim_act)
         actions = np.stack(actions, axis=0) # shape: (batch_size, max_path_length, ndim_obs)
         rewards = np.stack(rewards, axis=0) # shape: (batch_size, max_path_length)
@@ -175,7 +175,7 @@ class DiceSampleProcessor(SampleProcessor):
         env_infos = utils.stack_tensor_dict_list(env_infos) # dict of ndarrays of shape: (batch_size, max_path_length, ?)
         agent_infos = utils.stack_tensor_dict_list(agent_infos) # dict of ndarrays of shape: (batch_size, max_path_length, ?)
 
-        return masks, observations, actions, rewards, adjusted_rewards, env_infos, agent_infos
+        return mask, observations, actions, rewards, adjusted_rewards, env_infos, agent_infos
 
     def _pad(self, array, path_length):
         assert path_length == array.shape[0]

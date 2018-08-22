@@ -141,14 +141,6 @@ def stack_tensor_dict_list(tensor_dict_list):
     return ret
 
 
-def flatten_first_dimension(array):
-    """
-    Flattens an array of size [a x b x c ...] to [(a*b) x c x ...]
-    Used for 
-    """
-    raise NotImplementedError
-
-
 def create_feed_dict(placeholder_dict, value_dict):
     """
     matches the placeholders with their values given a placeholder and value_dict.
