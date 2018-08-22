@@ -12,14 +12,12 @@ class PPOMAML(MAMLAlgo):
     Algorithm for PPO MAML
 
     Args:
-        policy (Policy) : policy object
-        inner_lr (float) : gradient step size used for inner step
-        meta_batch_size (int): number of meta-tasks
-        num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
-        learning_rate (float) : 
-        max_epochs (int) :
-        num_minibatches (int) : Currently not implemented
-        clip_eps (float) :
+        policy (Policy): policy object
+        name (str): tf variable scope
+        learning_rate (float): learning rate for optimizing the meta-objective
+        num_ppo_steps (int): number of ppo steps (without re-sampling)
+        num_minibatches (int): number of minibatches for computing the ppo gradient steps
+        clip_eps (float): PPO clip range
         clip_outer (bool) : whether to use L^CLIP or L^KLPEN on outer gradient update
         target_outer_step (float) : target outer kl divergence, used only with L^KLPEN and when adaptive_outer_kl_penalty is true
         target_inner_step (float) : target inner kl divergence, used only when adaptive_inner_kl_penalty is true
@@ -28,15 +26,20 @@ class PPOMAML(MAMLAlgo):
         adaptive_outer_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on outer gradient update
         adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
         anneal_factor (float) : multiplicative factor for clip_eps, updated every iteration
-        entropy_bonus (float) : scaling factor for policy entropy
+        inner_lr (float) : gradient step size used for inner step
+        meta_batch_size (int): number of meta-learning tasks
+        num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
+        trainable_inner_step_size (boolean): whether make the inner step size a trainable variable
+
     """
     def __init__(
             self,
-            learning_rate,
-            max_epochs, #TODO: does this make sense?
-            num_minibatches,
             *args,
-            clip_eps=0.2, 
+            name="ppo_maml",
+            learning_rate=1e-3,
+            num_ppo_steps=5,
+            num_minibatches=1,
+            clip_eps=0.2,
             clip_outer=True,
             target_outer_step=0.001,
             target_inner_step=0.01,
@@ -45,13 +48,11 @@ class PPOMAML(MAMLAlgo):
             adaptive_outer_kl_penalty=True,
             adaptive_inner_kl_penalty=True,
             anneal_factor=1.0,
-            trainable_inner_step_size=False,
-            name="ppo_maml",
             **kwargs
             ):
         super(PPOMAML, self).__init__(*args, **kwargs)
 
-        self.optimizer = MAMLPPOOptimizer(learning_rate=learning_rate, max_epochs=max_epochs, num_minibatches=num_minibatches)
+        self.optimizer = MAMLPPOOptimizer(learning_rate=learning_rate, max_epochs=num_ppo_steps, num_minibatches=num_minibatches)
         self.clip_eps = clip_eps
         self.clip_outer = clip_outer
         self.target_outer_step = target_outer_step
@@ -65,8 +66,6 @@ class PPOMAML(MAMLAlgo):
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']
         self.name = name
         self.kl_coeff = [init_inner_kl_penalty] * self.meta_batch_size * self.num_inner_grad_steps
-        self.trainable_inner_step_size = trainable_inner_step_size
-        self.step_sizes = None
 
         self.build_graph()
 
@@ -242,18 +241,6 @@ class PPOMAML(MAMLAlgo):
             return np.array([_adapt_kl_coeff(kl_coeff[i], kl, kl_target) for i, kl in enumerate(kl_values)])
         else:
             return _adapt_kl_coeff(kl_coeff, kl_values, kl_target)
-
-    def _create_step_size_vars(self):
-        # Step sizes
-        with tf.variable_scope('inner_step_sizes'):
-            step_sizes = dict()
-            for key, param in self.policy.policy_params.items():
-                shape = param.get_shape().as_list()
-                init_stepsize = np.ones(shape, dtype=np.float32) * self.inner_lr
-                step_sizes[key] = tf.Variable(initial_value=init_stepsize,
-                                              name='%s_step_size' % key,
-                                              dtype=tf.float32, trainable=self.trainable_inner_step_size)
-        return step_sizes
 
 def _adapt_kl_coeff(kl_coeff, kl, kl_target):
     if kl < kl_target / 1.5:

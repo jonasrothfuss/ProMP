@@ -14,30 +14,20 @@ class ETRPOMAML(MAMLAlgo):
 
     Args:
         policy (Policy) : policy object
+        name (str): tf variable scope
+        step_size (int): trust region size for the meta policy optimization through TPRO
         inner_lr (float) : gradient step size used for inner step
-        meta_batch_size (int): number of meta-tasks
+        meta_batch_size (int): number of meta-learning tasks
         num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
-        learning_rate (float) : 
-        max_epochs (int) :
-        num_minibatches (int) : Currently not implemented
-        clip_eps (float) :
-        clip_outer (bool) : whether to use L^CLIP or L^KLPEN on outer gradient update
-        target_outer_step (float) : target outer kl divergence, used only with L^KLPEN and when adaptive_outer_kl_penalty is true
-        target_inner_step (float) : target inner kl divergence, used only when adaptive_inner_kl_penalty is true
-        init_outer_kl_penalty (float) : initial penalty for outer kl, used only with L^KLPEN
-        init_inner_kl_penalty (float) : initial penalty for inner kl
-        adaptive_outer_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on outer gradient update
-        adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
-        anneal_factor (float) : multiplicative factor for clip_eps, updated every iteration
-        entropy_bonus (float) : scaling factor for policy entropy
+        trainable_inner_step_size (boolean): whether make the inner step size a trainable variable
+
     """
     def __init__(
             self,
-            step_size,
-            inner_type,
             *args,
-            trainable_inner_step_size=False,
             name="trpo_maml",
+            step_size=0.01,
+            inner_type='likelihood_ratio',
             **kwargs
             ):
         super(ETRPOMAML, self).__init__(*args, **kwargs)
@@ -46,11 +36,10 @@ class ETRPOMAML(MAMLAlgo):
         self.optimizer = ConjugateGradientOptimizer()
         self.step_size = step_size
         self.inner_type = inner_type
+        self.name = name
 
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']
-        self.name = name
-        self.trainable_inner_step_size = trainable_inner_step_size
-        self.step_sizes = None
+
 
         self.build_graph()
 
@@ -208,19 +197,6 @@ class ETRPOMAML(MAMLAlgo):
             logger.logkv('LossBefore', loss_before)
             logger.logkv('LossAfter', loss_after)
             logger.logkv('dLoss', loss_before - loss_after)
-
-    def _create_step_size_vars(self):
-        # Step sizes
-        with tf.variable_scope('inner_step_sizes'):
-            step_sizes = dict()
-            for key, param in self.policy.policy_params.items():
-                shape = param.get_shape().as_list()
-                init_stepsize = np.ones(shape, dtype=np.float32) * self.inner_lr
-                step_sizes[key] = tf.Variable(initial_value=init_stepsize,
-                                              name='%s_step_size' % key,
-                                              dtype=tf.float32, trainable=self.trainable_inner_step_size)
-        return step_sizes
-
 
 def _adapt_kl_coeff(kl_coeff, kl, kl_target):
     if kl < kl_target / 1.5:

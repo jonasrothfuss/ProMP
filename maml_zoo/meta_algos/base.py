@@ -12,14 +12,11 @@ class MetaAlgo(object):
 
     Args:
         policy (Policy) : policy object
-        entropy_bonus (float) : scaling factor for policy entropy
     """
 
-    def __init__(self, policy, entropy_bonus=0.0, *args, **kwargs):
+    def __init__(self, policy):
         assert isinstance(policy, Policy)
-        assert isinstance(entropy_bonus, float)
         self.policy = policy
-        self.entropy_bonus = entropy_bonus
         self._optimization_keys = None
 
     def build_graph(self):
@@ -95,12 +92,14 @@ class MAMLAlgo(MetaAlgo):
     Provides some implementations shared between all MAML algorithms
     
     Args:
+        policy (Policy): policy object
         inner_lr (float) : gradient step size used for inner step
         meta_batch_size (int): number of meta-learning tasks
         num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
+        trainable_inner_step_size (boolean): whether make the inner step size a trainable variable
     """
-    def __init__(self, inner_lr, meta_batch_size, num_inner_grad_steps, *args, **kwargs):
-        super(MAMLAlgo, self).__init__(*args, **kwargs)
+    def __init__(self, policy, inner_lr=0.1, meta_batch_size=20, num_inner_grad_steps=1, trainable_inner_step_size=False):
+        super(MAMLAlgo, self).__init__(policy)
 
         assert type(num_inner_grad_steps) and num_inner_grad_steps >= 0
         assert type(meta_batch_size) == int
@@ -108,11 +107,11 @@ class MAMLAlgo(MetaAlgo):
         self.inner_lr = float(inner_lr)
         self.meta_batch_size = meta_batch_size
         self.num_inner_grad_steps = num_inner_grad_steps
+        self.trainable_inner_step_size = trainable_inner_step_size #TODO: make sure this actually works
 
         self.adapt_input_ph_dict = None
         self.adapted_policies_params = None
         self.step_sizes = None
-        self.meta_batch_size = meta_batch_size
 
     def make_input_placeholders(self, prefix=''):
         """
@@ -301,3 +300,15 @@ class MAMLAlgo(MetaAlgo):
             meta_op_input_dict.update(dict_input_dict_step)
 
         return meta_op_input_dict
+
+    def _create_step_size_vars(self):
+        # Step sizes
+        with tf.variable_scope('inner_step_sizes'):
+            step_sizes = dict()
+            for key, param in self.policy.policy_params.items():
+                shape = param.get_shape().as_list()
+                init_stepsize = np.ones(shape, dtype=np.float32) * self.inner_lr
+                step_sizes[key] = tf.Variable(initial_value=init_stepsize,
+                                              name='%s_step_size' % key,
+                                              dtype=tf.float32, trainable=self.trainable_inner_step_size)
+        return step_sizes

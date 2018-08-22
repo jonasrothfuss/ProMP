@@ -15,7 +15,7 @@
   "inner_lr": 0.1,
   "num_inner_grad_steps": 1,
   "learning_rate": 1e-3,
-  "max_epochs": 5,
+  "num_ppo_steps": 5,
   "num_minibatches": 1,
   "clip_eps": 0.5,
   "clip_outer": true,

@@ -65,7 +65,7 @@ def run_experiment(**kwargs):
         meta_batch_size=kwargs['meta_batch_size'],
         num_inner_grad_steps=kwargs['num_inner_grad_steps'],
         learning_rate=kwargs['learning_rate'],
-        max_epochs=kwargs['max_epochs'],
+        num_ppo_steps=kwargs['num_ppo_steps'],
         num_minibatches=kwargs['num_minibatches'],
         clip_eps=kwargs['clip_eps'], 
         clip_outer=kwargs['clip_outer'],
@@ -116,7 +116,7 @@ if __name__ == '__main__':
 
         'inner_lr': [0.1],
         'learning_rate': [1e-3],
-        'max_epochs': [3, 5, 8],
+        'num_ppo_steps': [3, 5, 8],
         'num_minibatches': [1],
         'clip_eps': [0.1, 0.2],
         'clip_outer': [True],

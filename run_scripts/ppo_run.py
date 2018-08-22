@@ -49,7 +49,7 @@ def main(config):
         meta_batch_size=config['meta_batch_size'],
         num_inner_grad_steps=config['num_inner_grad_steps'],
         learning_rate=config['learning_rate'],
-        max_epochs=config['max_epochs'],
+        num_ppo_steps=config['num_ppo_steps'],
         num_minibatches=config['num_minibatches'],
         clip_eps=config['clip_eps'],
         clip_outer=config['clip_outer'],
@@ -60,7 +60,6 @@ def main(config):
         adaptive_outer_kl_penalty=config['adaptive_outer_kl_penalty'],
         adaptive_inner_kl_penalty=config['adaptive_inner_kl_penalty'],
         anneal_factor=config['anneal_factor'],
-        entropy_bonus=config['entropy_bonus'],
     )
 
     trainer = Trainer(

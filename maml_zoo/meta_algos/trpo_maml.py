@@ -13,33 +13,35 @@ class TRPOMAML(MAMLAlgo):
     Algorithm for TRPO MAML
 
     Args:
-        policy (Policy) : policy object
-        step_size (int) : trust region size for outer policy
-        inner_type (str) : One of 'log_likelihood', 'likelihood_ratio', 'dice', choose which inner update to use
-        exploration (bool) : 
+        policy (Policy): policy object
+        name (str): tf variable scope
+        step_size (int): trust region size for the meta policy optimization through TPRO
+        inner_type (str): One of 'log_likelihood', 'likelihood_ratio', 'dice', choose which inner update to use
+        exploration (bool): whether to use E-MAML or MAML
+        inner_lr (float) : gradient step size used for inner step
+        meta_batch_size (int): number of meta-learning tasks
+        num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
+        trainable_inner_step_size (boolean): whether make the inner step size a trainable variable
     """
     def __init__(
             self,
-            step_size,
-            inner_type,
             *args,
-            trainable_inner_step_size=False,
-            exploration=False,
             name="trpo_maml",
+            step_size=0.01,
+            inner_type='likelihood_ratio',
+            exploration=False,
             **kwargs
             ):
         super(TRPOMAML, self).__init__(*args, **kwargs)
 
         assert inner_type in ["log_likelihood", "likelihood_ratio", "dice"]
-        self.optimizer = ConjugateGradientOptimizer()
         self.step_size = step_size
         self.inner_type = inner_type
+        self.name = name
+        self.exploration = exploration
 
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']
-        self.name = name
-        self.trainable_inner_step_size = trainable_inner_step_size
-        self.step_sizes = None
-        self.exploration = exploration
+        self.optimizer = ConjugateGradientOptimizer()
 
         self.build_graph()
 
@@ -197,24 +199,3 @@ class TRPOMAML(MAMLAlgo):
             logger.logkv('LossBefore', loss_before)
             logger.logkv('LossAfter', loss_after)
             logger.logkv('dLoss', loss_before - loss_after)
-
-    def _create_step_size_vars(self):
-        # Step sizes
-        with tf.variable_scope('inner_step_sizes'):
-            step_sizes = dict()
-            for key, param in self.policy.policy_params.items():
-                shape = param.get_shape().as_list()
-                init_stepsize = np.ones(shape, dtype=np.float32) * self.inner_lr
-                step_sizes[key] = tf.Variable(initial_value=init_stepsize,
-                                              name='%s_step_size' % key,
-                                              dtype=tf.float32, trainable=self.trainable_inner_step_size)
-        return step_sizes
-
-
-def _adapt_kl_coeff(kl_coeff, kl, kl_target):
-    if kl < kl_target / 1.5:
-        kl_coeff /= 2
-
-    elif kl > kl_target * 1.5:
-        kl_coeff *= 2
-    return kl_coeff
