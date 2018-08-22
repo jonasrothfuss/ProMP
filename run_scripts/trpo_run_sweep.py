@@ -2,7 +2,7 @@ import os
 import json
 import tensorflow as tf
 import numpy as np
-from run_scripts.run_sweep import run_sweep
+from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv

@@ -1,6 +1,9 @@
 import sys
 import argparse
 import itertools
+
+from experiment_utils import config
+
 import doodad as dd
 import doodad.mount as mount
 import doodad.easy_sweep.launcher as launcher
@@ -14,10 +17,10 @@ def run_sweep(run_experiment, sweep_params, exp_name, instance_type='c4.xlarge')
 
     args = parser.parse_args(sys.argv[1:])
 
-    local_mount = mount.MountLocal(local_dir='~/maml_zoo', pythonpath=True)
+    local_mount = mount.MountLocal(local_dir=config.BASE_DIR, pythonpath=True)
 
-    sweeper = launcher.DoodadSweeper([local_mount], docker_img="dennisl88/maml_zoo", docker_output_dir='/root/code/data')
-    sweeper.mount_out_s3 = mount.MountS3(s3_path='', mount_point='/root/code/data', output=True)
+    sweeper = launcher.DoodadSweeper([local_mount], docker_img=config.DOCKER_IMAGE, docker_output_dir=config.DOCKER_MOUNT_DIR)
+    sweeper.mount_out_s3 = mount.MountS3(s3_path='', mount_point=config.DOCKER_MOUNT_DIR, output=True)
 
     if args.mode == 'ec2':
         print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format(exp_name, len(list(itertools.product(*[value for value in sweep_params.values()])))))
@@ -34,7 +37,8 @@ def run_sweep(run_experiment, sweep_params, exp_name, instance_type='c4.xlarge')
             else:
                 sys.stdout.write("Please respond with 'yes' or 'no' "
                                  "(or 'y' or 'n').\n")
-        sweeper.run_sweep_ec2(run_experiment, sweep_params, bucket_name='rllab-experiments', instance_type=instance_type, s3_log_name=exp_name, add_date_to_logname=False)
+        sweeper.run_sweep_ec2(run_experiment, sweep_params, bucket_name=config.S3_BUCKET_NAME, instance_type=instance_type,
+                              region='us-east-2', s3_log_name=exp_name, add_date_to_logname=False)
     elif args.mode == 'local_docker':
         mode_docker = dd.mode.LocalDocker(
             image=sweeper.image,

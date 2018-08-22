@@ -4,18 +4,18 @@ import tensorflow as tf
 import numpy as np
 from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
-from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
+from maml_zoo.baselines.linear_time_baseline import LinearTimeBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.normalized_env import normalize
-from maml_zoo.meta_algos.vpg_maml import VPGMAML
+from maml_zoo.meta_algos.dice_vpg_maml import DICEMAML
 from maml_zoo.meta_trainer import Trainer
 from maml_zoo.samplers.maml_sampler import MAMLSampler
-from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
+from maml_zoo.samplers import DiceMAMLSampleProcessor
 from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
-INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'vpg-evaluation'
+INSTANCE_TYPE = 'c4.xlarge'
+EXP_NAME = 'dice-evaluation'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data'
@@ -51,21 +51,21 @@ def run_experiment(**kwargs):
         parallel=kwargs['parallel'],
     )
 
-    sample_processor = MAMLSampleProcessor(
+    sample_processor = DiceMAMLSampleProcessor(
         baseline=baseline,
+        max_path_length=kwargs['max_path_length'],
         discount=kwargs['discount'],
-        gae_lambda=kwargs['gae_lambda'],
         normalize_adv=kwargs['normalize_adv'],
         positive_adv=kwargs['positive_adv'],
     )
 
-    algo = VPGMAML(
+    algo = DICEMAML(
         policy=policy,
-        inner_type=kwargs['inner_type'],
-        inner_lr=kwargs['inner_lr'],
+        max_path_length=kwargs['max_path_length'],
         meta_batch_size=kwargs['meta_batch_size'],
         num_inner_grad_steps=kwargs['num_inner_grad_steps'],
-        learning_rate=kwargs['learning_rate'],
+        inner_lr=kwargs['inner_lr'],
+        learning_rate=kwargs['learning_rate']
     )
 
     trainer = Trainer(
@@ -83,19 +83,18 @@ def run_experiment(**kwargs):
 if __name__ == '__main__':    
 
     sweep_params = {
-        'seed' : [1, 2, 3, 4, 5],
+        'seed': [22],
 
-        'baseline': [LinearFeatureBaseline],
+        'baseline': [LinearTimeBaseline],
 
         'env': [HalfCheetahRandDirecEnv],
 
-        'rollouts_per_meta_task': [20],
+        'rollouts_per_meta_task': [20], #[20, 40, 80],
         'max_path_length': [100],
         'parallel': [True],
 
         'discount': [0.99],
-        'gae_lambda': [1],
-        'normalize_adv': [True],
+        'normalize_adv': [True, False], #[True, False],
         'positive_adv': [False],
 
         'hidden_sizes': [(64, 64)],
@@ -104,10 +103,9 @@ if __name__ == '__main__':
         'output_nonlinearity': [None],
 
         'inner_lr': [0.1],
-        'learning_rate': [1e-3],
-        'inner_type': ['log_likelihood' , 'likelihood_ratio'],
+        'learning_rate': [1e-3], # 5e-3, 1e-4],
 
-        'n_itr': [301],
+        'n_itr': [501],
         'meta_batch_size': [40],
         'num_inner_grad_steps': [1],
         'scope': [None],
