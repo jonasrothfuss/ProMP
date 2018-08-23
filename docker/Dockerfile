@@ -70,3 +70,5 @@ ENV PATH /opt/conda/envs/maml_zoo/bin:$PATH
 RUN echo "source activate maml_zoo" >> /root/.bashrc
 ENV BASH_ENV /root/.bashrc
 WORKDIR /root/code
+
+RUN python -c "import mujoco_py"

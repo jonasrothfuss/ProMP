@@ -1,16 +1,6 @@
 name: maml_zoo
-channels:
-    - https://conda.anaconda.org/kne 
-    - https://conda.binstar.org/tlatorre 
-    - https://conda.anaconda.org/cjs14
-    - https://conda.anaconda.org/menpo
-    - jjhelmus
 dependencies:
-    - python=3.5
-    - scipy
-    - matplotlib
-    - opencv3=3.1.0
-    - scikit-learn
+    - python=3.6
     - patchelf
     - pip:
         - mpi4py
@@ -28,3 +18,5 @@ dependencies:
         - Pillow
         - moviepy
         - mujoco_py
+        - scipy
+        - matplotlib
