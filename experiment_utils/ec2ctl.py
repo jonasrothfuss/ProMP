@@ -8,11 +8,11 @@ import re
 import sys
 
 import click
-import subprocess
 
 import boto3
-from rllab import config
-from rllab.misc.instrument import query_yes_no
+from experiment_utils.utils import query_yes_no
+from experiment_utils import config
+from doodad.ec2.autoconfig import AUTOCONFIG
 import numpy as np
 
 DEBUG_LOGGING_MAP = {
@@ -60,8 +60,8 @@ def get_clients():
         client = boto3.client(
             "ec2",
             region_name=region,
-            aws_access_key_id=config.AWS_ACCESS_KEY,
-            aws_secret_access_key=config.AWS_ACCESS_SECRET,
+            aws_access_key_id=AUTOCONFIG.aws_access_key(),
+            aws_secret_access_key=AUTOCONFIG.aws_access_secret(),
         )
         client.region = region
         clients.append(client)
@@ -72,8 +72,8 @@ def _collect_instances(region):
     client = boto3.client(
         "ec2",
         region_name=region,
-        aws_access_key_id=config.AWS_ACCESS_KEY,
-        aws_secret_access_key=config.AWS_ACCESS_SECRET,
+        aws_access_key_id=AUTOCONFIG.aws_access_key(),
+        aws_secret_access_key=AUTOCONFIG.aws_access_secret(),
     )
     print("Collecting instances in region", region)
     instances = [x['Instances'][0] for x in client.describe_instances(
@@ -81,7 +81,7 @@ def _collect_instances(region):
             {
                 'Name': 'instance.group-name',
                 'Values': [
-                    config.AWS_SECURITY_GROUPS[0],
+                    AUTOCONFIG.aws_security_groups()[0],
                 ]
             },
             {
@@ -149,8 +149,7 @@ def ssh(job):
         if name == job:
             ip_addr = instance['PublicIpAddress']
             exp_prefix = get_exp_prefix_tag(instance)
-            key_name = config.ALL_REGION_AWS_KEY_NAMES[instance['Region']]
-            key_path = os.path.join(config.PROJECT_PATH, "private/key_pairs", key_name + ".pem")
+            key_path = AUTOCONFIG.aws_key_path(instance['Region'])
             command = " ".join([
                 "ssh",
                 "-oStrictHostKeyChecking=no",
@@ -159,7 +158,7 @@ def ssh(job):
                 key_path,
                 "-t",
                 "ubuntu@" + ip_addr,
-                "'cd %s; exec bash -l'" % (os.path.join(config.PROJECT_PATH, "data/local/{folder}/{job}".format(
+                "'cd %s; exec bash -l'" % (os.path.join(config.DOCKER_MOUNT_DIR, "/local/{folder}/{job}".format( #TODO this might not work yet
                     folder=exp_prefix.replace("_", "-"),
                     job=job
                 )))
@@ -170,65 +169,65 @@ def ssh(job):
     print("Not found!")
 
 
-@cli.command()
-@click.argument('job')
-@click.option('--deterministic', '-d', default=False, help='run policy in deterministic mode')
-def sim_policy(job, deterministic):
-    for instance in get_all_instances():
-        name = get_name_tag(instance)
-        if name == job:
-            ip_addr = instance['PublicIpAddress']
-            exp_prefix = get_exp_prefix_tag(instance)
-            key_name = config.ALL_REGION_AWS_KEY_NAMES[instance['Region']]
-            key_path = os.path.join(config.PROJECT_PATH, "private/key_pairs", key_name + ".pem")
-
-            copy_command = [
-                "ssh",
-                "-oStrictHostKeyChecking=no",
-                "-oConnectTimeout=10",
-                "-i",
-                key_path,
-                "ubuntu@{ip}".format(ip=ip_addr),
-                "cp {project_path}/data/local/{exp_prefix}/{job}/params.pkl /tmp/params.pkl".format(
-                    project_path=config.PROJECT_PATH,
-                    exp_prefix=exp_prefix,
-                    job=job
-
-                )
-            ]
-            print(" ".join(copy_command))
-            subprocess.check_call(copy_command)
-
-            command = [
-                "scp",
-                "-oStrictHostKeyChecking=no",
-                "-oConnectTimeout=10",
-                "-i",
-                key_path,
-                "ubuntu@{ip}:/tmp/params.pkl".format(
-                    ip=ip_addr,
-                    project_path=config.PROJECT_PATH,
-                    exp_prefix=exp_prefix,
-                    job=job
-                ),
-                "/tmp/params.pkl"
-            ]
-            print(" ".join(command))
-            subprocess.check_call(command)
-            if "conopt" in job or "analogy" in job:
-                script = "sandbox/rocky/analogy/scripts/sim_policy.py"
-            else:
-                script = "scripts/sim_policy.py"
-            command = [
-                "python",
-                os.path.join(config.PROJECT_PATH, script),
-                "/tmp/params.pkl"
-            ]
-            if deterministic:
-                command += ["--deterministic"]
-            subprocess.check_call(command)
-            return
-    print("Not found!")
+# @cli.command()
+# @click.argument('job')
+# @click.option('--deterministic', '-d', default=False, help='run policy in deterministic mode')
+# def sim_policy(job, deterministic):
+#     for instance in get_all_instances():
+#         name = get_name_tag(instance)
+#         if name == job:
+#             ip_addr = instance['PublicIpAddress']
+#             exp_prefix = get_exp_prefix_tag(instance)
+#             key_name = config.ALL_REGION_AWS_KEY_NAMES[instance['Region']]
+#             key_path = os.path.join(config.PROJECT_PATH, "private/key_pairs", key_name + ".pem")
+#
+#             copy_command = [
+#                 "ssh",
+#                 "-oStrictHostKeyChecking=no",
+#                 "-oConnectTimeout=10",
+#                 "-i",
+#                 key_path,
+#                 "ubuntu@{ip}".format(ip=ip_addr),
+#                 "cp {project_path}/data/local/{exp_prefix}/{job}/params.pkl /tmp/params.pkl".format(
+#                     project_path=config.PROJECT_PATH,
+#                     exp_prefix=exp_prefix,
+#                     job=job
+#
+#                 )
+#             ]
+#             print(" ".join(copy_command))
+#             subprocess.check_call(copy_command)
+#
+#             command = [
+#                 "scp",
+#                 "-oStrictHostKeyChecking=no",
+#                 "-oConnectTimeout=10",
+#                 "-i",
+#                 key_path,
+#                 "ubuntu@{ip}:/tmp/params.pkl".format(
+#                     ip=ip_addr,
+#                     project_path=config.PROJECT_PATH,
+#                     exp_prefix=exp_prefix,
+#                     job=job
+#                 ),
+#                 "/tmp/params.pkl"
+#             ]
+#             print(" ".join(command))
+#             subprocess.check_call(command)
+#             if "conopt" in job or "analogy" in job:
+#                 script = "sandbox/rocky/analogy/scripts/sim_policy.py"
+#             else:
+#                 script = "scripts/sim_policy.py"
+#             command = [
+#                 "python",
+#                 os.path.join(config.PROJECT_PATH, script),
+#                 "/tmp/params.pkl"
+#             ]
+#             if deterministic:
+#                 command += ["--deterministic"]
+#             subprocess.check_call(command)
+#             return
+#     print("Not found!")
 
 
 @cli.command()
@@ -243,7 +242,7 @@ def kill_f(pattern):
             instance_id = instance['InstanceId']
             region = instance['Region']
             if name is None:
-                if any([x['GroupName'] in config.AWS_SECURITY_GROUPS for x in instance['SecurityGroups']]):
+                if any([x['GroupName'] in AUTOCONFIG.aws_security_groups() for x in instance['SecurityGroups']]):
                     if query_yes_no(question="Kill instance {} without name in region {} (security groups {})?".format(
                             instance_id, region, [x['GroupName'] for x in instance['SecurityGroups']])):
                         name = instance_id
