@@ -32,6 +32,18 @@ python main.py --env-name HalfCheetahDir-v1 --num-workers 8 --fast-lr 0.1 --max-
 
 ## Setting up the EC2 experiment pipeline 
 
+Install AWS commandline interface
+
+```
+sudo apt-get install awscli
+```
+
+and configure the asw cli
+
+```
+aws configure
+```
+
 Clone the doodad repository 
 
 ```

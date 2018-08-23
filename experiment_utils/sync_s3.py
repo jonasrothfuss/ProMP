@@ -4,6 +4,7 @@ import os
 import os.path as osp
 import argparse
 import ast
+import experiment_utils.config as config
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -11,8 +12,8 @@ if __name__ == "__main__":
     parser.add_argument('--dry', action='store_true', default=False)
     parser.add_argument('--bare', action='store_true', default=False)
     args = parser.parse_args()
-    remote_dir = "s3://rllab-experiments/doodad/logs"
-    local_dir = osp.abspath(osp.join(osp.dirname(__file__), '../data/s3'))
+    remote_dir = "s3://" + config.S3_BUCKET_NAME +"/doodad/logs"
+    local_dir = os.path.join(config.BASE_DIR, 'data', 's3')
     if args.folder:
         remote_dir = osp.join(remote_dir, args.folder)
         local_dir = osp.join(local_dir, args.folder)
@@ -22,7 +23,7 @@ if __name__ == "__main__":
         """.format(local_dir=local_dir, remote_dir=remote_dir))
     else:
         command = ("""
-            aws s3 sync {remote_dir} {local_dir} --exclude '*stdout.log' --exclude '*stdouterr.log' --content-type "UTF-8"
+            aws s3 sync {remote_dir} {local_dir} --exclude '*stdouterr.log' --content-type "UTF-8"
         """.format(local_dir=local_dir, remote_dir=remote_dir))
     if args.dry:
         print(command)

@@ -7,3 +7,4 @@ PyPrind==2.11.2
 Pillow==5.2.0
 moviepy==0.2.3.5
 mpi4py==3.0.0
+click
