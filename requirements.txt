@@ -1,4 +1,4 @@
-numpy
+numpy==1.15.1
 joblib
 gym==0.10.5
 scipy
@@ -7,5 +7,5 @@ Pillow
 moviepy
 mpi4py
 click
-tensorflow>=1.4.0
+tensorflow==1.8.0
 cloudpickle
