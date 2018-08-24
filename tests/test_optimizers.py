@@ -103,7 +103,7 @@ class TestOptimizer(unittest.TestCase): #TODO add test for ConjugateGradientOpti
 
                 means = np.random.random(size=(20))
                 stds = np.random.random(size=(20))
-                inputs = np.vstack([np.random.normal(mean, np.exp(std), 100) for mean, std in zip(means, stds)])
+                inputs = np.concatenate([np.random.normal(mean, np.exp(std), 100) for mean, std in zip(means, stds)], axis=0)
                 mean_pred, std_pred = sess.run(joined_network.output, feed_dict=dict(list(zip(input_ph_dict.values(),
                                                                                               (inputs, means.reshape(-1, 1),
                                                                                                stds.reshape(-1, 1))))))
