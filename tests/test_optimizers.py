@@ -38,76 +38,78 @@ class CombinedMlp(object):
         return self.params
 
 
-class TestOptimizer(unittest.TestCase):
-    def setUp(self):
-        self.foo = MAMLFirstOrderOptimizer()
-        self.cgo = ConjugateGradientOptimizer()
-        sess = tf.get_default_session()
-        if sess is None:
-            tf.InteractiveSession()
+class TestOptimizer(unittest.TestCase): #TODO add test for ConjugateGradientOptimizer
 
     def testSine(self):
-        input_phs = tf.placeholder(dtype=tf.float32, shape=[None, 1])
-        target_phs = tf.placeholder(dtype=tf.float32, shape=[None, 1])
-        network = Mlp(input_phs, 1, hidden_size=(32,32), name='sin')
-        loss = tf.reduce_mean(tf.square(network.output - target_phs))
-        all_input_phs = (input_phs, target_phs)
-        self.foo.update_opt(loss, network, all_input_phs)
-        sess = tf.get_default_session()
-        sess.run(tf.global_variables_initializer())
+        for optimizer in [MAMLFirstOrderOptimizer()]:
+            tf.reset_default_graph()
+            with tf.Session():
+                input_phs = tf.placeholder(dtype=tf.float32, shape=[None, 1])
+                target_phs = tf.placeholder(dtype=tf.float32, shape=[None, 1])
+                network = Mlp(input_phs, 1, hidden_size=(32,32), name='sin')
+                loss = tf.reduce_mean(tf.square(network.output - target_phs))
+                input_ph_dict = {'x': input_phs, 'y': target_phs}
+                optimizer.build_graph(loss, network, input_ph_dict)
+                sess = tf.get_default_session()
+                sess.run(tf.global_variables_initializer())
 
-        for i in range(2000):
-            xs = np.random.normal(0, 3, (1000, 1))
-            ys = np.sin(xs)
-            inputs = (xs, ys)
-            self.foo.optimize(inputs)
-            if i % 100 == 0:
-                print(self.foo.loss(inputs))
+                for i in range(5000):
+                    xs = np.random.normal(0, 3, (1000, 1))
+                    ys = np.sin(xs)
+                    inputs = {'x': xs, 'y': ys}
+                    optimizer.optimize(inputs)
+                    if i % 100 == 0:
+                        print(optimizer.loss(inputs))
 
-        xs = np.random.normal(0, 3, (100, 1))
-        ys = np.sin(xs) 
-        y_pred = sess.run(network.output, feed_dict=dict(list(zip(all_input_phs, (xs, ys)))))
-        self.assertTrue(np.allclose(ys, y_pred, rtol=1e-1, atol=1e-1))
+                xs = np.random.normal(0, 3, (100, 1))
+                ys = np.sin(xs)
+                y_pred = sess.run(network.output, feed_dict=dict(list(zip(input_ph_dict.values(), (xs, ys)))))
+                self.assertLessEqual(np.mean((ys-y_pred)**2), 0.02)
 
     def testGauss(self):
-        input_phs = tf.placeholder(dtype=tf.float32, shape=[None, 100])
-        target_mean_ph = tf.placeholder(dtype=tf.float32, shape=[None, 1])
-        target_std_ph = tf.placeholder(dtype=tf.float32, shape=[None, 1])
+        for optimizer in [MAMLFirstOrderOptimizer()]:
+            tf.reset_default_graph()
+            with tf.Session():
+                input_phs = tf.placeholder(dtype=tf.float32, shape=[None, 100])
+                target_mean_ph = tf.placeholder(dtype=tf.float32, shape=[None, 1])
+                target_std_ph = tf.placeholder(dtype=tf.float32, shape=[None, 1])
 
-        mean_network = Mlp(input_phs, 1, hidden_size=(64,64), name='mean')
-        std_network = Mlp(input_phs, 1, hidden_size=(64,64), name='std')
-        
-        target_std = tf.exp(target_std_ph)
-        pred_std = tf.exp(std_network.output)
+                mean_network = Mlp(input_phs, 1, hidden_size=(8,8), name='mean')
+                std_network = Mlp(input_phs, 1, hidden_size=(8,8), name='std')
 
-        numerator = tf.square(target_mean_ph - mean_network.output) + tf.square(target_std) - tf.square(pred_std)
-        denominator = 2 * tf.square(pred_std) + 1e-8
-        loss = tf.reduce_mean(tf.reduce_sum(numerator / denominator + std_network.output - target_std_ph, axis=-1))
+                target_std = tf.exp(target_std_ph)
+                pred_std = tf.exp(std_network.output)
 
-        joined_network = CombinedMlp([mean_network, std_network])
-        all_input_phs = (input_phs, target_mean_ph, target_std_ph)
+                numerator = tf.square(target_mean_ph - mean_network.output) + tf.square(target_std) - tf.square(pred_std)
+                denominator = 2 * tf.square(pred_std) + 1e-8
+                loss = tf.reduce_mean(tf.reduce_sum(numerator / denominator + std_network.output - target_std_ph, axis=-1))
 
-        self.foo.update_opt(loss, joined_network, all_input_phs)
-        
-        sess = tf.get_default_session()
-        sess.run(tf.global_variables_initializer())
+                joined_network = CombinedMlp([mean_network, std_network])
+                input_ph_dict = {'x': input_phs, 'y_mean': target_mean_ph, 'y_std': target_std_ph}
 
-        for i in range(2000):
-            means = np.random.random(size=(1000))
-            stds = np.random.random(size=(1000))
-            inputs = np.vstack([np.random.normal(mean, np.exp(std), 100) for mean, std in zip(means, stds)])
-            all_inputs = (inputs, means.reshape(-1, 1), stds.reshape(-1, 1))
-            self.foo.optimize(all_inputs)
-            if i % 100 == 0:
-                print(self.foo.loss(all_inputs))
+                optimizer.build_graph(loss, joined_network, input_ph_dict)
 
-        means = np.random.random(size=(20))
-        stds = np.random.random(size=(20))
-        inputs = np.vstack([np.random.normal(mean, np.exp(std), 100) for mean, std in zip(means, stds)])
-        mean_pred, std_pred = sess.run(joined_network.output, feed_dict=dict(list(zip(all_input_phs, (inputs, means.reshape(-1, 1), stds.reshape(-1, 1))))))
+                sess = tf.get_default_session()
+                sess.run(tf.global_variables_initializer())
 
-        self.assertTrue(np.mean(np.square(mean_pred - means)) < 0.2)
-        self.assertTrue(np.mean(np.square(std_pred - stds)) < 0.2)
+                for i in range(2000):
+                    means = np.random.random(size=(1000))
+                    stds = np.random.random(size=(1000))
+                    inputs = np.vstack([np.random.normal(mean, np.exp(std), 100) for mean, std in zip(means, stds)])
+                    all_inputs = {'x': inputs,'y_mean': means.reshape(-1, 1), 'y_std': stds.reshape(-1, 1)}
+                    optimizer.optimize(all_inputs)
+                    if i % 100 == 0:
+                        print(optimizer.loss(all_inputs))
+
+                means = np.random.random(size=(20))
+                stds = np.random.random(size=(20))
+                inputs = np.vstack([np.random.normal(mean, np.exp(std), 100) for mean, std in zip(means, stds)])
+                mean_pred, std_pred = sess.run(joined_network.output, feed_dict=dict(list(zip(input_ph_dict.values(),
+                                                                                              (inputs, means.reshape(-1, 1),
+                                                                                               stds.reshape(-1, 1))))))
+
+                self.assertTrue(np.mean(np.square(mean_pred - means)) < 0.2)
+                self.assertTrue(np.mean(np.square(std_pred - stds)) < 0.2)
 
 
 if __name__ == '__main__':

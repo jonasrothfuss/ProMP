@@ -11,7 +11,7 @@ import click
 
 import boto3
 from experiment_utils.utils import query_yes_no
-from experiment_utils import config
+import experiment_utils.config as config
 from doodad.ec2.autoconfig import AUTOCONFIG
 import numpy as np
 
@@ -148,7 +148,6 @@ def ssh(job):
         name = get_name_tag(instance)
         if name == job:
             ip_addr = instance['PublicIpAddress']
-            exp_prefix = get_exp_prefix_tag(instance)
             key_path = AUTOCONFIG.aws_key_path(instance['Region'])
             command = " ".join([
                 "ssh",
@@ -158,10 +157,6 @@ def ssh(job):
                 key_path,
                 "-t",
                 "ubuntu@" + ip_addr,
-                "'cd %s; exec bash -l'" % (os.path.join(config.DOCKER_MOUNT_DIR, "/local/{folder}/{job}".format( #TODO this might not work yet
-                    folder=exp_prefix.replace("_", "-"),
-                    job=job
-                )))
             ])
             print(command)
             os.system(command)
