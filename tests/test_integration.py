@@ -35,7 +35,7 @@ class TestLikelihoodRation(unittest.TestCase):
         self.sampler = MAMLSampler(
             env=env,
             policy=policy,
-            batch_size=2,
+            rollouts_per_meta_task=2,
             meta_batch_size=10,
             max_path_length=50,
             parallel=False,
