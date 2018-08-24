@@ -9,6 +9,7 @@ python:
 
 before_install:
   - sudo apt-get install libopenmpi-dev
+
 # command to install dependencies
 install:
   - pip install .
@@ -20,6 +21,7 @@ script:
   - python -m tests.test_optimizers
   - python -m tests.test_policies
   - python -m tests.test_samplers
+  - python -m tests.test_integration
 
 notifications:
   email: false

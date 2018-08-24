@@ -64,7 +64,7 @@ class LinearFeatureBaseline(Baseline):
             self._coeffs = np.linalg.lstsq(
                 featmat.T.dot(featmat) + reg_coeff * np.identity(featmat.shape[1]),
                 featmat.T.dot(returns),
-                rcond=None
+                rcond=-1
             )[0]
             if not np.any(np.isnan(self._coeffs)):
                 break
