@@ -7,7 +7,7 @@ from maml_zoo.optimizers.base import Optimizer
 
 class FiniteDifferenceHvp(Optimizer):
     def __init__(self, base_eps=1e-5, symmetric=True, grad_clip=None):
-        self.base_eps = base_eps
+        self.base_eps = np.cast['float32'](base_eps)
         self.symmetric = symmetric
         self.grad_clip = grad_clip
         self._target = None
@@ -70,7 +70,7 @@ class FiniteDifferenceHvp(Optimizer):
 
         param_vals = self._target.get_param_values().copy()
         flat_param_vals = _flatten_params(param_vals)
-        eps = self.base_eps / (np.linalg.norm(flat_param_vals) + 1e-8)
+        eps = self.base_eps
         params_plus_eps_vals = _unflatten_params(flat_param_vals + eps * x, params_example=param_vals)
         self._target.set_params(params_plus_eps_vals)
         constraint_grad_plus_eps = self.constraint_gradient(input_val_dict)
@@ -127,7 +127,7 @@ class ConjugateGradientOptimizer(Optimizer):
     def __init__(
             self,
             cg_iters=10,
-            reg_coeff=1e-5,
+            reg_coeff=0,
             subsample_factor=1.,
             backtrack_ratio=0.8,
             max_backtracks=15,
@@ -263,8 +263,9 @@ class ConjugateGradientOptimizer(Optimizer):
         logger.log("computing descent direction")
         Hx = self._hvp_approach.build_eval(input_val_dict)
         descent_direction = conjugate_gradients(Hx, gradient, cg_iters=self._cg_iters)
+
         initial_step_size = np.sqrt(2.0 * self._max_constraint_val *
-                                    (1. / (descent_direction.dot(Hx(descent_direction)) + 1e-6)))
+                                    (1. / (descent_direction.dot(Hx(descent_direction)) + 1e-8)))
         if np.isnan(initial_step_size):
             logger.log("Initial step size is NaN! Rejecting the step!")
             return
@@ -330,7 +331,7 @@ def conjugate_gradients(f_Ax, b, cg_iters=10, verbose=False, residual_tol=1e-10)
     """
     p = b.copy()
     r = b.copy()
-    x = np.zeros_like(b)
+    x = np.zeros_like(b, dtype=np.float32)
     rdotr = r.dot(r)
 
     fmtstr = "%10i %10.3g %10.3g"
