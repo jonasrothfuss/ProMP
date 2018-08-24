@@ -1,8 +1,7 @@
 import unittest
 import numpy as np
 from maml_zoo.optimizers.maml_first_order_optimizer import MAMLFirstOrderOptimizer
-from maml_zoo.optimizers.maml_first_order_optimizer import MAMLPPOOptimizer
-from maml_zoo.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
+from collections import OrderedDict
 import tensorflow as tf
 
 
@@ -48,7 +47,7 @@ class TestOptimizer(unittest.TestCase): #TODO add test for ConjugateGradientOpti
                 target_phs = tf.placeholder(dtype=tf.float32, shape=[None, 1])
                 network = Mlp(input_phs, 1, hidden_size=(32,32), name='sin')
                 loss = tf.reduce_mean(tf.square(network.output - target_phs))
-                input_ph_dict = {'x': input_phs, 'y': target_phs}
+                input_ph_dict = OrderedDict({'x': input_phs, 'y': target_phs})
                 optimizer.build_graph(loss, network, input_ph_dict)
                 sess = tf.get_default_session()
                 sess.run(tf.global_variables_initializer())
@@ -85,7 +84,7 @@ class TestOptimizer(unittest.TestCase): #TODO add test for ConjugateGradientOpti
                 loss = tf.reduce_mean(tf.reduce_sum(numerator / denominator + std_network.output - target_std_ph, axis=-1))
 
                 joined_network = CombinedMlp([mean_network, std_network])
-                input_ph_dict = {'x': input_phs, 'y_mean': target_mean_ph, 'y_std': target_std_ph}
+                input_ph_dict = OrderedDict({'x': input_phs, 'y_mean': target_mean_ph, 'y_std': target_std_ph})
 
                 optimizer.build_graph(loss, joined_network, input_ph_dict)
 
@@ -96,18 +95,19 @@ class TestOptimizer(unittest.TestCase): #TODO add test for ConjugateGradientOpti
                     means = np.random.random(size=(1000))
                     stds = np.random.random(size=(1000))
                     inputs = np.vstack([np.random.normal(mean, np.exp(std), 100) for mean, std in zip(means, stds)])
-                    all_inputs = {'x': inputs,'y_mean': means.reshape(-1, 1), 'y_std': stds.reshape(-1, 1)}
+                    all_inputs = {'x': inputs, 'y_mean': means.reshape(-1, 1), 'y_std': stds.reshape(-1, 1)}
                     optimizer.optimize(all_inputs)
                     if i % 100 == 0:
                         print(optimizer.loss(all_inputs))
 
                 means = np.random.random(size=(20))
                 stds = np.random.random(size=(20))
+
                 inputs = np.stack([np.random.normal(mean, np.exp(std), 100) for mean, std in zip(means, stds)], axis=0)
+                values_dict = OrderedDict({'x': inputs, 'y_mean': means.reshape(-1, 1), 'y_std': stds.reshape(-1, 1)})
+
                 mean_pred, std_pred = sess.run(joined_network.output, feed_dict=dict(list(zip(input_ph_dict.values(),
-                                                                                              (inputs,
-                                                                                               means.reshape(-1, 1),
-                                                                                               stds.reshape(-1, 1))))))
+                                                                                              values_dict.values()))))
 
                 self.assertTrue(np.mean(np.square(mean_pred - means)) < 0.2)
                 self.assertTrue(np.mean(np.square(std_pred - stds)) < 0.2)
