@@ -243,6 +243,14 @@ class TestDiceSampleProcesor(unittest.TestCase):
             self.assertAlmostEqual(samples_data['env_infos']['e'][0][5], 0)
             self.assertAlmostEqual(samples_data['env_infos']['e'][2][0], -5)
 
+    def test_process_samples_advantages(self):
+        return_baseline = LinearFeatureBaseline()
+        sample_processor = DiceSampleProcessor(self.baseline, max_path_length=6, return_baseline=return_baseline)
+        samples_data = sample_processor.process_samples(self.paths[0])
+        self.assertAlmostEqual(samples_data['advantages'].shape, (self.batch_size, 6))
+        self.assertAlmostEqual(samples_data['advantages'].ndim, 2)
+
+
 
 
 
