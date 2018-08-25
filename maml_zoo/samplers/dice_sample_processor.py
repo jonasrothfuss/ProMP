@@ -14,11 +14,14 @@ class DiceSampleProcessor(SampleProcessor):
         - stacks the padded path data
 
     Args:
-        baseline (Baseline) : a reward baseline object
+        baseline (Baseline) : a time dependent reward baseline object
         max_path_length (int): maximum path length
         discount (float) : reward discount factor
         normalize_adv (bool) : indicates whether to normalize the estimated advantages (zero mean and unit std)
         positive_adv (bool) : indicates whether to shift the (normalized) advantages so that they are all positive
+        return_baseline (Baseline): (optional) a state(-time) dependent baseline -
+                                    if provided it is also fitted and used to calculate GAE advantage estimates
+
     """
 
     def __init__(
@@ -26,8 +29,10 @@ class DiceSampleProcessor(SampleProcessor):
             baseline,
             max_path_length,
             discount=0.99,
-            normalize_adv=False,
+            gae_lambda=1,
+            normalize_adv=True,
             positive_adv=False,
+            return_baseline=None
     ):
 
         assert 0 <= discount <= 1.0, 'discount factor must be in [0,1]'
@@ -37,8 +42,10 @@ class DiceSampleProcessor(SampleProcessor):
         self.max_path_length = max_path_length
         self.baseline = baseline
         self.discount = discount
+        self.gae_lambda = gae_lambda
         self.normalize_adv = normalize_adv
         self.positive_adv = positive_adv
+        self.return_baseline = return_baseline
 
     def process_samples(self, paths, log=False, log_prefix=''):
         """
@@ -85,11 +92,11 @@ class DiceSampleProcessor(SampleProcessor):
     def _compute_samples_data(self, paths):
         assert type(paths) == list
 
-        # 1) compute discounted rewards
-        paths = self._compue_discounted_rewards(paths)
+        # 1) compute discounted rewards and return
+        paths = self._compute_discounted_rewards(paths)
 
         # 2) fit baseline estimator using the path returns and predict the return baselines
-        self.baseline.fit(paths)
+        self.baseline.fit(paths, target_key='discounted_rewards')
         all_path_baselines = [self.baseline.predict(path) for path in paths]
 
         # 3) compute adjusted rewards (r - b)
@@ -115,6 +122,11 @@ class DiceSampleProcessor(SampleProcessor):
             adjusted_rewards=adjusted_rewards,
         )
 
+        # if return baseline is provided also compute GAE advantage estimates
+        if self.return_baseline is not None:
+            paths, advantages = self._fit_reward_baseline_compute_advantages(paths)
+            samples_data['advantages'] = advantages
+
         return samples_data, paths
 
     def _log_path_stats(self, paths, log=False, log_prefix=''):
@@ -133,13 +145,12 @@ class DiceSampleProcessor(SampleProcessor):
             logger.logkv(log_prefix + 'MaxReturn', np.max(undiscounted_returns))
             logger.logkv(log_prefix + 'MinReturn', np.min(undiscounted_returns))
 
-    def _compue_discounted_rewards(self, paths):
+    def _compute_discounted_rewards(self, paths):
         discount_array = np.cumprod(np.concatenate([np.ones(1), np.ones(self.max_path_length - 1) * self.discount]))
 
         for path in paths:
             path_length = path['rewards'].shape[0]
             path["discounted_rewards"] = path['rewards'] * discount_array[:path_length]
-
         return paths
 
     def _compute_adjusted_rewards(self, paths, all_path_baselines):
@@ -185,3 +196,42 @@ class DiceSampleProcessor(SampleProcessor):
             return np.pad(array, (0, self.max_path_length - path_length), mode='constant')
         else:
             raise NotImplementedError
+
+    def _fit_reward_baseline_compute_advantages(self, paths):
+        """
+        only to be called if return_baseline is provided. Computes GAE advantage estimates
+        """
+        assert self.return_baseline is not None
+
+        # a) compute returns
+        for idx, path in enumerate(paths):
+            path["returns"] = utils.discount_cumsum(path["rewards"], self.discount)
+
+        # b) fit return baseline estimator using the path returns and predict the return baselines
+        self.return_baseline.fit(paths, target_key='returns')
+        all_path_baselines = [self.baseline.predict(path) for path in paths]
+
+        # c) generalized advantage estimation
+        for idx, path in enumerate(paths):
+            path_baselines = np.append(all_path_baselines[idx], 0)
+            deltas = path["rewards"] + \
+                     self.discount * path_baselines[1:] - \
+                     path_baselines[:-1]
+            path["advantages"] = utils.discount_cumsum(
+                deltas, self.discount * self.gae_lambda)
+
+        # d) pad paths and stack them
+        advantages = []
+        for path in paths:
+            path_length = path["observations"].shape[0]
+            advantages.append(self._pad(path["advantages"], path_length))
+
+        advantages = np.stack(advantages, axis=0)
+
+        # e) desired normalize / shift advantages
+        if self.normalize_adv:
+            advantages = utils.normalize_advantages(advantages)
+        if self.positive_adv:
+            advantages = utils.shift_advantages_to_positive(advantages)
+
+        return paths, advantages

@@ -49,21 +49,24 @@ class LinearFeatureBaseline(Baseline):
         return np.concatenate([obs, obs ** 2, time_step, time_step ** 2, time_step ** 3, np.ones((path_length, 1))],
                               axis=1)
 
-    def fit(self, paths):
+    def fit(self, paths, target_key='returns'):
         """
         Fits the linear baseline model with the provided paths via damped least squares
 
         Args:
             paths (list): list of paths
+            target_key (str): path dictionary key of the target that shall be fitted (e.g. "returns")
 
         """
+        assert all([target_key in path.keys() for path in paths])
+
         featmat = np.concatenate([self._features(path) for path in paths], axis=0)
-        returns = np.concatenate([path["returns"] for path in paths], axis=0)
+        target = np.concatenate([path[target_key] for path in paths], axis=0)
         reg_coeff = self._reg_coeff
         for _ in range(5):
             self._coeffs = np.linalg.lstsq(
                 featmat.T.dot(featmat) + reg_coeff * np.identity(featmat.shape[1]),
-                featmat.T.dot(returns),
+                featmat.T.dot(target),
                 rcond=-1
             )[0]
             if not np.any(np.isnan(self._coeffs)):
