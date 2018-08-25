@@ -15,7 +15,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'trpo/trpo-inner-comparison'
+EXP_NAME = 'trpo-hyperparams'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data'
@@ -84,7 +84,7 @@ def run_experiment(**kwargs):
 if __name__ == '__main__':    
 
     sweep_params = {
-        'seed' : [1, 2, 3, 4, 5],
+        'seed' : [1, 2, 3],
 
         'baseline': [LinearFeatureBaseline],
 
@@ -104,9 +104,9 @@ if __name__ == '__main__':
         'hidden_nonlinearity': [tf.tanh],
         'output_nonlinearity': [None],
 
-        'inner_lr': [0.1],
-        'inner_type': ['log_likelihood' , 'likelihood_ratio'],
-        'step_size': [0.01],
+        'inner_lr': [0.05, 0.1, 0.2],
+        'inner_type': ['likelihood_ratio'],
+        'step_size': [0.005, 0.01, 0.02],
         'exploration': [False],
 
         'n_itr': [301],

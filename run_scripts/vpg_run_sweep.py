@@ -66,6 +66,7 @@ def run_experiment(**kwargs):
         meta_batch_size=kwargs['meta_batch_size'],
         num_inner_grad_steps=kwargs['num_inner_grad_steps'],
         learning_rate=kwargs['learning_rate'],
+        exploration=kwargs['exploration'],
     )
 
     trainer = Trainer(
@@ -106,6 +107,7 @@ if __name__ == '__main__':
         'inner_lr': [0.1],
         'learning_rate': [1e-3],
         'inner_type': ['log_likelihood' , 'likelihood_ratio'],
+        'exploration': [True],
 
         'n_itr': [301],
         'meta_batch_size': [40],

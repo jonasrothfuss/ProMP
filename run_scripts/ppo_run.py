@@ -1,6 +1,7 @@
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.envs.point_env_2d import MetaPointEnv
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
+from rand_param_envs.hopper_rand_params import HopperRandParamsEnv
 from maml_zoo.envs.normalized_env import normalize
 from maml_zoo.meta_algos.ppo_maml import PPOMAML
 from maml_zoo.meta_trainer import Trainer
@@ -16,8 +17,8 @@ maml_zoo_path = '/'.join(os.path.realpath(os.path.dirname(__file__)).split('/')[
 
 def main(config):
     baseline = LinearFeatureBaseline()
-    env = normalize(HalfCheetahRandDirecEnv())
-
+    # env = normalize(HalfCheetahRandDirecEnv())
+    env = HopperRandParamsEnv(3.5)
     policy = MetaGaussianMLPPolicy(
             name="meta-policy",
             obs_dim=np.prod(env.observation_space.shape),

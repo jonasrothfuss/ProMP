@@ -28,6 +28,7 @@ class VPGMAML(MAMLAlgo):
             name="vpg_maml",
             learning_rate=1e-3,
             inner_type='likelihood_ratio',
+            exploration=False,
             **kwargs
             ):
         super(VPGMAML, self).__init__(*args, **kwargs)
@@ -37,6 +38,7 @@ class VPGMAML(MAMLAlgo):
         self.inner_type = inner_type
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']
         self.name = name
+        self.exploration = exploration
 
         self.build_graph()
 
@@ -96,6 +98,9 @@ class VPGMAML(MAMLAlgo):
             distribution_info_vars.append(dist_info_sym)  # step 0
             current_policy_params.append(self.policy.policy_params) # set to real policy_params (tf.Variable)
 
+        initial_distribution_info_vars = distribution_info_vars
+        initial_action_phs = action_phs
+
         with tf.variable_scope(self.name):
             """ Inner updates"""
             for step_id in range(1, self.num_inner_grad_steps+1):
@@ -128,6 +133,11 @@ class VPGMAML(MAMLAlgo):
                 log_likelihood = self.policy.distribution.log_likelihood_sym(action_phs[i], distribution_info_vars[i])
                 surr_obj = - tf.reduce_mean(log_likelihood * adv_phs[i])
                 surr_objs.append(surr_obj)
+
+                if self.exploration:
+                    log_likelihood_inital = self.policy.distribution.log_likelihood_sym(initial_action_phs[i],
+                                                                                        initial_distribution_info_vars[i])
+                    surr_obj += -tf.reduce_mean(adv_phs[i]) * tf.reduce_sum(log_likelihood_inital)
 
             """ Mean over meta tasks """
             meta_objective = tf.reduce_mean(tf.stack(surr_objs, 0))

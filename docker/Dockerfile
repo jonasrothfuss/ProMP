@@ -71,4 +71,4 @@ RUN echo "source activate maml_zoo" >> /root/.bashrc
 ENV BASH_ENV /root/.bashrc
 WORKDIR /root/code
 
-RUN python -c "import mujoco_py"
+RUN python -c 'import mujoco_py'

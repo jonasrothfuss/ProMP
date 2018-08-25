@@ -14,7 +14,7 @@ from maml_zoo.samplers import DiceMAMLSampleProcessor
 from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
-INSTANCE_TYPE = 'c4.xlarge'
+INSTANCE_TYPE = 'c4.4xlarge'
 EXP_NAME = 'dice-evaluation'
 
 def run_experiment(**kwargs):
@@ -89,12 +89,12 @@ if __name__ == '__main__':
 
         'env': [HalfCheetahRandDirecEnv],
 
-        'rollouts_per_meta_task': [20], #[20, 40, 80],
+        'rollouts_per_meta_task': [80],
         'max_path_length': [100],
         'parallel': [True],
 
         'discount': [0.99],
-        'normalize_adv': [True, False], #[True, False],
+        'normalize_adv': [True],
         'positive_adv': [False],
 
         'hidden_sizes': [(64, 64)],
@@ -103,7 +103,7 @@ if __name__ == '__main__':
         'output_nonlinearity': [None],
 
         'inner_lr': [0.1],
-        'learning_rate': [1e-3], # 5e-3, 1e-4],
+        'learning_rate': [1e-3],
 
         'n_itr': [501],
         'meta_batch_size': [40],

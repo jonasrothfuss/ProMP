@@ -15,7 +15,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'ppo/ppo-hyperparams'
+EXP_NAME = 'ppo/non-adaptive-inner'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data'
@@ -76,7 +76,6 @@ def run_experiment(**kwargs):
         adaptive_outer_kl_penalty=kwargs['adaptive_outer_kl_penalty'],
         adaptive_inner_kl_penalty=kwargs['adaptive_inner_kl_penalty'],
         anneal_factor=kwargs['anneal_factor'],
-        entropy_bonus=kwargs['entropy_bonus'],
     )
 
     trainer = Trainer(
@@ -116,18 +115,17 @@ if __name__ == '__main__':
 
         'inner_lr': [0.1],
         'learning_rate': [1e-3],
-        'num_ppo_steps': [3, 5, 8],
+        'num_ppo_steps': [5],
         'num_minibatches': [1],
-        'clip_eps': [0.1, 0.2],
+        'clip_eps': [0.3],
         'clip_outer': [True],
         'target_outer_step': [0],
-        'target_inner_step': [5e-3, 1e-2, 2e-2],
+        'target_inner_step': [0],
         'init_outer_kl_penalty': [0],
-        'init_inner_kl_penalty': [1e-3],
+        'init_inner_kl_penalty': [0],
         'adaptive_outer_kl_penalty': [False],
-        'adaptive_inner_kl_penalty': [True],
+        'adaptive_inner_kl_penalty': [False],
         'anneal_factor': [1.0],
-        'entropy_bonus': [0.0],
 
         'n_itr': [301],
         'meta_batch_size': [40],
