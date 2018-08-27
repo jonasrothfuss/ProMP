@@ -1,13 +1,14 @@
 import numpy as np
 import gym
+from maml_zoo.logger import logger
 from maml_zoo.envs.base import MetaEnv
 from gym.envs.mujoco.mujoco_env import MujocoEnv
 
 class SwimmerRandVelEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
     def __init__(self):
-        mujoco_env.MujocoEnv.__init__(self, 'swimmer.xml', 4)
-        gym.utils.EzPickle.__init__(self)
         self.set_task(self.sample_tasks(1)[0])
+        MujocoEnv.__init__(self, 'swimmer.xml', 4)
+        gym.utils.EzPickle.__init__(self)
 
     def sample_tasks(self, n_tasks):
         # for fwd/bwd env, goal direc is backwards if - 1.0, forwards if + 1.0

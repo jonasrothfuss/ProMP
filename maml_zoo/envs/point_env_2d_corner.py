@@ -10,7 +10,7 @@ class MetaPointEnvCorner(MetaEnv):
     (one of the 4 points (-2,-2), (-2, 2), (2, -2), (2,2)) which are sampled with equal probability
     """
 
-    def __init__(self, reward_type='dense', sparse_reward_radius=0.2):
+    def __init__(self, reward_type='sparse', sparse_reward_radius=0.2):
         assert reward_type in ['dense', 'dense_squared', 'sparse']
         self.reward_type = reward_type
         self.sparse_reward_radius = sparse_reward_radius
@@ -52,9 +52,10 @@ class MetaPointEnvCorner(MetaEnv):
 
     def done(self, obs):
         if obs.ndim == 1:
-            return abs(obs[0]) < 0.01 and abs(obs[1]) < 0.01
+            return self.done(np.array([obs]))
         elif obs.ndim == 2:
-            return np.logical_and(np.abs(obs[:, 0]) < 0.01, np.abs(obs[:, 1]) < 0.01)
+            goal_distance = np.linalg.norm(obs - self.goal[None,:], axis=1)
+            return goal_distance < self.sparse_reward_radius
 
     def reward(self, obs, act, obs_next):
         if obs_next.ndim == 2:
@@ -67,7 +68,7 @@ class MetaPointEnvCorner(MetaEnv):
                 return np.max(self.sparse_reward_radius - goal_distance, 0)
 
         elif obs_next.ndim == 1:
-            return self.reward(None, None, np.array([obs_next]))[0]
+            return self.reward(None, None, np.array([obs_next]))
         else:
             raise NotImplementedError
 

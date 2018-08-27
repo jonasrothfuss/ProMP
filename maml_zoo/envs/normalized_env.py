@@ -1,7 +1,7 @@
 import numpy as np
 from maml_zoo.utils.serializable import Serializable
 from gym.spaces import Box
-
+from rand_param_envs.gym.spaces import Box as OldBox
 
 """
 Normalizes the environment class.
@@ -124,7 +124,7 @@ class NormalizedEnv(Serializable):
         self._obs_var = d["_obs_var"]
 
     def step(self, action):
-        if isinstance(self._wrapped_env.action_space, Box):
+        if isinstance(self._wrapped_env.action_space, Box) or isinstance(self._wrapped_env.action_space, OldBox):
             # rescale the action
             lb, ub = self._wrapped_env.action_space.low, self._wrapped_env.action_space.high
             scaled_action = lb + (action + self._normalization_scale) * (ub - lb) / (2 * self._normalization_scale)

@@ -4,12 +4,11 @@ from maml_zoo.logger import logger
 import gym
 from gym.envs.mujoco.mujoco_env import MujocoEnv
 
-
 class HalfCheetahRandVelEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
     def __init__(self):
+        self.set_task(self.sample_tasks(1)[0])
         MujocoEnv.__init__(self, 'half_cheetah.xml', 5)
         gym.utils.EzPickle.__init__(self)
-        self.set_task(self.sample_tasks(1)[0])
 
     def sample_tasks(self, n_tasks):
         # for fwd/bwd env, goal direc is backwards if - 1.0, forwards if + 1.0
