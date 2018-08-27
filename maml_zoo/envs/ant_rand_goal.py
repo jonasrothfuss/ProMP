@@ -32,7 +32,6 @@ class AntRandGoalEnv(MetaEnv, gym.utils.EzPickle, MujocoEnv):
         self.do_simulation(a, self.frame_skip)
         xposafter = self.get_body_com("torso")
         goal_reward = np.exp(-np.sum(np.abs(xposafter[:2] - self.goal_pos)))  # make it happy, not suicidal
-        print(goal_reward)
         ctrl_cost = .5 * np.square(a).sum()
         contact_cost = 0.5 * 1e-3 * np.sum(np.square(np.clip(self.sim.data.cfrc_ext, -1, 1)))
         survive_reward = 1.0
