@@ -50,7 +50,9 @@ CMD alias ffmpeg="avconv"
 # ========== Setup mujoco ========
 CMD mkdir /root/.mujoco
 RUN wget https://www.roboti.us/download/mjpro150_linux.zip
+RUN wget https://www.roboti.us/download/mjpro131_linux.zip
 RUN unzip mjpro150_linux.zip -d /root/.mujoco
+RUN unzip mjpro131_linux.zip -d /root/.mujoco
 ADD mjkey.txt /root/.mujoco/mjkey.txt
 RUN apt-get install -y libgl1-mesa-dev libgl1-mesa-glx libglew-dev libosmesa6-dev
 

@@ -20,3 +20,4 @@ dependencies:
         - mujoco_py
         - scipy
         - matplotlib
+        - git+https://github.com/dennisl88/rand_param_envs.git
