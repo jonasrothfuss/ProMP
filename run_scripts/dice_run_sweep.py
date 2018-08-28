@@ -5,9 +5,10 @@ import numpy as np
 from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_time_baseline import LinearTimeBaseline
+from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.normalized_env import normalize
-from maml_zoo.meta_algos.dice_vpg_maml import DICEMAML
+from maml_zoo.meta_algos.dice_maml import DICEMAML
 from maml_zoo.meta_trainer import Trainer
 from maml_zoo.samplers.maml_sampler import MAMLSampler
 from maml_zoo.samplers import DiceMAMLSampleProcessor
@@ -15,7 +16,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.4xlarge'
-EXP_NAME = 'dice-evaluation'
+EXP_NAME = 'dice-baseline-comparison'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data'
@@ -85,7 +86,7 @@ if __name__ == '__main__':
     sweep_params = {
         'seed': [22],
 
-        'baseline': [LinearTimeBaseline],
+        'baseline': [LinearFeatureBaseline, LinearTimeBaseline], #TODO change back to LinearTimeBaseline
 
         'env': [HalfCheetahRandDirecEnv],
 

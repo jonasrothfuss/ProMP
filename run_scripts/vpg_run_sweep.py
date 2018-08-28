@@ -104,10 +104,10 @@ if __name__ == '__main__':
         'hidden_nonlinearity': [tf.tanh],
         'output_nonlinearity': [None],
 
-        'inner_lr': [0.1],
-        'learning_rate': [1e-3],
-        'inner_type': ['log_likelihood' , 'likelihood_ratio'],
-        'exploration': [True],
+        'inner_lr': [0.05, 0.1, 0.2],
+        'learning_rate': [1e-3, 1e-4],
+        'inner_type': ['log_likelihood', 'likelihood_ratio'],
+        'exploration': [True, False],
 
         'n_itr': [301],
         'meta_batch_size': [40],
