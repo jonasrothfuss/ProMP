@@ -14,7 +14,7 @@
   "positive_adv": false,
   "inner_lr": 0.1,
   "num_inner_grad_steps": 1,
-  "step_size": 0.1,
-  "inner_type": "log_likelihood",
+  "step_size": 0.01,
+  "inner_type": "likelihood_ratio",
   "n_itr": 300
 }

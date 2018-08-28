@@ -105,9 +105,9 @@ if __name__ == '__main__':
         'output_nonlinearity': [None],
 
         'inner_lr': [0.05, 0.1, 0.2],
-        'inner_type': ['likelihood_ratio'],
-        'step_size': [0.005, 0.01, 0.02],
-        'exploration': [False],
+        'inner_type': ['likelihood_ratio', 'log_likelihood'],
+        'step_size': [0.01, 0.05, 0.1],
+        'exploration': [True, False],
 
         'n_itr': [301],
         'meta_batch_size': [40],
