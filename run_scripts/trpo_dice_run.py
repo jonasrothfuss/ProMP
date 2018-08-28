@@ -1,8 +1,9 @@
 from maml_zoo.baselines.linear_time_baseline import LinearTimeBaseline
+from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.envs.point_env_2d import MetaPointEnv
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.normalized_env import normalize
-from maml_zoo.meta_algos.dice_maml import DICEMAML
+from maml_zoo.meta_algos.trpo_dice_maml import TRPO_DICEMAML
 from maml_zoo.meta_trainer import Trainer
 from maml_zoo.samplers import MAMLSampler
 from maml_zoo.samplers import DiceMAMLSampleProcessor
@@ -17,7 +18,8 @@ maml_zoo_path = '/'.join(os.path.realpath(os.path.dirname(__file__)).split('/')[
 
 
 def main(config):
-    baseline = LinearTimeBaseline()
+    reward_baseline = LinearTimeBaseline()
+    return_baseline = LinearFeatureBaseline()
     env = normalize(HalfCheetahRandDirecEnv())
 
     policy = MetaGaussianMLPPolicy(
@@ -38,20 +40,22 @@ def main(config):
     )
 
     sample_processor = DiceMAMLSampleProcessor(
-        baseline=baseline,
+        baseline=reward_baseline,
         max_path_length=config['max_path_length'],
         discount=config['discount'],
         normalize_adv=config['normalize_adv'],
         positive_adv=config['positive_adv'],
+        return_baseline=return_baseline
+
     )
 
-    algo = DICEMAML(
+    algo = TRPO_DICEMAML(
         policy=policy,
         max_path_length=config['max_path_length'],
         meta_batch_size=config['meta_batch_size'],
         num_inner_grad_steps=config['num_inner_grad_steps'],
         inner_lr=config['inner_lr'],
-        learning_rate=config['learning_rate']
+        step_size=config['step_size']
     )
 
     trainer = Trainer(
@@ -70,6 +74,6 @@ if __name__=="__main__":
     idx = np.random.randint(0, 1000)
     logger.configure(dir=maml_zoo_path + '/data/vpg/test_%d' % idx, format_strs=['stdout', 'log', 'csv'],
                      snapshot_mode='last_gap')
-    config = json.load(open(maml_zoo_path + "/configs/dice_maml_config.json", 'r'))
+    config = json.load(open(maml_zoo_path + "/configs/trpo_dice_maml_config.json", 'r'))
     json.dump(config, open(maml_zoo_path + '/data/vpg/test_%d/params.json' % idx, 'w'))
     main(config)
