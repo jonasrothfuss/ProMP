@@ -11,8 +11,7 @@ class HalfCheetahRandVelEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
         gym.utils.EzPickle.__init__(self)
 
     def sample_tasks(self, n_tasks):
-        # for fwd/bwd env, goal direc is backwards if - 1.0, forwards if + 1.0
-        return np.random.uniform(0.0, 2.0, (n_tasks, ))
+        return np.random.uniform(0.0, 3.0, (n_tasks, ))
 
     def set_task(self, task):
         """
@@ -34,10 +33,11 @@ class HalfCheetahRandVelEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
         xposafter = self.sim.data.qpos[0]
         ob = self._get_obs()
         reward_ctrl = - 0.5 * 0.1 * np.square(action).sum()
-        reward_run = np.abs((xposafter - xposbefore) / self.dt - self.goal_velocity)
+        forward_vel = (xposafter - xposbefore) / self.dt
+        reward_run = - np.abs(forward_vel - self.goal_velocity)
         reward = reward_ctrl + reward_run
         done = False
-        return ob, reward, done, dict(reward_run=reward_run, reward_ctrl=reward_ctrl)
+        return ob, reward, done, dict(forward_vel=forward_vel, reward_run=reward_run, reward_ctrl=reward_ctrl)
 
     def _get_obs(self):
         return np.concatenate([
@@ -55,8 +55,8 @@ class HalfCheetahRandVelEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
         self.viewer.cam.distance = self.model.stat.extent * 0.5
 
     def log_diagnostics(self, paths, prefix=''):
-        fwrd_vel = [path["env_infos"]['reward_run'] for path in paths]
-        final_fwrd_vel = [path["env_infos"]['reward_run'][-1] for path in paths]
+        fwrd_vel = [path["env_infos"]['forward_vel'] for path in paths]
+        final_fwrd_vel = [path["env_infos"]['forward_vel'][-1] for path in paths]
         ctrl_cost = [-path["env_infos"]['reward_ctrl'] for path in paths]
 
         logger.logkv(prefix + 'AvgForwardVel', np.mean(fwrd_vel))
