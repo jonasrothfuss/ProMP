@@ -7,6 +7,8 @@ from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_time_baseline import LinearTimeBaseline
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
+from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
+from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
 from maml_zoo.envs.normalized_env import normalize
 from maml_zoo.meta_algos.dice_maml import DICEMAML
 from maml_zoo.meta_trainer import Trainer
@@ -15,11 +17,11 @@ from maml_zoo.samplers import DiceMAMLSampleProcessor
 from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
-INSTANCE_TYPE = 'c4.4xlarge'
-EXP_NAME = 'dice-baseline-comparison'
+INSTANCE_TYPE = 'c4.2xlarge'
+EXP_NAME = 'dice-hyperparams'
 
 def run_experiment(**kwargs):
-    exp_dir = os.getcwd() + '/data'
+    exp_dir = os.getcwd() + '/data/' + EXP_NAME
     logger.configure(dir=exp_dir, format_strs=['stdout', 'log', 'csv'], snapshot_mode='last_gap', snapshot_gap=50)
     json.dump(kwargs, open(exp_dir + '/params.json', 'w'), indent=2, sort_keys=True, cls=ClassEncoder)
 
@@ -84,13 +86,13 @@ def run_experiment(**kwargs):
 if __name__ == '__main__':    
 
     sweep_params = {
-        'seed': [22],
+        'seed': [1, 2, 3],
 
-        'baseline': [LinearFeatureBaseline, LinearTimeBaseline], #TODO change back to LinearTimeBaseline
+        'baseline': [LinearTimeBaseline],
 
-        'env': [HalfCheetahRandDirecEnv],
+        'env': [HalfCheetahRandVelEnv, HalfCheetahRandDirecEnv],
 
-        'rollouts_per_meta_task': [80],
+        'rollouts_per_meta_task': [40],
         'max_path_length': [100],
         'parallel': [True],
 
@@ -103,11 +105,11 @@ if __name__ == '__main__':
         'hidden_nonlinearity': [tf.tanh],
         'output_nonlinearity': [None],
 
-        'inner_lr': [0.1],
+        'inner_lr': [0.1, 0.05],
         'learning_rate': [1e-3],
 
         'n_itr': [501],
-        'meta_batch_size': [40],
+        'meta_batch_size': [20],
         'num_inner_grad_steps': [1],
         'scope': [None],
     }

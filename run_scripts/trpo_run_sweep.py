@@ -6,6 +6,8 @@ from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
+from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
+from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
 from maml_zoo.envs.normalized_env import normalize
 from maml_zoo.meta_algos.trpo_maml import TRPOMAML
 from maml_zoo.meta_trainer import Trainer
@@ -18,7 +20,8 @@ INSTANCE_TYPE = 'c4.2xlarge'
 EXP_NAME = 'trpo-hyperparams'
 
 def run_experiment(**kwargs):
-    exp_dir = os.getcwd() + '/data'
+    exp_dir = os.getcwd() + '/data/' + EXP_NAME
+
     logger.configure(dir=exp_dir, format_strs=['stdout', 'log', 'csv'], snapshot_mode='last_gap', snapshot_gap=50)
     json.dump(kwargs, open(exp_dir + '/params.json', 'w'), indent=2, sort_keys=True, cls=ClassEncoder)
 
@@ -88,9 +91,9 @@ if __name__ == '__main__':
 
         'baseline': [LinearFeatureBaseline],
 
-        'env': [HalfCheetahRandDirecEnv],
+        'env': [HalfCheetahRandVelEnv, HalfCheetahRandDirecEnv],
 
-        'rollouts_per_meta_task': [20],
+        'rollouts_per_meta_task': [40],
         'max_path_length': [100],
         'parallel': [True],
 
@@ -104,13 +107,13 @@ if __name__ == '__main__':
         'hidden_nonlinearity': [tf.tanh],
         'output_nonlinearity': [None],
 
-        'inner_lr': [0.05, 0.1, 0.2],
+        'inner_lr': [0.05, 0.1],
         'inner_type': ['likelihood_ratio', 'log_likelihood'],
-        'step_size': [0.01, 0.05, 0.1],
+        'step_size': [0.01, 0.05],
         'exploration': [True, False],
 
-        'n_itr': [301],
-        'meta_batch_size': [40],
+        'n_itr': [501],
+        'meta_batch_size': [20],
         'num_inner_grad_steps': [1],
         'scope': [None],
     }
