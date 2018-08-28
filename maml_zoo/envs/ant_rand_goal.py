@@ -12,7 +12,7 @@ class AntRandGoalEnv(MetaEnv, gym.utils.EzPickle, MujocoEnv):
 
     def sample_tasks(self, n_tasks):
         # random target location
-        return np.random.uniform((-6.0, 6.0), size=(n_tasks, 2))
+        return np.random.uniform((-3.0, 3.0), size=(n_tasks, 2))
 
     def set_task(self, task):
         """
@@ -32,7 +32,7 @@ class AntRandGoalEnv(MetaEnv, gym.utils.EzPickle, MujocoEnv):
         self.do_simulation(a, self.frame_skip)
         xposafter = self.get_body_com("torso")
         goal_reward = np.exp(-np.sum(np.abs(xposafter[:2] - self.goal_pos)))  # make it happy, not suicidal
-        ctrl_cost = .5 * np.square(a).sum()
+        ctrl_cost = .1 * np.square(a).sum()
         contact_cost = 0.5 * 1e-3 * np.sum(np.square(np.clip(self.sim.data.cfrc_ext, -1, 1)))
         survive_reward = 1.0
         reward = goal_reward - ctrl_cost - contact_cost + survive_reward

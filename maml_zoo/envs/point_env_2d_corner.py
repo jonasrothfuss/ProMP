@@ -10,13 +10,13 @@ class MetaPointEnvCorner(MetaEnv):
     (one of the 4 points (-2,-2), (-2, 2), (2, -2), (2,2)) which are sampled with equal probability
     """
 
-    def __init__(self, reward_type='sparse', sparse_reward_radius=0.2):
+    def __init__(self, reward_type='sparse', sparse_reward_radius=1):
         assert reward_type in ['dense', 'dense_squared', 'sparse']
         self.reward_type = reward_type
         self.sparse_reward_radius = sparse_reward_radius
         self.corners = [np.array([-2,-2]), np.array([2,-2]), np.array([-2,2]), np.array([2, 2])]
         self.observation_space = Box(low=-np.inf, high=np.inf, shape=(2,))
-        self.action_space = Box(low=-0.1, high=0.1, shape=(2,))
+        self.action_space = Box(low=-0.2, high=0.2, shape=(2,))
 
     def step(self, action):
         """
@@ -33,7 +33,7 @@ class MetaPointEnvCorner(MetaEnv):
             info : a dictionary containing other diagnostic information from the previous action
         """
         prev_state = self._state
-        self._state = prev_state + np.clip(action, -0.1, 0.1)
+        self._state = prev_state + np.clip(action, -0.2, 0.2)
         reward = self.reward(prev_state, action, self._state)
         done = self.done(self._state)
         next_observation = np.copy(self._state)
@@ -46,7 +46,7 @@ class MetaPointEnvCorner(MetaEnv):
         -------
         observation : the initial observation of the space. (Initial reward is assumed to be 0.)
         """
-        self._state = np.random.uniform(-0.1, 0.1, size=(2,))
+        self._state = np.random.uniform(-0.2, 0.2, size=(2,))
         observation = np.copy(self._state)
         return observation
 
@@ -59,13 +59,13 @@ class MetaPointEnvCorner(MetaEnv):
 
     def reward(self, obs, act, obs_next):
         if obs_next.ndim == 2:
-            goal_distance = np.linalg.norm(obs_next - self.goal[None,:], axis=1)
+            goal_distance = np.linalg.norm(obs_next - self.goal[None,:], axis=1)[0]
             if self.reward_type == 'dense':
                 return - goal_distance
             elif self.reward_type == 'dense_squared':
                 return - goal_distance**2
             elif self.reward_type == 'sparse':
-                return np.max(self.sparse_reward_radius - goal_distance, 0)
+                return np.maximum(self.sparse_reward_radius - goal_distance, 0)
 
         elif obs_next.ndim == 1:
             return self.reward(None, None, np.array([obs_next]))
@@ -88,3 +88,7 @@ if __name__ == "__main__":
     env = MetaPointEnvCorner()
     task = env.sample_tasks(10)
     env.set_task(task[0])
+    env.reset()
+    for i in range(300):
+        _, reward, _, _ = env.step(env.action_space.sample())  # take a random action
+        print(reward)
