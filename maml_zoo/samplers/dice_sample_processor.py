@@ -209,7 +209,7 @@ class DiceSampleProcessor(SampleProcessor):
 
         # b) fit return baseline estimator using the path returns and predict the return baselines
         self.return_baseline.fit(paths, target_key='returns')
-        all_path_baselines = [self.baseline.predict(path) for path in paths]
+        all_path_baselines = [self.return_baseline.predict(path) for path in paths]
 
         # c) generalized advantage estimation
         for idx, path in enumerate(paths):

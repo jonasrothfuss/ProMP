@@ -203,6 +203,13 @@ class TestDiceSampleProcesor(unittest.TestCase):
                                       self.path_length, parallel=False)
 
         self.paths = self.it_sampler.obtain_samples()
+
+        self.it_sampler_rand = MAMLSampler(self.random_env, self.random_policy, self.batch_size, self.meta_batch_size,
+                                      self.path_length, parallel=False)
+
+        self.paths_rand = self.it_sampler_rand.obtain_samples()
+
+
         self.baseline = LinearTimeBaseline()
         self.dics_sample_proc = DiceSampleProcessor(self.baseline, max_path_length=6)
 
@@ -243,12 +250,35 @@ class TestDiceSampleProcesor(unittest.TestCase):
             self.assertAlmostEqual(samples_data['env_infos']['e'][0][5], 0)
             self.assertAlmostEqual(samples_data['env_infos']['e'][2][0], -5)
 
-    def test_process_samples_advantages(self):
+    def test_process_samples_advantages1(self):
         return_baseline = LinearFeatureBaseline()
         sample_processor = DiceSampleProcessor(self.baseline, max_path_length=6, return_baseline=return_baseline)
         samples_data = sample_processor.process_samples(self.paths[0])
         self.assertAlmostEqual(samples_data['advantages'].shape, (self.batch_size, 6))
         self.assertAlmostEqual(samples_data['advantages'].ndim, 2)
+
+    def test_process_samples_advantages2(self):
+        for normalize_adv in [True, False]:
+            for paths in [self.paths, self.paths_rand]:
+                return_baseline = LinearFeatureBaseline()
+                dice_sample_processor = DiceSampleProcessor(self.baseline, max_path_length=6, gae_lambda=1.0,
+                                                            discount=0.97, normalize_adv=normalize_adv, return_baseline=return_baseline)
+                dice_samples_data = dice_sample_processor.process_samples(paths[0])
+                mask = dice_samples_data['mask']
+
+                # reshape data and filter out masked items:
+
+                sample_processor = SampleProcessor(return_baseline, gae_lambda=1.0, discount=0.97, normalize_adv=normalize_adv)
+                samples_data = sample_processor.process_samples(paths[0])
+
+                self.assertAlmostEqual(np.sum(mask[:,:, None]*dice_samples_data['observations']), np.sum(samples_data['observations']))
+                self.assertAlmostEqual(np.sum(mask[:, :, None] * dice_samples_data['actions']),
+                                       np.sum(samples_data['actions']))
+                self.assertAlmostEqual(np.sum(mask * dice_samples_data['advantages']),
+                                      np.sum(samples_data['advantages']), places=2)
+                self.assertAlmostEqual(np.sum(mask * dice_samples_data['rewards']),
+                                      np.sum(samples_data['rewards']))
+
 
 
 
