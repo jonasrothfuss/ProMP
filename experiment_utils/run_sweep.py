@@ -21,7 +21,7 @@ def run_sweep(run_experiment, sweep_params, exp_name, instance_type='c4.xlarge')
 
     local_mount = mount.MountLocal(local_dir=config.BASE_DIR, pythonpath=True)
 
-    docker_mount_point = config.DOCKER_MOUNT_DIR + "/" + exp_name
+    docker_mount_point = os.path.join(config.DOCKER_MOUNT_DIR, exp_name)
     
     sweeper = launcher.DoodadSweeper([local_mount], docker_img=config.DOCKER_IMAGE, docker_output_dir=docker_mount_point,
                                      local_output_dir=os.path.join(config.DATA_DIR, 'local', exp_name))

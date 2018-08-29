@@ -109,7 +109,7 @@ if __name__ == '__main__':
 
         'inner_lr': [0.05, 0.1],
         'inner_type': ['likelihood_ratio', 'log_likelihood'],
-        'step_size': [0.01, 0.05],
+        'step_size': [0.01, 0.05, 0.1],
         'exploration': [True, False],
 
         'n_itr': [501],
