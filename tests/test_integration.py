@@ -1,4 +1,4 @@
-from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
+from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline
 from maml_zoo.meta_algos.ppo_maml import PPOMAML
 from maml_zoo.meta_trainer import Trainer
 from maml_zoo.samplers.maml_sampler import MAMLSampler

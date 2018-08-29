@@ -6,8 +6,7 @@ from maml_zoo.samplers import MAMLSampleProcessor
 from maml_zoo.samplers import SampleProcessor
 from maml_zoo.samplers import DiceSampleProcessor
 from maml_zoo.samplers import DiceMAMLSampleProcessor
-from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
-from maml_zoo.baselines.linear_time_baseline import LinearTimeBaseline
+from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline, LinearTimeBaseline
 
 
 class TestEnv():

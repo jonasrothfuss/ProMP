@@ -3,8 +3,7 @@ import numpy as np
 import pickle
 from maml_zoo.utils import utils
 from maml_zoo.policies.base import Policy
-from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
-from maml_zoo.baselines.linear_time_baseline import LinearTimeBaseline
+from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline, LinearTimeBaseline
 from maml_zoo.samplers.maml_sampler import MAMLSampler
 from gym import Env
 
@@ -112,14 +111,16 @@ class TestLinearFeatureBaseline(unittest.TestCase):
 
     def testFit(self):
         base_path = np.arange(-4.0, 22.0, step=.6)
-        task1 = [{'discounted_rewards': base_path + np.random.normal(scale=2, size=base_path.shape)} for i in range(10)]
-        task2 = [{'discounted_rewards': base_path**3 + np.random.normal(scale=2, size=base_path.shape)} for i in range(10)]
+        task1 = [{'discounted_rewards': base_path + np.random.normal(scale=2, size=base_path.shape),
+                  'observations': base_path} for i in range(10)]
+        task2 = [{'discounted_rewards': base_path**3 + np.random.normal(scale=2, size=base_path.shape),
+                  'observations': base_path} for i in range(10)]
 
 
         for task in [task1, task2]:
             unfit_error = np.sum([np.sum(path['discounted_rewards']**2) for path in task])
             print('unfit_error', unfit_error)
-            self.linear.fit(task)
+            self.linear.fit(task, target_key='discounted_rewards')
             fit_error = 0
             for path in task:
                 fit_pred = self.linear.predict(path)
@@ -129,12 +130,13 @@ class TestLinearFeatureBaseline(unittest.TestCase):
 
     def testSerialize(self):
         base_path = np.arange(-4.0, 22.0, step=.6)
-        task1 = [{'discounted_rewards': base_path + np.random.normal(scale=2, size=base_path.shape)} for i in range(10)]
-        task2 = [{'discounted_rewards': base_path ** 3 + np.random.normal(scale=2, size=base_path.shape)} for i in
-                 range(10)]
+        task1 = [{'discounted_rewards': base_path + np.random.normal(scale=2, size=base_path.shape),
+                  'observations': base_path} for i in range(10)]
+        task2 = [{'discounted_rewards': base_path**3 + np.random.normal(scale=2, size=base_path.shape),
+                  'observations': base_path} for i in range(10)]
 
         for task in [task1, task2]:
-            self.linear.fit(task)
+            self.linear.fit(task, target_key='discounted_rewards')
             fit_error_pre = 0
             for path in task:
                 fit_pred = self.linear.predict(path)

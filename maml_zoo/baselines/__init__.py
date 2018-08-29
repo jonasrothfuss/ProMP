@@ -1,2 +1,2 @@
 from maml_zoo.baselines.base import Baseline
-from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
+from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline

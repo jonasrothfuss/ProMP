@@ -4,8 +4,7 @@ import tensorflow as tf
 import numpy as np
 from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
-from maml_zoo.baselines.linear_time_baseline import LinearTimeBaseline
-from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
+from maml_zoo.baselines.linear_baseline import LinearTimeBaseline, LinearFeatureBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
 from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
@@ -92,7 +91,7 @@ if __name__ == '__main__':
 
         'env': [HalfCheetahRandVelEnv, HalfCheetahRandDirecEnv],
 
-        'rollouts_per_meta_task': [40],
+        'rollouts_per_meta_task': [80],
         'max_path_length': [100],
         'parallel': [True],
 
@@ -106,10 +105,10 @@ if __name__ == '__main__':
         'output_nonlinearity': [None],
 
         'inner_lr': [0.1, 0.05],
-        'learning_rate': [1e-3],
+        'learning_rate': [5e-3, 1e-3, 5e-4],
 
-        'n_itr': [501],
-        'meta_batch_size': [20],
+        'n_itr': [1001],
+        'meta_batch_size': [40],
         'num_inner_grad_steps': [1],
         'scope': [None],
     }

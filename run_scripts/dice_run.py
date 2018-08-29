@@ -1,4 +1,4 @@
-from maml_zoo.baselines.linear_time_baseline import LinearTimeBaseline
+from maml_zoo.baselines.linear_baseline import LinearTimeBaseline
 from maml_zoo.envs.point_env_2d import MetaPointEnv
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.normalized_env import normalize

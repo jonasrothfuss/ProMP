@@ -4,7 +4,7 @@ import tensorflow as tf
 import numpy as np
 from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
-from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
+from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline, LinearTimeBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
 from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
@@ -17,7 +17,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'vpg-hyperparams'
+EXP_NAME = 'vpg-baseline'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -88,9 +88,9 @@ if __name__ == '__main__':
     sweep_params = {
         'seed' : [1, 2, 3],
 
-        'baseline': [LinearFeatureBaseline],
+        'baseline': [LinearFeatureBaseline, LinearTimeBaseline],
 
-        'env': [HalfCheetahRandVelEnv, HalfCheetahRandDirecEnv],
+        'env': [HalfCheetahRandDirecEnv],
 
         'rollouts_per_meta_task': [40],
         'max_path_length': [100],
@@ -106,8 +106,8 @@ if __name__ == '__main__':
         'hidden_nonlinearity': [tf.tanh],
         'output_nonlinearity': [None],
 
-        'inner_lr': [0.05, 0.1],
-        'learning_rate': [1e-3, 1e-4],
+        'inner_lr': [0.1],
+        'learning_rate': [1e-3],
         'inner_type': ['log_likelihood', 'likelihood_ratio'],
         'exploration': [True, False],
 
