@@ -158,7 +158,7 @@ class DiceSampleProcessor(SampleProcessor):
 
         for idx, path in enumerate(paths):
             path_baselines = all_path_baselines[idx]
-            deltas = path["rewards"] - path_baselines
+            deltas = path["discounted_rewards"] - path_baselines
             path["adjusted_rewards"] = deltas
         return paths
 
