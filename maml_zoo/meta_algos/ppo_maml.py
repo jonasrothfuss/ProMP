@@ -69,7 +69,7 @@ class PPOMAML(MAMLAlgo):
 
         self.build_graph()
 
-    def adapt_objective_sym(self, action_sym, adv_sym, dist_info_old_sym, dist_info_new_sym):
+    def _adapt_objective_sym(self, action_sym, adv_sym, dist_info_old_sym, dist_info_new_sym):
         with tf.variable_scope("likelihood_ratio"):
             likelihood_ratio_adapt = self.policy.distribution.likelihood_ratio_sym(action_sym,
                                                                                    dist_info_old_sym, dist_info_new_sym)
@@ -103,7 +103,7 @@ class PPOMAML(MAMLAlgo):
 
             """ ----- Build graph for the meta-update ----- """
             self.meta_op_phs_dict = OrderedDict()
-            obs_phs, action_phs, adv_phs, dist_info_old_phs, all_phs_dict = self.make_input_placeholders('step0')
+            obs_phs, action_phs, adv_phs, dist_info_old_phs, all_phs_dict = self._make_input_placeholders('step0')
             self.meta_op_phs_dict.update(all_phs_dict)
 
             distribution_info_vars, current_policy_params = [], []
@@ -121,10 +121,10 @@ class PPOMAML(MAMLAlgo):
 
                 # inner adaptation step for each task
                 for i in range(self.meta_batch_size):
-                    surr_loss = self.adapt_objective_sym(action_phs[i], adv_phs[i], dist_info_old_phs[i], distribution_info_vars[i])
+                    surr_loss = self._adapt_objective_sym(action_phs[i], adv_phs[i], dist_info_old_phs[i], distribution_info_vars[i])
                     kl_loss = tf.reduce_mean(self.policy.distribution.kl_sym(dist_info_old_phs[i], distribution_info_vars[i]))
 
-                    adapted_params_var = self.adapt_sym(surr_loss, current_policy_params[i])
+                    adapted_params_var = self._adapt_sym(surr_loss, current_policy_params[i])
 
                     adapted_policy_params.append(adapted_params_var)
                     kls.append(kl_loss)
@@ -134,7 +134,7 @@ class PPOMAML(MAMLAlgo):
                 all_inner_kls.append(kls)
 
                 # Create new placeholders for the next step
-                obs_phs, action_phs, adv_phs, dist_info_old_phs, all_phs_dict = self.make_input_placeholders('step%i' % step_id)
+                obs_phs, action_phs, adv_phs, dist_info_old_phs, all_phs_dict = self._make_input_placeholders('step%i' % step_id)
                 self.meta_op_phs_dict.update(all_phs_dict)
 
                 # dist_info_vars_for_next_step

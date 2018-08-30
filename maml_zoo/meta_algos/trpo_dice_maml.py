@@ -56,21 +56,22 @@ class TRPO_DICEMAML(DICEMAML):
             set objectives for optimizer
         """
 
-        """ Create Variables """
-        with tf.variable_scope(self.name):
+        """ Build graph for sampling """
+        with tf.variable_scope(self.name + '_sampling'):
             self.step_sizes = self._create_step_size_vars()
 
             """ --- Build inner update graph for adapting the policy and sampling trajectories --- """
             # this graph is only used for adapting the policy and not computing the meta-updates
             self.adapted_policies_params, self.adapt_input_ph_dict = self._build_inner_adaption()
 
-            """ ----- Build graph for the meta-update ----- """
-            self.meta_op_phs_dict = OrderedDict()
-            obs_phs, action_phs, adj_reward_phs, mask_phs, dist_info_old_phs, all_phs_dict = self._make_dice_input_placeholders('step0')
-            self.meta_op_phs_dict.update(all_phs_dict)
+        """ Build graph for meta-update """
+        meta_update_scope = tf.variable_scope(self.name + '_meta_update')
 
-            distribution_info_vars, current_policy_params = [], []
-            all_surr_objs = []
+        with meta_update_scope:
+            obs_phs, action_phs, adj_reward_phs, mask_phs, dist_info_old_phs, all_phs_dict = self._make_dice_input_placeholders('step0')
+            self.meta_op_phs_dict = OrderedDict(all_phs_dict)
+
+            distribution_info_vars, current_policy_params, all_surr_objs = [], [], []
 
         for i in range(self.meta_batch_size):
             obs_stacked = self._reshape_obs_phs(obs_phs[i])
@@ -81,31 +82,34 @@ class TRPO_DICEMAML(DICEMAML):
         with tf.variable_scope(self.name):
             """ Inner updates"""
             for step_id in range(1, self.num_inner_grad_steps+1):
-                surr_objs, adapted_policy_params = [], []
-                # inner adaptation step for each task
-                for i in range(self.meta_batch_size):
-                    action_stacked = self._reshape_action_phs(action_phs[i])
-                    surr_loss = self.adapt_objective_sym(action_stacked, adj_reward_phs[i], mask_phs[i], distribution_info_vars[i])
+                with tf.variable_scope("inner_update_%i" % step_id):
+                    surr_objs, adapted_policy_params = [], []
 
-                    adapted_params_var = self.adapt_sym(surr_loss, current_policy_params[i])
+                    # inner adaptation step for each task
+                    for i in range(self.meta_batch_size):
+                        action_stacked = self._reshape_action_phs(action_phs[i])
+                        surr_loss = self._adapt_objective_sym(action_stacked, adj_reward_phs[i], mask_phs[i], distribution_info_vars[i])
 
-                    adapted_policy_params.append(adapted_params_var)
-                    surr_objs.append(surr_loss)
+                        adapted_params_var = self._adapt_sym(surr_loss, current_policy_params[i])
 
-                all_surr_objs.append(surr_objs)
-                # Create new placeholders for the next step
-                obs_phs, action_phs, adj_reward_phs, mask_phs, dist_info_old_phs, all_phs_dict = self._make_dice_input_placeholders('step%i' % step_id)
-                self.meta_op_phs_dict.update(all_phs_dict)
+                        adapted_policy_params.append(adapted_params_var)
+                        surr_objs.append(surr_loss)
 
-                # dist_info_vars_for_next_step
-                distribution_info_vars = []
-                for i in range(self.meta_batch_size):
-                    obs_stacked = self._reshape_obs_phs(obs_phs[i])
-                    distribution_info_vars.append(self.policy.distribution_info_sym(obs_stacked, params=adapted_policy_params[i]))
+                    all_surr_objs.append(surr_objs)
+
+                    # Create new placeholders for the next step
+                    obs_phs, action_phs, adj_reward_phs, mask_phs, dist_info_old_phs, all_phs_dict = self._make_dice_input_placeholders('step%i' % step_id)
+                    self.meta_op_phs_dict.update(all_phs_dict)
+
+                    # dist_info_vars_for_next_step
+                    distribution_info_vars = []
+                    for i in range(self.meta_batch_size):
+                        obs_stacked = self._reshape_obs_phs(obs_phs[i])
+                        distribution_info_vars.append(self.policy.distribution_info_sym(obs_stacked, params=adapted_policy_params[i]))
 
                 current_policy_params = adapted_policy_params
 
-            """ Outer objective """
+            """ Outer (meta-)objective """
 
             # create additional placeholders for advantages
             adv_phs, all_phs_dict = self._make_adv_phs(prefix='step%i' % self.num_inner_grad_steps)
@@ -123,7 +127,7 @@ class TRPO_DICEMAML(DICEMAML):
                 likelihood_ratio = tf.reshape(likelihood_ratio, shape=tf.shape(mask_phs[i]))
                 surr_obj = - tf.reduce_mean(mask_phs[i] * likelihood_ratio * adv_phs[i])
 
-                # KL-divergence for contraint
+                # KL-divergence for constaraint
                 kl_sym = self.policy.distribution.kl_sym(dist_info_old_stacked, distribution_info_vars[i])
                 kl_sym = tf.reshape(kl_sym, shape=tf.shape(mask_phs[i]))
                 outer_kl = tf.reduce_mean(mask_phs[i] * kl_sym)
