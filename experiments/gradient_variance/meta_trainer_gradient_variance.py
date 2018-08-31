@@ -107,20 +107,30 @@ class TrainerGradientStd(object):
                         # compute variance of adaptation gradients
                         for step_id in range(self.num_inner_grad_steps):
                             meta_batch_size = len(gradients[0][0])
-                            grad_variances = []
+                            grad_std, grad_rstd = [], []
                             for task_id in range(meta_batch_size):
                                 stacked_grads = np.stack([gradients[round_id][step_id][task_id]
                                                           for round_id in range(self.num_sapling_rounds)], axis=1)
-                                grad_variances.append(np.mean(np.std(stacked_grads, axis=1)))
+                                std = np.std(stacked_grads, axis=1)
+                                mean = np.abs(np.mean(stacked_grads, axis=1))
+                                grad_std.append(np.mean(std))
+                                grad_rstd.append(np.mean(std/mean))
 
-                            logger.logkv('Step_%i-GradientStd'%step_id, np.mean(grad_variances))
+
+                            logger.logkv('Step_%i-GradientStd'%step_id, np.mean(grad_std))
+                            logger.logkv('Step_%i-GradientRStd' % step_id, np.mean(grad_rstd))
 
                         # compute variance of meta gradients
                         stacked_grads = np.stack([gradients[round_id][self.num_inner_grad_steps]
                                                   for round_id in range(self.num_sapling_rounds)], axis=1)
-                        meta_grad_std = np.mean(np.std(stacked_grads, axis=1))
+                        std = np.std(stacked_grads, axis=1)
+                        mean = np.abs(np.mean(stacked_grads, axis=1))
+
+                        meta_grad_std = np.mean(std)
+                        meta_grad_rstd = np.mean(std/mean)
 
                         logger.logkv('Meta-Gradient-Std', meta_grad_std)
+                        logger.logkv('Meta-Gradient-Std', meta_grad_rstd)
 
 
                         """ ------------------ Outer Policy Update ---------------------"""
