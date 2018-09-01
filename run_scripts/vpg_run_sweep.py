@@ -4,14 +4,14 @@ import tensorflow as tf
 import numpy as np
 from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
-from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
-from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
+from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline, LinearTimeBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
 from maml_zoo.envs.ant_rand_goal import AntRandGoalEnv
 from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
 from maml_zoo.envs.swimmer_rand_vel import SwimmerRandVelEnv
 from maml_zoo.envs.point_env_2d_corner import MetaPointEnvCorner
+from maml_zoo.envs.sawyer_pick_and_place import SawyerPickAndPlaceEnv
 from rand_param_envs.hopper_rand_params import HopperRandParamsEnv
 from rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
 from maml_zoo.envs.normalized_env import normalize
@@ -26,7 +26,7 @@ INSTANCE_TYPE = 'c4.2xlarge'
 EXP_NAME = 'vpg-rand-param-envs'
 
 def run_experiment(**kwargs):
-    exp_dir = os.getcwd() + '/data'
+    exp_dir = os.getcwd() + '/data/' + EXP_NAME
     logger.configure(dir=exp_dir, format_strs=['stdout', 'log', 'csv'], snapshot_mode='last_gap', snapshot_gap=50)
     json.dump(kwargs, open(exp_dir + '/params.json', 'w'), indent=2, sort_keys=True, cls=ClassEncoder)
 
@@ -92,9 +92,9 @@ def run_experiment(**kwargs):
 if __name__ == '__main__':    
 
     sweep_params = {
-        'seed' : [1, 2, 3, 4, 5],
+        'seed' : [1, 2, 3],
 
-        'baseline': [LinearFeatureBaseline],
+        'baseline': [LinearFeatureBaseline, LinearTimeBaseline],
 
         'env': [HopperRandParamsEnv, Walker2DRandParamsEnv],
 
@@ -117,8 +117,8 @@ if __name__ == '__main__':
         'inner_type': ['likelihood_ratio'],
         'exploration': [False],
 
-        'n_itr': [301],
-        'meta_batch_size': [40],
+        'n_itr': [501],
+        'meta_batch_size': [20],
         'num_inner_grad_steps': [1],
         'scope': [None],
     }

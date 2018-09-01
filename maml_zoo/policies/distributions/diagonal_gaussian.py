@@ -30,13 +30,13 @@ class DiagonalGaussian(Distribution):
         new_means = new_dist_info_vars["mean"]
         new_log_stds = new_dist_info_vars["log_std"]
 
+        # assert ranks
+        tf.assert_rank(old_means, 2), tf.assert_rank(old_log_stds, 2)
+        tf.assert_rank(new_means, 2), tf.assert_rank(new_log_stds, 2)
+
         old_std = tf.exp(old_log_stds)
         new_std = tf.exp(new_log_stds)
-        # means: (N*A)
-        # std: (N*A)
-        # formula:
-        # { (\mu_1 - \mu_2)^2 + \sigma_1^2 - \sigma_2^2 } / (2\sigma_2^2) +
-        # ln(\sigma_2/\sigma_1)
+
         numerator = tf.square(old_means - new_means) + \
                     tf.square(old_std) - tf.square(new_std)
         denominator = 2 * tf.square(new_std) + 1e-8
@@ -99,6 +99,10 @@ class DiagonalGaussian(Distribution):
         """
         means = dist_info_vars["mean"]
         log_stds = dist_info_vars["log_std"]
+
+        # assert ranks
+        tf.assert_rank(x_var, 2), tf.assert_rank(means, 2), tf.assert_rank(log_stds, 2)
+
         zs = (x_var - means) / tf.exp(log_stds)
         return - tf.reduce_sum(log_stds, reduction_indices=-1) - \
                0.5 * tf.reduce_sum(tf.square(zs), reduction_indices=-1) - \

@@ -1,11 +1,11 @@
-from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline
+from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline, LinearTimeBaseline
 from maml_zoo.envs.point_env_2d import MetaPointEnv
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.normalized_env import normalize
-from maml_zoo.meta_algos import VPGMAML
+from maml_zoo.meta_algos.vpg_dice_maml import VPG_DICEMAML
 from maml_zoo.meta_trainer import Trainer
-from maml_zoo.samplers.maml_sampler import MAMLSampler
-from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
+from maml_zoo.samplers import MAMLSampler
+from maml_zoo.samplers import DiceMAMLSampleProcessor
 from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 import os
 from maml_zoo.logger import logger
@@ -17,7 +17,8 @@ maml_zoo_path = '/'.join(os.path.realpath(os.path.dirname(__file__)).split('/')[
 
 
 def main(config):
-    baseline = LinearFeatureBaseline()
+    reward_baseline = LinearTimeBaseline()
+    return_baseline = LinearFeatureBaseline()
     env = normalize(HalfCheetahRandDirecEnv())
 
     policy = MetaGaussianMLPPolicy(
@@ -37,17 +38,19 @@ def main(config):
         parallel=config['parallel'],
     )
 
-    sample_processor = MAMLSampleProcessor(
-        baseline=baseline,
+    sample_processor = DiceMAMLSampleProcessor(
+        baseline=reward_baseline,
+        max_path_length=config['max_path_length'],
         discount=config['discount'],
-        gae_lambda=config['gae_lambda'],
         normalize_adv=config['normalize_adv'],
         positive_adv=config['positive_adv'],
+        return_baseline=return_baseline
+
     )
 
-    algo = VPGMAML(
+    algo = VPG_DICEMAML(
         policy=policy,
-        inner_type=config['inner_type'],
+        max_path_length=config['max_path_length'],
         meta_batch_size=config['meta_batch_size'],
         num_inner_grad_steps=config['num_inner_grad_steps'],
         inner_lr=config['inner_lr'],
@@ -68,8 +71,8 @@ def main(config):
 
 if __name__=="__main__":
     idx = np.random.randint(0, 1000)
-    logger.configure(dir=maml_zoo_path + '/data/vpg/test_%d' % idx, format_strs=['stdout', 'log', 'csv'],
+    logger.configure(dir=maml_zoo_path + '/data/vpg-dice/test_%d' % idx, format_strs=['stdout', 'log', 'csv'],
                      snapshot_mode='last_gap')
-    config = json.load(open(maml_zoo_path + "/configs/vpg_maml_config.json", 'r'))
-    json.dump(config, open(maml_zoo_path + '/data/vpg/test_%d/params.json' % idx, 'w'))
+    config = json.load(open(maml_zoo_path + "/configs/vpg_dice_maml_config.json", 'r'))
+    json.dump(config, open(maml_zoo_path + '/data/vpg-dice/test_%d/params.json' % idx, 'w'))
     main(config)

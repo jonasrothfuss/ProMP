@@ -77,6 +77,8 @@ class VPGMAML(MAMLAlgo):
             set objectives for optimizer
         """
 
+        self.gradients = []
+
         """ Create Variables """
         with tf.variable_scope(self.name):
             self.step_sizes = self._create_step_size_vars()
@@ -104,13 +106,14 @@ class VPGMAML(MAMLAlgo):
         with tf.variable_scope(self.name):
             """ Inner updates"""
             for step_id in range(1, self.num_inner_grad_steps+1):
-                surr_objs, adapted_policy_params = [], []
+                surr_objs, adapted_policy_params, gradient_vectors = [], [], []
 
                 # inner adaptation step for each task
                 for i in range(self.meta_batch_size):
                     surr_loss = self._adapt_objective_sym(action_phs[i], adv_phs[i], dist_info_old_phs[i], distribution_info_vars[i])
 
-                    adapted_params_var = self._adapt_sym(surr_loss, current_policy_params[i])
+                    adapted_params_var, gradient_vector = self._adapt_sym(surr_loss, current_policy_params[i])
+                    gradient_vectors.append(gradient_vector)
 
                     adapted_policy_params.append(adapted_params_var)
                     surr_objs.append(surr_loss)
@@ -124,6 +127,7 @@ class VPGMAML(MAMLAlgo):
                 distribution_info_vars = [self.policy.distribution_info_sym(obs_phs[i], params=adapted_policy_params[i])
                                           for i in range(self.meta_batch_size)]
                 current_policy_params = adapted_policy_params
+                self.gradients.append(gradient_vectors)
 
             """ Outer objective """
             surr_objs = []
@@ -141,6 +145,13 @@ class VPGMAML(MAMLAlgo):
 
             """ Mean over meta tasks """
             meta_objective = tf.reduce_mean(tf.stack(surr_objs, 0))
+
+            # get meta gradients
+            params_var = self.policy.get_params()
+            meta_gradients = tf.gradients(meta_objective, [params_var[key] for key in sorted(params_var.keys())])
+            meta_gradients = tf.concat([tf.reshape(grad, shape=(-1,)) for grad in meta_gradients],
+                                       axis=0)  # flatten and concatenate
+            self.gradients.append(meta_gradients)
 
             self.optimizer.build_graph(
                 loss=meta_objective,
@@ -172,3 +183,70 @@ class VPGMAML(MAMLAlgo):
             logger.logkv('LossBefore', loss_before)
             logger.logkv('LossAfter', loss_after)
 
+    def compute_gradients(self, all_samples_data, log=True):
+        meta_op_input_dict = self._extract_input_dict_meta_op(all_samples_data, self._optimization_keys)
+        feed_dict = utils.create_feed_dict(placeholder_dict=self.meta_op_phs_dict, value_dict=meta_op_input_dict)
+        if log: logger.log("compute gradients")
+        gradients_values = tf.get_default_session().run(self.gradients, feed_dict=feed_dict)
+        return gradients_values
+
+    def _build_inner_adaption(self):
+        """
+        Creates the symbolic graph for the one-step inner gradient update (It'll be called several times if
+        more gradient steps are needed)
+
+        Args:
+            some placeholders
+
+        Returns:
+            adapted_policies_params (list): list of Ordered Dict containing the symbolic post-update parameters
+            adapt_input_list_ph (list): list of placeholders
+
+        """
+        obs_phs, action_phs, adv_phs, dist_info_old_phs, adapt_input_ph_dict = self._make_input_placeholders('adapt')
+
+        adapted_policies_params = []
+
+        for i in range(self.meta_batch_size):
+            with tf.variable_scope("adapt_task_%i" % i):
+                with tf.variable_scope("adapt_objective"):
+                    distribution_info_new = self.policy.distribution_info_sym(obs_phs[i],
+                                                                              params=self.policy.policies_params_phs[i])
+
+                    # inner surrogate objective
+                    surr_obj_adapt = self._adapt_objective_sym(action_phs[i], adv_phs[i],
+                                                               dist_info_old_phs[i], distribution_info_new)
+
+                # get tf operation for adapted (post-update) policy
+                with tf.variable_scope("adapt_step"):
+                    adapted_policy_param, _ = self._adapt_sym(surr_obj_adapt, self.policy.policies_params_phs[i])
+                adapted_policies_params.append(adapted_policy_param)
+
+        return adapted_policies_params, adapt_input_ph_dict
+
+    def _adapt_sym(self, surr_obj, params_var):
+        """
+        Creates the symbolic representation of the tf policy after one gradient step towards the surr_obj
+
+        Args:
+            surr_obj (tf_op) : tensorflow op for task specific (inner) objective
+            params_var (dict) : dict of tf.Tensors for current policy params
+
+        Returns:
+            (dict):  dict of tf.Tensors for adapted policy params
+        """
+        # TODO: Fix this if we want to learn the learning rate (it isn't supported right now).
+        update_param_keys = list(params_var.keys())
+
+        grads = tf.gradients(surr_obj, [params_var[key] for key in update_param_keys])
+        gradients = dict(zip(update_param_keys, grads))
+
+        # gradient descent
+        adapted_policy_params = [params_var[key] - tf.multiply(self.step_sizes[key], gradients[key])
+                          for key in update_param_keys]
+
+        adapted_policy_params_dict = OrderedDict(zip(update_param_keys, adapted_policy_params))
+
+        # flattens and concatenates the gadients
+        gradient_vector = tf.concat([tf.reshape(grad, shape=(-1,)) for grad in grads], axis=0)
+        return adapted_policy_params_dict, gradient_vector

@@ -4,15 +4,17 @@ import tensorflow as tf
 import numpy as np
 from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
-from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
+from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline, LinearTimeBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
 from maml_zoo.envs.ant_rand_goal import AntRandGoalEnv
 from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
 from maml_zoo.envs.swimmer_rand_vel import SwimmerRandVelEnv
 from maml_zoo.envs.point_env_2d_corner import MetaPointEnvCorner
+from maml_zoo.envs.sawyer_pick_and_place import SawyerPickAndPlaceEnv
 from rand_param_envs.hopper_rand_params import HopperRandParamsEnv
 from rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
+from maml_zoo.envs.normalized_env import normalize
 from maml_zoo.envs.normalized_env import normalize
 from maml_zoo.meta_algos.ppo_maml import PPOMAML
 from maml_zoo.meta_trainer import Trainer
@@ -22,10 +24,10 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'ppo/non-adaptive-inner'
+EXP_NAME = 'ppo-hyperparams'
 
 def run_experiment(**kwargs):
-    exp_dir = os.getcwd() + '/data'
+    exp_dir = os.getcwd() + '/data/' + EXP_NAME
     logger.configure(dir=exp_dir, format_strs=['stdout', 'log', 'csv'], snapshot_mode='last_gap', snapshot_gap=50)
     json.dump(kwargs, open(exp_dir + '/params.json', 'w'), indent=2, sort_keys=True, cls=ClassEncoder)
 
@@ -104,9 +106,9 @@ if __name__ == '__main__':
 
         'baseline': [LinearFeatureBaseline],
 
-        'env': [HalfCheetahRandDirecEnv],
+        'env': [HalfCheetahRandVelEnv, HalfCheetahRandDirecEnv],
 
-        'rollouts_per_meta_task': [20],
+        'rollouts_per_meta_task': [40],
         'max_path_length': [100],
         'parallel': [True],
 
@@ -120,22 +122,22 @@ if __name__ == '__main__':
         'hidden_nonlinearity': [tf.tanh],
         'output_nonlinearity': [None],
 
-        'inner_lr': [0.05, 0.1, 0.2],
+        'inner_lr': [0.05, 0.1],
         'learning_rate': [1e-3],
-        'num_ppo_steps': [2, 5, 10],
+        'num_ppo_steps': [3, 5, 10],
         'num_minibatches': [1],
-        'clip_eps': [0.5, 0.3, 0.1],
+        'clip_eps': [0.5, 0.3],
         'clip_outer': [True],
         'target_outer_step': [0],
         'target_inner_step': [0.1, 0.05, 0.01],
         'init_outer_kl_penalty': [0],
-        'init_inner_kl_penalty': [0., 1.],
+        'init_inner_kl_penalty': [1e-3],
         'adaptive_outer_kl_penalty': [False],
-        'adaptive_inner_kl_penalty': [False],
+        'adaptive_inner_kl_penalty': [True],
         'anneal_factor': [1.0],
 
-        'n_itr': [301],
-        'meta_batch_size': [40],
+        'n_itr': [501],
+        'meta_batch_size': [20],
         'num_inner_grad_steps': [1],
         'scope': [None],
     }

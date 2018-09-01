@@ -4,26 +4,21 @@ import tensorflow as tf
 import numpy as np
 from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
-from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline, LinearTimeBaseline
+from maml_zoo.baselines.linear_baseline import LinearTimeBaseline, LinearFeatureBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
-from maml_zoo.envs.ant_rand_goal import AntRandGoalEnv
 from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
-from maml_zoo.envs.swimmer_rand_vel import SwimmerRandVelEnv
-from maml_zoo.envs.point_env_2d_corner import MetaPointEnvCorner
-from maml_zoo.envs.sawyer_pick_and_place import SawyerPickAndPlaceEnv
-from rand_param_envs.hopper_rand_params import HopperRandParamsEnv
-from rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
 from maml_zoo.envs.normalized_env import normalize
-from maml_zoo.meta_algos.trpo_maml import TRPOMAML
-from maml_zoo.meta_trainer import Trainer
+from experiments.gradient_variance.dice_maml_extract_grads import DICEMAML
+from experiments.gradient_variance.vpg_maml_extract_grads import VPGMAML
+from experiments.gradient_variance.meta_trainer_gradient_variance import TrainerGradientStd
 from maml_zoo.samplers.maml_sampler import MAMLSampler
-from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
+from maml_zoo.samplers import DiceMAMLSampleProcessor, MAMLSampleProcessor
 from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'trpo-sawyer-eval'
+EXP_NAME = 'gradient_std'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -39,7 +34,7 @@ def run_experiment(**kwargs):
 
     policy = MetaGaussianMLPPolicy(
         name="meta-policy",
-        obs_dim=np.prod(env.observation_space.shape), # Todo...?
+        obs_dim=np.prod(env.observation_space.shape),
         action_dim=np.prod(env.action_space.shape),
         meta_batch_size=kwargs['meta_batch_size'],
         hidden_sizes=kwargs['hidden_sizes'],
@@ -57,28 +52,44 @@ def run_experiment(**kwargs):
         meta_batch_size=kwargs['meta_batch_size'],
         max_path_length=kwargs['max_path_length'],
         parallel=kwargs['parallel'],
-        envs_per_task=1,
+        envs_per_task=int(kwargs['rollouts_per_meta_task']/4)
     )
 
-    sample_processor = MAMLSampleProcessor(
-        baseline=baseline,
-        discount=kwargs['discount'],
-        gae_lambda=kwargs['gae_lambda'],
-        normalize_adv=kwargs['normalize_adv'],
-        positive_adv=kwargs['positive_adv'],
-    )
+    if kwargs['algo'] == 'DICE':
+        sample_processor = DiceMAMLSampleProcessor(
+            baseline=baseline,
+            max_path_length=kwargs['max_path_length'],
+            discount=kwargs['discount'],
+            normalize_adv=kwargs['normalize_adv'],
+            positive_adv=kwargs['positive_adv'],
+        )
 
-    algo = TRPOMAML(
-        policy=policy,
-        step_size=kwargs['step_size'],
-        inner_type=kwargs['inner_type'],
-        inner_lr=kwargs['inner_lr'],
-        meta_batch_size=kwargs['meta_batch_size'],
-        num_inner_grad_steps=kwargs['num_inner_grad_steps'],
-        exploration=kwargs['exploration'],
-    )
+        algo = DICEMAML(
+            policy=policy,
+            max_path_length=kwargs['max_path_length'],
+            meta_batch_size=kwargs['meta_batch_size'],
+            num_inner_grad_steps=kwargs['num_inner_grad_steps'],
+            inner_lr=kwargs['inner_lr'],
+            learning_rate=kwargs['learning_rate']
+        )
+    elif kwargs['algo'] == 'VPG':
+        sample_processor = MAMLSampleProcessor(
+            baseline=baseline,
+            discount=kwargs['discount'],
+            normalize_adv=kwargs['normalize_adv'],
+            positive_adv=kwargs['positive_adv'],
+        )
 
-    trainer = Trainer(
+        algo = VPGMAML(
+            policy=policy,
+            meta_batch_size=kwargs['meta_batch_size'],
+            num_inner_grad_steps=kwargs['num_inner_grad_steps'],
+            inner_type='likelihood_ratio',
+            inner_lr=kwargs['inner_lr'],
+            learning_rate=kwargs['learning_rate']
+        )
+
+    trainer = TrainerGradientStd(
         algo=algo,
         policy=policy,
         env=env,
@@ -93,18 +104,21 @@ def run_experiment(**kwargs):
 if __name__ == '__main__':    
 
     sweep_params = {
-        'seed' : [1, 2, 3],
+        'seed': [1, 2, 3],
 
-        'baseline': [LinearFeatureBaseline],
+        'algo': ['VPG', 'DICE'],
 
-        'env': [SawyerPickAndPlaceEnv],
+        'sampling_rounds': [10],
 
-        'rollouts_per_meta_task': [20],
-        'max_path_length': [200, 500],
+        'baseline': [LinearTimeBaseline, LinearFeatureBaseline],
+
+        'env': [HalfCheetahRandDirecEnv],
+
+        'rollouts_per_meta_task': [40],
+        'max_path_length': [100],
         'parallel': [True],
 
-        'discount': [0.99],
-        'gae_lambda': [1],
+        'discount': [1.0],
         'normalize_adv': [True],
         'positive_adv': [False],
 
@@ -114,14 +128,12 @@ if __name__ == '__main__':
         'output_nonlinearity': [None],
 
         'inner_lr': [0.1],
-        'inner_type': ['likelihood_ratio'],
-        'step_size': [0.01],
-        'exploration': [False],
+        'learning_rate': [1e-3],
 
         'n_itr': [501],
-        'meta_batch_size': [5],
+        'meta_batch_size': [20],
         'num_inner_grad_steps': [1],
         'scope': [None],
     }
-    
+        
     run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)

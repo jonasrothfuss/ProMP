@@ -4,26 +4,20 @@ import tensorflow as tf
 import numpy as np
 from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
-from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline, LinearTimeBaseline
+from maml_zoo.baselines.linear_baseline import LinearTimeBaseline, LinearFeatureBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
-from maml_zoo.envs.ant_rand_goal import AntRandGoalEnv
 from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
-from maml_zoo.envs.swimmer_rand_vel import SwimmerRandVelEnv
-from maml_zoo.envs.point_env_2d_corner import MetaPointEnvCorner
-from maml_zoo.envs.sawyer_pick_and_place import SawyerPickAndPlaceEnv
-from rand_param_envs.hopper_rand_params import HopperRandParamsEnv
-from rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
 from maml_zoo.envs.normalized_env import normalize
-from maml_zoo.meta_algos.trpo_maml import TRPOMAML
+from maml_zoo.meta_algos.vpg_dice_maml import VPG_DICEMAML
 from maml_zoo.meta_trainer import Trainer
 from maml_zoo.samplers.maml_sampler import MAMLSampler
-from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
+from maml_zoo.samplers import DiceMAMLSampleProcessor
 from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
-INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'trpo-sawyer-eval'
+INSTANCE_TYPE = 'c4.4xlarge'
+EXP_NAME = 'vpg-dice'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -33,7 +27,8 @@ def run_experiment(**kwargs):
     # Instantiate classes
     set_seed(kwargs['seed'])
 
-    baseline = kwargs['baseline']()
+    reward_baseline = LinearTimeBaseline()
+    return_baseline = LinearFeatureBaseline()
 
     env = normalize(kwargs['env']()) # Wrappers?
 
@@ -57,25 +52,25 @@ def run_experiment(**kwargs):
         meta_batch_size=kwargs['meta_batch_size'],
         max_path_length=kwargs['max_path_length'],
         parallel=kwargs['parallel'],
-        envs_per_task=1,
+        envs_per_task=int(kwargs['rollouts_per_meta_task']/2)
     )
 
-    sample_processor = MAMLSampleProcessor(
-        baseline=baseline,
+    sample_processor = DiceMAMLSampleProcessor(
+        baseline=reward_baseline,
+        max_path_length=kwargs['max_path_length'],
         discount=kwargs['discount'],
-        gae_lambda=kwargs['gae_lambda'],
         normalize_adv=kwargs['normalize_adv'],
         positive_adv=kwargs['positive_adv'],
+        return_baseline=return_baseline
     )
 
-    algo = TRPOMAML(
+    algo = VPG_DICEMAML(
         policy=policy,
-        step_size=kwargs['step_size'],
-        inner_type=kwargs['inner_type'],
-        inner_lr=kwargs['inner_lr'],
+        max_path_length=kwargs['max_path_length'],
         meta_batch_size=kwargs['meta_batch_size'],
         num_inner_grad_steps=kwargs['num_inner_grad_steps'],
-        exploration=kwargs['exploration'],
+        inner_lr=kwargs['inner_lr'],
+        learning_rate=kwargs['learning_rate']
     )
 
     trainer = Trainer(
@@ -93,18 +88,15 @@ def run_experiment(**kwargs):
 if __name__ == '__main__':    
 
     sweep_params = {
-        'seed' : [1, 2, 3],
+        'seed': [1, 2, 3],
 
-        'baseline': [LinearFeatureBaseline],
+        'env': [HalfCheetahRandDirecEnv],
 
-        'env': [SawyerPickAndPlaceEnv],
-
-        'rollouts_per_meta_task': [20],
-        'max_path_length': [200, 500],
+        'rollouts_per_meta_task': [80],
+        'max_path_length': [100],
         'parallel': [True],
 
-        'discount': [0.99],
-        'gae_lambda': [1],
+        'discount': [1.0],
         'normalize_adv': [True],
         'positive_adv': [False],
 
@@ -113,15 +105,13 @@ if __name__ == '__main__':
         'hidden_nonlinearity': [tf.tanh],
         'output_nonlinearity': [None],
 
-        'inner_lr': [0.1],
-        'inner_type': ['likelihood_ratio'],
-        'step_size': [0.01],
-        'exploration': [False],
+        'inner_lr': [0.1, 0.05],
+        'learning_rate': [1e-3],
 
-        'n_itr': [501],
-        'meta_batch_size': [5],
+        'n_itr': [1001],
+        'meta_batch_size': [40],
         'num_inner_grad_steps': [1],
         'scope': [None],
     }
-    
+        
     run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)

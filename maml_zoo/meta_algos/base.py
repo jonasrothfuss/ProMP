@@ -47,7 +47,7 @@ class MetaAlgo(object):
         """
         raise NotImplementedError
 
-    def adapt_sym(self, surr_obj, params_var):
+    def _adapt_sym(self, surr_obj, params_var):
         """
         Creates the symbolic representation of the tf policy after one gradient step towards the surr_obj
 
@@ -60,7 +60,7 @@ class MetaAlgo(object):
         """
         raise NotImplementedError
 
-    def adapt(self, samples):
+    def _adapt(self, samples):
         """
         Performs MAML inner step for each task and stores resulting gradients # (in the policy?)
 
@@ -113,7 +113,7 @@ class MAMLAlgo(MetaAlgo):
         self.adapted_policies_params = None
         self.step_sizes = None
 
-    def make_input_placeholders(self, prefix=''):
+    def _make_input_placeholders(self, prefix=''):
         """
         Args:
             prefix (str) : a string to prepend to the name of each variable
@@ -153,7 +153,7 @@ class MAMLAlgo(MetaAlgo):
 
         return obs_phs, action_phs, adv_phs, dist_info_phs, all_phs_dict
 
-    def adapt_objective_sym(self, action_sym, adv_sym, dist_info_old_sym, dist_info_new_sym):
+    def _adapt_objective_sym(self, action_sym, adv_sym, dist_info_old_sym, dist_info_new_sym):
         raise NotImplementedError
 
     def _build_inner_adaption(self):
@@ -169,7 +169,7 @@ class MAMLAlgo(MetaAlgo):
             adapt_input_list_ph (list): list of placeholders
 
         """
-        obs_phs, action_phs, adv_phs, dist_info_old_phs, adapt_input_ph_dict = self.make_input_placeholders('adapt')
+        obs_phs, action_phs, adv_phs, dist_info_old_phs, adapt_input_ph_dict = self._make_input_placeholders('adapt')
 
         adapted_policies_params = []
 
@@ -180,17 +180,17 @@ class MAMLAlgo(MetaAlgo):
                                                                               params=self.policy.policies_params_phs[i])
 
                     # inner surrogate objective
-                    surr_obj_adapt = self.adapt_objective_sym(action_phs[i], adv_phs[i],
-                                                              dist_info_old_phs[i], distribution_info_new)
+                    surr_obj_adapt = self._adapt_objective_sym(action_phs[i], adv_phs[i],
+                                                               dist_info_old_phs[i], distribution_info_new)
 
                 # get tf operation for adapted (post-update) policy
                 with tf.variable_scope("adapt_step"):
-                    adapted_policy_param = self.adapt_sym(surr_obj_adapt, self.policy.policies_params_phs[i])
+                    adapted_policy_param = self._adapt_sym(surr_obj_adapt, self.policy.policies_params_phs[i])
                 adapted_policies_params.append(adapted_policy_param)
 
         return adapted_policies_params, adapt_input_ph_dict
 
-    def adapt_sym(self, surr_obj, params_var):
+    def _adapt_sym(self, surr_obj, params_var):
         """
         Creates the symbolic representation of the tf policy after one gradient step towards the surr_obj
 
@@ -215,7 +215,7 @@ class MAMLAlgo(MetaAlgo):
 
         return adapted_policy_params_dict
 
-    def adapt(self, samples):
+    def _adapt(self, samples):
         """
         Performs MAML inner step for each task and stores the updated parameters in the policy
 

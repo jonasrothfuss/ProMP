@@ -2,6 +2,7 @@ from maml_zoo.samplers.base import Sampler
 from maml_zoo.samplers.vectorized_env_executor import MAMLParallelEnvExecutor, MAMLIterativeEnvExecutor
 from maml_zoo.logger import logger
 from maml_zoo.utils import utils
+from collections import OrderedDict
 
 from pyprind import ProgBar
 import numpy as np
@@ -68,7 +69,7 @@ class MAMLSampler(Sampler):
         """
 
         # initial setup / preparation
-        paths = {}
+        paths = OrderedDict()
         for i in range(self.meta_batch_size):
             paths[i] = []
 

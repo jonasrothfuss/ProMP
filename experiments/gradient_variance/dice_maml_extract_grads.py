@@ -1,4 +1,5 @@
 from maml_zoo.logger import logger
+
 from maml_zoo.meta_algos.base import MAMLAlgo
 from maml_zoo.optimizers.maml_first_order_optimizer import MAMLFirstOrderOptimizer
 from maml_zoo import utils
@@ -39,7 +40,7 @@ class DICEMAML(MAMLAlgo):
 
         self.build_graph()
 
-    def adapt_objective_sym(self, action_stacked_sym, adj_reward_sym, mask_sym, dist_info_stacked_sym): #TODO make this method private
+    def _adapt_objective_sym(self, action_stacked_sym, adj_reward_sym, mask_sym, dist_info_stacked_sym): #TODO make this method private
         with tf.variable_scope("log_likelihood"):
             log_likelihood_adapt = self.policy.distribution.log_likelihood_sym(action_stacked_sym, dist_info_stacked_sym)
             log_likelihood_adapt = tf.reshape(log_likelihood_adapt, tf.shape(mask_sym))
@@ -73,12 +74,12 @@ class DICEMAML(MAMLAlgo):
                                                                               params=self.policy.policies_params_phs[i])
 
                     # inner surrogate objective
-                    adapt_loss = self.adapt_objective_sym(action_stacked, adj_reward_phs[i], mask_phs[i],
-                                                         distribution_info_stacked)
+                    adapt_loss = self._adapt_objective_sym(action_stacked, adj_reward_phs[i], mask_phs[i],
+                                                           distribution_info_stacked)
 
                 # get tf operation for adapted (post-update) policy
                 with tf.variable_scope("adapt_step"):
-                    adapted_policy_param = self.adapt_sym(adapt_loss, self.policy.policies_params_phs[i])
+                    adapted_policy_param, _ = self._adapt_sym(adapt_loss, self.policy.policies_params_phs[i])
                 adapted_policies_params.append(adapted_policy_param)
 
         return adapted_policies_params, adapt_input_ph_dict
@@ -99,21 +100,25 @@ class DICEMAML(MAMLAlgo):
             set objectives for optimizer
         """
 
-        """ Create Variables """
-        with tf.variable_scope(self.name):
+        self.gradients = []
+
+        """ Build graph for sampling """
+        with tf.variable_scope(self.name + '_sampling'):
             self.step_sizes = self._create_step_size_vars()
 
             """ --- Build inner update graph for adapting the policy and sampling trajectories --- """
             # this graph is only used for adapting the policy and not computing the meta-updates
             self.adapted_policies_params, self.adapt_input_ph_dict = self._build_inner_adaption()
 
-            """ ----- Build graph for the meta-update ----- """
-            self.meta_op_phs_dict = OrderedDict()
-            obs_phs, action_phs, adj_reward_phs, mask_phs, dist_info_old_phs, all_phs_dict = self._make_dice_input_placeholders('step0')
-            self.meta_op_phs_dict.update(all_phs_dict)
 
-            distribution_info_vars, current_policy_params = [], []
-            all_surr_objs = []
+        """ Build graph for meta-update """
+        meta_update_scope = tf.variable_scope(self.name + '_meta_update')
+
+        with meta_update_scope:
+            obs_phs, action_phs, adj_reward_phs, mask_phs, dist_info_old_phs, all_phs_dict = self._make_dice_input_placeholders('step0')
+            self.meta_op_phs_dict = OrderedDict(all_phs_dict)
+
+            distribution_info_vars, current_policy_params, all_surr_objs = [], [], []
 
         for i in range(self.meta_batch_size):
             obs_stacked = self._reshape_obs_phs(obs_phs[i])
@@ -121,23 +126,25 @@ class DICEMAML(MAMLAlgo):
             distribution_info_vars.append(dist_info_sym)  # step 0
             current_policy_params.append(self.policy.policy_params) # set to real policy_params (tf.Variable)
 
-        with tf.variable_scope(self.name):
+        with meta_update_scope:
             """ Inner updates"""
             for step_id in range(1, self.num_inner_grad_steps+1):
-                surr_objs, adapted_policy_params = [], []
+                with tf.variable_scope("inner_update_%i"%step_id):
+                    surr_objs, adapted_policy_params, gradient_vectors = [], [], []
 
-                # inner adaptation step for each task
-                for i in range(self.meta_batch_size):
-                    action_stacked = self._reshape_action_phs(action_phs[i])
-                    surr_loss = self.adapt_objective_sym(action_stacked, adj_reward_phs[i], mask_phs[i], distribution_info_vars[i])
+                    # inner adaptation step for each task
+                    for i in range(self.meta_batch_size):
+                        action_stacked = self._reshape_action_phs(action_phs[i])
+                        surr_loss = self._adapt_objective_sym(action_stacked, adj_reward_phs[i], mask_phs[i], distribution_info_vars[i])
 
-                    adapted_params_var = self.adapt_sym(surr_loss, current_policy_params[i])
+                        adapted_params_var, gradient_vector = self._adapt_sym(surr_loss, current_policy_params[i])
+                        gradient_vectors.append(gradient_vector)
 
-                    adapted_policy_params.append(adapted_params_var)
-                    surr_objs.append(surr_loss)
+                        adapted_policy_params.append(adapted_params_var)
+                        surr_objs.append(surr_loss)
 
-                all_surr_objs.append(surr_objs)
-                # Create new placeholders for the next step
+                    all_surr_objs.append(surr_objs)
+                    # Create new placeholders for the next step
                 obs_phs, action_phs, adj_reward_phs, mask_phs, dist_info_old_phs, all_phs_dict = self._make_dice_input_placeholders('step%i' % step_id)
                 self.meta_op_phs_dict.update(all_phs_dict)
 
@@ -148,24 +155,32 @@ class DICEMAML(MAMLAlgo):
                     distribution_info_vars.append(self.policy.distribution_info_sym(obs_stacked, params=adapted_policy_params[i]))
 
                 current_policy_params = adapted_policy_params
+                self.gradients.append(gradient_vectors)
 
-            """ Outer objective """
-            surr_objs = []
+            """ Outer (meta-)objective """
+            with tf.variable_scope("outer_update"):
+                surr_objs =[]
 
-            # meta-objective
-            for i in range(self.meta_batch_size):
-                action_stacked = self._reshape_action_phs(action_phs[i])
-                surr_obj = self.adapt_objective_sym(action_stacked, adj_reward_phs[i], mask_phs[i], distribution_info_vars[i])
-                surr_objs.append(surr_obj)
+                # meta-objective
+                for i in range(self.meta_batch_size):
+                    action_stacked = self._reshape_action_phs(action_phs[i])
+                    surr_obj = self._adapt_objective_sym(action_stacked, adj_reward_phs[i], mask_phs[i], distribution_info_vars[i])
+                    surr_objs.append(surr_obj)
 
-            """ Mean over meta tasks """
-            meta_objective = tf.reduce_mean(tf.stack(surr_objs, 0))
+                """ Mean over meta tasks """
+                meta_objective = tf.reduce_mean(tf.stack(surr_objs, 0))
 
-            self.optimizer.build_graph(
-                loss=meta_objective,
-                target=self.policy,
-                input_ph_dict=self.meta_op_phs_dict,
-            )
+                # get meta gradients
+                params_var = self.policy.get_params()
+                meta_gradients = tf.gradients(meta_objective, [params_var[key] for key in sorted(params_var.keys())])
+                meta_gradients = tf.concat([tf.reshape(grad, shape=(-1,)) for grad in meta_gradients], axis=0) # flatten and concatenate
+                self.gradients.append(meta_gradients)
+
+                self.optimizer.build_graph(
+                    loss=meta_objective,
+                    target=self.policy,
+                    input_ph_dict=self.meta_op_phs_dict,
+                )
 
     def optimize_policy(self, all_samples_data, log=True):
         """
@@ -190,6 +205,13 @@ class DICEMAML(MAMLAlgo):
         if log:
             logger.logkv('LossBefore', loss_before)
             logger.logkv('LossAfter', loss_after)
+
+    def compute_gradients(self, all_samples_data, log=True):
+        meta_op_input_dict = self._extract_input_dict_meta_op(all_samples_data, self._optimization_keys)
+        feed_dict = utils.create_feed_dict(placeholder_dict=self.meta_op_phs_dict, value_dict=meta_op_input_dict)
+        if log: logger.log("compute gradients")
+        gradients_values = tf.get_default_session().run(self.gradients, feed_dict=feed_dict)
+        return gradients_values
 
     def _make_dice_input_placeholders(self, prefix=''):
         """
@@ -241,7 +263,7 @@ class DICEMAML(MAMLAlgo):
 
         return obs_phs, action_phs, adj_reward, mask_phs, dist_info_phs, all_phs_dict
 
-    def _reshape_obs_phs(self, obs_sym=None, action_sym=None):
+    def _reshape_obs_phs(self, obs_sym):
         # reshape from 3-D tensor of shape (num_paths, max_path_length, ndim_obs) to (num_paths * max_path_length, ndim_obs)
         return tf.reshape(obs_sym, [-1, self.policy.obs_dim])
 
@@ -249,6 +271,32 @@ class DICEMAML(MAMLAlgo):
         # reshape from 3-D tensor of shape (num_paths, max_path_length, ndim_act) to (num_paths * max_path_length, ndim_act)
         return tf.reshape(action_sym, [-1, self.policy.action_dim])
 
+    def _adapt_sym(self, surr_obj, params_var):
+        """
+        Creates the symbolic representation of the tf policy after one gradient step towards the surr_obj
+
+        Args:
+            surr_obj (tf_op) : tensorflow op for task specific (inner) objective
+            params_var (dict) : dict of tf.Tensors for current policy params
+
+        Returns:
+            (dict):  dict of tf.Tensors for adapted policy params
+        """
+        # TODO: Fix this if we want to learn the learning rate (it isn't supported right now).
+        update_param_keys = list(params_var.keys())
+
+        grads = tf.gradients(surr_obj, [params_var[key] for key in update_param_keys])
+        gradients = dict(zip(update_param_keys, grads))
+
+        # gradient descent
+        adapted_policy_params = [params_var[key] - tf.multiply(self.step_sizes[key], gradients[key])
+                          for key in update_param_keys]
+
+        adapted_policy_params_dict = OrderedDict(zip(update_param_keys, adapted_policy_params))
+
+        # flattens and concatenates the gadients
+        gradient_vector = tf.concat([tf.reshape(grad, shape=(-1,)) for grad in grads], axis=0)
+        return adapted_policy_params_dict, gradient_vector
 
 def magic_box(logprobs):
     """
@@ -260,6 +308,7 @@ def magic_box(logprobs):
     Returns: tf.Tensor of shape : Dice magic box operator
 
     """
+    tf.assert_rank(logprobs, 2)
     with tf.variable_scope("magic_box"):
         tau = tf.cumsum(logprobs, axis=1)
         magic_box = tf.exp(tau - tf.stop_gradient(tau))

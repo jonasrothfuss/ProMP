@@ -1,4 +1,4 @@
-from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
+from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline
 from maml_zoo.meta_algos.ppo_maml import PPOMAML
 from maml_zoo.meta_trainer import Trainer
 from maml_zoo.samplers.maml_sampler import MAMLSampler
@@ -155,7 +155,7 @@ class TestLikelihoodRation(unittest.TestCase):
                 all_samples_data.append(samples_data)
 
                 """ ------------------- Inner Policy Update --------------------"""
-                obs_phs, action_phs, adv_phs, dist_info_phs, all_phs = self.algo.make_input_placeholders('')
+                obs_phs, action_phs, adv_phs, dist_info_phs, all_phs = self.algo._make_input_placeholders('')
 
                 for i in range(self.algo.meta_batch_size):
                     obs = samples_data[i]['observations']

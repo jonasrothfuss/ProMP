@@ -101,7 +101,7 @@ class Trainer(object):
                     time_inner_step_start = time.time()
                     if step < self.num_inner_grad_steps:
                         logger.log("Computing inner policy updates...")
-                        self.algo.adapt(samples_data)
+                        self.algo._adapt(samples_data)
                     # train_writer = tf.summary.FileWriter('/home/ignasi/Desktop/maml_zoo_graph',
                     #                                      sess.graph)
                     list_inner_step_time.append(time.time() - time_inner_step_start)
