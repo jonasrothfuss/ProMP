@@ -101,6 +101,7 @@ class MAMLSampler(Sampler):
             #  stack agent_infos and if no infos were provided (--> None) create empty dicts
             agent_infos, env_infos = self._handle_info_dicts(agent_infos, env_infos)
 
+            new_samples = 0
             for idx, observation, action, reward, env_info, agent_info, done in zip(itertools.count(), obses, actions,
                                                                                     rewards, env_infos, agent_infos,
                                                                                     dones):
@@ -120,10 +121,11 @@ class MAMLSampler(Sampler):
                         env_infos=utils.stack_tensor_dict_list(running_paths[idx]["env_infos"]),
                         agent_infos=utils.stack_tensor_dict_list(running_paths[idx]["agent_infos"]),
                     ))
-                    n_samples += len(running_paths[idx]["rewards"])
+                    new_samples += len(running_paths[idx]["rewards"])
                     running_paths[idx] = _get_empty_running_paths_dict()
 
-            pbar.update(n_samples)
+            pbar.update(new_samples)
+            n_samples += new_samples
             obses = next_obses
         pbar.stop()
         
