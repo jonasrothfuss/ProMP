@@ -5,7 +5,15 @@ import numpy as np
 from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
+from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
+from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
+from maml_zoo.envs.ant_rand_goal import AntRandGoalEnv
+from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
+from maml_zoo.envs.swimmer_rand_vel import SwimmerRandVelEnv
+from maml_zoo.envs.point_env_2d_corner import MetaPointEnvCorner
+from rand_param_envs.hopper_rand_params import HopperRandParamsEnv
+from rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
 from maml_zoo.envs.normalized_env import normalize
 from maml_zoo.meta_algos.vpg_maml import VPGMAML
 from maml_zoo.meta_trainer import Trainer
@@ -15,7 +23,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'vpg-evaluation'
+EXP_NAME = 'vpg-rand-param-envs'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data'
@@ -88,10 +96,10 @@ if __name__ == '__main__':
 
         'baseline': [LinearFeatureBaseline],
 
-        'env': [HalfCheetahRandDirecEnv],
+        'env': [HopperRandParamsEnv, Walker2DRandParamsEnv],
 
         'rollouts_per_meta_task': [20],
-        'max_path_length': [100],
+        'max_path_length': [200],
         'parallel': [True],
 
         'discount': [0.99],
@@ -104,10 +112,10 @@ if __name__ == '__main__':
         'hidden_nonlinearity': [tf.tanh],
         'output_nonlinearity': [None],
 
-        'inner_lr': [0.05, 0.1, 0.2],
-        'learning_rate': [1e-3, 1e-4],
-        'inner_type': ['log_likelihood', 'likelihood_ratio'],
-        'exploration': [True, False],
+        'inner_lr': [0.1],
+        'learning_rate': [1e-3],
+        'inner_type': ['likelihood_ratio'],
+        'exploration': [False],
 
         'n_itr': [301],
         'meta_batch_size': [40],

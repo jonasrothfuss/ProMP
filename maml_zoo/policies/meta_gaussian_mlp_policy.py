@@ -81,7 +81,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
 
             self.policy_params_keys = list(self.policies_params_phs[0].keys())
 
-    def get_action(self, observation):
+    def get_action(self, observation, task=0):
         """
         Runs a single observation through the specified policy and samples an action
 
@@ -93,7 +93,7 @@ class MetaGaussianMLPPolicy(GaussianMLPPolicy, MetaPolicy):
         """
         observation = np.repeat(np.expand_dims(np.expand_dims(observation, axis=0), axis=0), self.meta_batch_size, axis=0)
         action, agent_infos = self.get_actions(observation)
-        action, agent_infos = action[0][0], dict(mean=agent_infos[0][0]['mean'], log_std=agent_infos[0][0]['log_std'])
+        action, agent_infos = action[task][0], dict(mean=agent_infos[task][0]['mean'], log_std=agent_infos[task][0]['log_std'])
         return action, agent_infos
 
     def get_actions(self, observations):

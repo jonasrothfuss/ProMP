@@ -6,6 +6,14 @@ from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_feature_baseline import LinearFeatureBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
+from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
+from maml_zoo.envs.ant_rand_goal import AntRandGoalEnv
+from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
+from maml_zoo.envs.swimmer_rand_vel import SwimmerRandVelEnv
+from maml_zoo.envs.point_env_2d_corner import MetaPointEnvCorner
+from maml_zoo.envs.sawyer_pick_and_place import SawyerPickAndPlaceEnv
+from rand_param_envs.hopper_rand_params import HopperRandParamsEnv
+from rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
 from maml_zoo.envs.normalized_env import normalize
 from maml_zoo.meta_algos.trpo_maml import TRPOMAML
 from maml_zoo.meta_trainer import Trainer
@@ -15,10 +23,10 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'trpo-hyperparams'
+EXP_NAME = 'trpo-sawyer-eval'
 
 def run_experiment(**kwargs):
-    exp_dir = os.getcwd() + '/data'
+    exp_dir = os.getcwd() + '/data/' + EXP_NAME
     logger.configure(dir=exp_dir, format_strs=['stdout', 'log', 'csv'], snapshot_mode='last_gap', snapshot_gap=50)
     json.dump(kwargs, open(exp_dir + '/params.json', 'w'), indent=2, sort_keys=True, cls=ClassEncoder)
 
@@ -49,6 +57,7 @@ def run_experiment(**kwargs):
         meta_batch_size=kwargs['meta_batch_size'],
         max_path_length=kwargs['max_path_length'],
         parallel=kwargs['parallel'],
+        envs_per_task=1,
     )
 
     sample_processor = MAMLSampleProcessor(
@@ -88,10 +97,10 @@ if __name__ == '__main__':
 
         'baseline': [LinearFeatureBaseline],
 
-        'env': [HalfCheetahRandDirecEnv],
+        'env': [SawyerPickAndPlaceEnv],
 
         'rollouts_per_meta_task': [20],
-        'max_path_length': [100],
+        'max_path_length': [200, 500],
         'parallel': [True],
 
         'discount': [0.99],
@@ -104,13 +113,13 @@ if __name__ == '__main__':
         'hidden_nonlinearity': [tf.tanh],
         'output_nonlinearity': [None],
 
-        'inner_lr': [0.05, 0.1, 0.2],
-        'inner_type': ['likelihood_ratio', 'log_likelihood'],
-        'step_size': [0.01, 0.05, 0.1],
-        'exploration': [True, False],
+        'inner_lr': [0.1],
+        'inner_type': ['likelihood_ratio'],
+        'step_size': [0.01],
+        'exploration': [False],
 
-        'n_itr': [301],
-        'meta_batch_size': [40],
+        'n_itr': [501],
+        'meta_batch_size': [5],
         'num_inner_grad_steps': [1],
         'scope': [None],
     }

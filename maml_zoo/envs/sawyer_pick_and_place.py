@@ -1,4 +1,4 @@
-from multiworld.envs.mujoco.sawyer_xyz.sawyer_pick_and_place import SawyerPickAndPlaceEnv as SawyerEnv
+from multiworld.envs.mujoco.sawyer_xyz.pickPlace.sawyer_pick_and_place import SawyerPickPlaceEnv as SawyerEnv
 from multiworld.core.flat_goal_env import FlatGoalEnv
 import numpy as np
 from maml_zoo.envs.base import MetaEnv
@@ -10,17 +10,17 @@ class SawyerPickAndPlaceEnv(FlatGoalEnv, MetaEnv):
     """
     def __init__(self, *args, **kwargs):
         self.quick_init(locals())
-        FlatGoalEnv.__init__(self, SawyerEnv(*args, **kwargs), obs_keys=['observation'], goal_keys=['desired_goal'])
+        FlatGoalEnv.__init__(self, SawyerEnv(*args, **kwargs), obs_keys=['state_observation'], goal_keys=['state_desired_goal'])
 
     def sample_tasks(self, n_tasks):
-        return self.sample_goals(n_tasks)['state_desired_goal']
+        return self.sample_goals(n_tasks)
 
     def set_task(self, task):
         """
         Args:
             task: task of the meta-learning environment
         """
-        return self.set_goal(dict(state_desired_goal=task))
+        return self.set_goal(task)
 
     def get_task(self):
         """
@@ -35,3 +35,16 @@ class SawyerPickAndPlaceEnv(FlatGoalEnv, MetaEnv):
     @property
     def action_space(self):
         return FlatGoalEnv.action_space(self)
+
+    def render(self):
+        SawyerEnv.render(self)
+
+if __name__ == "__main__":
+    env = SawyerPickAndPlaceEnv()
+    while True:
+        task = env.sample_tasks(1)[0]
+        env.set_task(task)
+        env.reset()
+        for _ in range(500):
+            SawyerEnv.render(env)
+            _, reward, _, _ = env.step(env.action_space.sample())  # take a random action
