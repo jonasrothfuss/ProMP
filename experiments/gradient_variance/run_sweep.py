@@ -28,8 +28,6 @@ def run_experiment(**kwargs):
     # Instantiate classes
     set_seed(kwargs['seed'])
 
-    baseline = kwargs['baseline']()
-
     env = normalize(kwargs['env']()) # Wrappers?
 
     policy = MetaGaussianMLPPolicy(
@@ -57,11 +55,12 @@ def run_experiment(**kwargs):
 
     if kwargs['algo'] == 'DICE':
         sample_processor = DiceMAMLSampleProcessor(
-            baseline=baseline,
+            baseline=LinearTimeBaseline(),
             max_path_length=kwargs['max_path_length'],
             discount=kwargs['discount'],
             normalize_adv=kwargs['normalize_adv'],
             positive_adv=kwargs['positive_adv'],
+            normalize_by_path_length=kwargs['normalize_by_path_length']
         )
 
         algo = DICEMAML(
@@ -74,7 +73,7 @@ def run_experiment(**kwargs):
         )
     elif kwargs['algo'] == 'VPG':
         sample_processor = MAMLSampleProcessor(
-            baseline=baseline,
+            baseline=LinearFeatureBaseline(),
             discount=kwargs['discount'],
             normalize_adv=kwargs['normalize_adv'],
             positive_adv=kwargs['positive_adv'],
@@ -110,7 +109,7 @@ if __name__ == '__main__':
 
         'sampling_rounds': [10],
 
-        'baseline': [LinearTimeBaseline, LinearFeatureBaseline],
+        #'baseline': [LinearTimeBaseline, LinearFeatureBaseline],
 
         'env': [HalfCheetahRandDirecEnv],
 
@@ -118,9 +117,10 @@ if __name__ == '__main__':
         'max_path_length': [100],
         'parallel': [True],
 
-        'discount': [1.0],
+        'discount': [0.99],
         'normalize_adv': [True],
         'positive_adv': [False],
+        'normalize_by_path_length': [True, False],
 
         'hidden_sizes': [(64, 64)],
         'learn_std': [True],
