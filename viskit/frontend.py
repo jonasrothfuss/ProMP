@@ -95,7 +95,7 @@ def make_plot(plot_list, use_median=False, use_five_numbers=False, plot_width=No
             y=y_upper + y_lower[::-1],
             fill='tozerox',
             fillcolor=core.hex_to_rgb(color, 0.2),
-            line=go.Line(color='transparent'),
+            line=go.Line(color='hsva(0,0,0,0)'),
             showlegend=False,
             legendgroup=plt.legend,
             hoverinfo='none'

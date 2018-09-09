@@ -82,7 +82,7 @@ class TRPOMAML(MAMLAlgo):
         """
 
         """ Create Variables """
-        assert self.num_inner_grad_steps == 1 or not self.exploration, "Not sure if the math is right for more than 1 inner step"
+        # assert self.num_inner_grad_steps == 1 or not self.exploration, "Not sure if the math is right for more than 1 inner step"
 
         with tf.variable_scope(self.name):
             self.step_sizes = self._create_step_size_vars()
