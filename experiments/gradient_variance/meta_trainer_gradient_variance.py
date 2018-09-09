@@ -116,7 +116,7 @@ class TrainerGradientStd(object):
                                 grad_std.append(np.mean(std))
                                 grad_rstd.append(np.mean(std/mean))
 
-
+                            logger.logkv('Step_%i-GradientMean', np.mean(mean))
                             logger.logkv('Step_%i-GradientStd'%step_id, np.mean(grad_std))
                             logger.logkv('Step_%i-GradientRStd' % step_id, np.mean(grad_rstd))
 
@@ -129,8 +129,9 @@ class TrainerGradientStd(object):
                         meta_grad_std = np.mean(std)
                         meta_grad_rstd = np.mean(std/mean)
 
-                        logger.logkv('Meta-Gradient-Std', meta_grad_std)
-                        logger.logkv('Meta-Gradient-Std', meta_grad_rstd)
+                        logger.logkv('Meta-GradientMean', np.mean(mean))
+                        logger.logkv('Meta-GradientStd', meta_grad_std)
+                        logger.logkv('Meta-GradientRStd', meta_grad_rstd)
 
 
                         """ ------------------ Outer Policy Update ---------------------"""
