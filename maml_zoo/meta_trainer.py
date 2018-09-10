@@ -116,6 +116,8 @@ class Trainer(object):
                 self.algo.optimize_policy(all_samples_data)
 
                 """ ------------------- Logging Stuff --------------------------"""
+                logger.logkv('Itr', itr)
+                logger.logkv('n_timesteps', self.sampler.total_timesteps_sampled)
 
                 logger.logkv('Time-OuterStep', time.time() - time_outer_step_start)
                 logger.logkv('Time-TotalInner', total_inner_time)
@@ -123,14 +125,14 @@ class Trainer(object):
                 logger.logkv('Time-SampleProc', np.sum(list_proc_samples_time))
                 logger.logkv('Time-Sampling', np.sum(list_sampling_time))
 
-                logger.log("Saving snapshot...")
-                params = self.get_itr_snapshot(itr)  # , **kwargs)
-                logger.save_itr_params(itr, params) # Todo
-                logger.log("Saved")
-
                 logger.logkv('Time', time.time() - start_time)
                 logger.logkv('ItrTime', time.time() - itr_start_time)
                 logger.logkv('Time-MAMLSteps', time.time() - time_maml_opt_start)
+
+                logger.log("Saving snapshot...")
+                params = self.get_itr_snapshot(itr)
+                logger.save_itr_params(itr, params)
+                logger.log("Saved")
 
                 logger.dumpkvs()
 
