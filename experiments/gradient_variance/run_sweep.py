@@ -118,7 +118,7 @@ if __name__ == '__main__':
         'discount': [0.99],
         'normalize_adv': [True],
         'positive_adv': [False],
-        'normalize_by_path_length': [True, False],
+        'normalize_by_path_length': [False],
 
         'hidden_sizes': [(64, 64)],
         'learn_std': [True],
