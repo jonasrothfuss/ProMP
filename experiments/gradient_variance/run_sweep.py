@@ -17,8 +17,8 @@ from maml_zoo.samplers import DiceMAMLSampleProcessor, MAMLSampleProcessor
 from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
-INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'gradient_std'
+INSTANCE_TYPE = 'c4.4xlarge'
+EXP_NAME = 'gradient_variance'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -50,7 +50,7 @@ def run_experiment(**kwargs):
         meta_batch_size=kwargs['meta_batch_size'],
         max_path_length=kwargs['max_path_length'],
         parallel=kwargs['parallel'],
-        envs_per_task=int(kwargs['rollouts_per_meta_task']/4)
+        envs_per_task=int(kwargs['rollouts_per_meta_task'])
     )
 
     if kwargs['algo'] == 'DICE':
@@ -103,13 +103,11 @@ def run_experiment(**kwargs):
 if __name__ == '__main__':    
 
     sweep_params = {
-        'seed': [1, 2, 3],
+        'seed': [22, 35, 76, 34, 92],
 
         'algo': ['VPG', 'DICE'],
 
-        'sampling_rounds': [10],
-
-        #'baseline': [LinearTimeBaseline, LinearFeatureBaseline],
+        'sampling_rounds': [20],
 
         'env': [HalfCheetahRandDirecEnv],
 
@@ -130,7 +128,7 @@ if __name__ == '__main__':
         'inner_lr': [0.1],
         'learning_rate': [1e-3],
 
-        'n_itr': [501],
+        'n_itr': [301],
         'meta_batch_size': [20],
         'num_inner_grad_steps': [1],
         'scope': [None],

@@ -65,6 +65,7 @@ class TrainerGradientStd(object):
             # initialize uninitialized vars  (only initialize vars that were not loaded)
             uninit_vars = [var for var in tf.global_variables() if not sess.run(tf.is_variable_initialized(var))]
             sess.run(tf.variables_initializer(uninit_vars))
+            n_timesteps = 0
 
             start_time = time.time()
             for itr in range(self.start_itr, self.n_itr):
@@ -127,11 +128,13 @@ class TrainerGradientStd(object):
                         mean = np.abs(np.mean(stacked_grads, axis=1))
 
                         meta_grad_std = np.mean(std)
-                        meta_grad_rstd = np.mean(std/mean)
+                        meta_grad_rstd = np.mean(std/(mean + 1e-8))
+                        meta_grad_rvar = np.mean(std**2/ (mean + 1e-8))
 
                         logger.logkv('Meta-GradientMean', np.mean(mean))
                         logger.logkv('Meta-GradientStd', meta_grad_std)
                         logger.logkv('Meta-GradientRStd', meta_grad_rstd)
+                        logger.logkv('Meta-GradientRVariance', meta_grad_rvar)
 
 
                         """ ------------------ Outer Policy Update ---------------------"""
@@ -141,12 +144,15 @@ class TrainerGradientStd(object):
                         self.algo.optimize_policy(all_samples_data)
 
                         """ ------------------- Logging Stuff --------------------------"""
+                        n_timesteps += (self.num_inner_grad_steps+1) * self.sampler.total_samples
+                        logger.logkv('n_timesteps', n_timesteps)
 
                         logger.log("Saving snapshot...")
                         params = self.get_itr_snapshot(itr)  # , **kwargs)
                         logger.save_itr_params(itr, params)
                         logger.log("Saved")
 
+                        logger.logkv('Itr', itr)
                         logger.logkv('Time', time.time() - start_time)
                         logger.logkv('ItrTime', time.time() - itr_start_time)
 
