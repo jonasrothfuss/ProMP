@@ -132,12 +132,13 @@ class VPGMAML(MAMLAlgo):
             for i in range(self.meta_batch_size):
                 log_likelihood = self.policy.distribution.log_likelihood_sym(action_phs[i], distribution_info_vars[i])
                 surr_obj = - tf.reduce_mean(log_likelihood * adv_phs[i])
-                surr_objs.append(surr_obj)
 
                 if self.exploration:
                     log_likelihood_inital = self.policy.distribution.log_likelihood_sym(initial_action_phs[i],
                                                                                         initial_distribution_info_vars[i])
-                    surr_obj += -tf.reduce_mean(adv_phs[i]) * tf.reduce_sum(log_likelihood_inital)
+                    surr_obj += - tf.reduce_mean(adv_phs[i]) * tf.reduce_sum(log_likelihood_inital)
+
+                surr_objs.append(surr_obj)
 
             """ Mean over meta tasks """
             meta_objective = tf.reduce_mean(tf.stack(surr_objs, 0))

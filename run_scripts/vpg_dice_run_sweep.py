@@ -96,7 +96,7 @@ if __name__ == '__main__':
         'max_path_length': [100],
         'parallel': [True],
 
-        'discount': [1.0],
+        'discount': [0.99],
         'normalize_adv': [True],
         'positive_adv': [False],
 
@@ -105,11 +105,11 @@ if __name__ == '__main__':
         'hidden_nonlinearity': [tf.tanh],
         'output_nonlinearity': [None],
 
-        'inner_lr': [0.1, 0.05],
-        'learning_rate': [1e-3],
+        'inner_lr': [0.1],
+        'learning_rate': [1e-3, 1e-4, 1e-5],
 
         'n_itr': [1001],
-        'meta_batch_size': [40],
+        'meta_batch_size': [40, 80],
         'num_inner_grad_steps': [1],
         'scope': [None],
     }

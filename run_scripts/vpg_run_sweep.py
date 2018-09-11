@@ -23,7 +23,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'vpg-rand-param-envs'
+EXP_NAME = 'vpg-finally-fucked-up'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -65,6 +65,7 @@ def run_experiment(**kwargs):
         gae_lambda=kwargs['gae_lambda'],
         normalize_adv=kwargs['normalize_adv'],
         positive_adv=kwargs['positive_adv'],
+        normalize_adv_per_task=kwargs['normalize_adv_per_task'],
     )
 
     algo = VPGMAML(
@@ -94,12 +95,12 @@ if __name__ == '__main__':
     sweep_params = {
         'seed' : [1, 2, 3],
 
-        'baseline': [LinearFeatureBaseline, LinearTimeBaseline],
+        'baseline': [LinearFeatureBaseline],
 
-        'env': [HopperRandParamsEnv, Walker2DRandParamsEnv],
+        'env': [HalfCheetahRandDirecEnv],
 
-        'rollouts_per_meta_task': [20],
-        'max_path_length': [200],
+        'rollouts_per_meta_task': [40],
+        'max_path_length': [100],
         'parallel': [True],
 
         'discount': [0.99],
@@ -114,8 +115,9 @@ if __name__ == '__main__':
 
         'inner_lr': [0.1],
         'learning_rate': [1e-3],
-        'inner_type': ['likelihood_ratio'],
-        'exploration': [False],
+        'inner_type': ['log_likelihood'],
+        'exploration': [True],
+        'normalize_adv_per_task': [False],
 
         'n_itr': [501],
         'meta_batch_size': [20],

@@ -23,7 +23,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'trpo-sawyer-eval'
+EXP_NAME = 'trpo-exploration'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -66,6 +66,7 @@ def run_experiment(**kwargs):
         gae_lambda=kwargs['gae_lambda'],
         normalize_adv=kwargs['normalize_adv'],
         positive_adv=kwargs['positive_adv'],
+        normalize_adv_per_task=kwargs['normalize_adv_per_task'],
     )
 
     algo = TRPOMAML(
@@ -97,10 +98,10 @@ if __name__ == '__main__':
 
         'baseline': [LinearFeatureBaseline],
 
-        'env': [SawyerPickAndPlaceEnv],
+        'env': [HalfCheetahRandDirecEnv],
 
         'rollouts_per_meta_task': [20],
-        'max_path_length': [200, 500],
+        'max_path_length': [200],
         'parallel': [True],
 
         'discount': [0.99],
@@ -114,12 +115,13 @@ if __name__ == '__main__':
         'output_nonlinearity': [None],
 
         'inner_lr': [0.1],
-        'inner_type': ['likelihood_ratio'],
+        'inner_type': ['log_likelihood'],
         'step_size': [0.01],
-        'exploration': [False],
+        'exploration': [True, False],
+        'normalize_adv_per_task': [True, False],
 
         'n_itr': [501],
-        'meta_batch_size': [5],
+        'meta_batch_size': [20],
         'num_inner_grad_steps': [1],
         'scope': [None],
     }

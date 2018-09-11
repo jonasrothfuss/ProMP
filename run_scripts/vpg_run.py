@@ -43,6 +43,7 @@ def main(config):
         gae_lambda=config['gae_lambda'],
         normalize_adv=config['normalize_adv'],
         positive_adv=config['positive_adv'],
+        normalize_adv_per_task=config['normalize_adv_per_task'],
     )
 
     algo = VPGMAML(
