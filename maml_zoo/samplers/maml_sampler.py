@@ -40,6 +40,7 @@ class MAMLSampler(Sampler):
         self.meta_batch_size = meta_batch_size
         self.total_samples = meta_batch_size * rollouts_per_meta_task * max_path_length
         self.parallel = parallel
+        self.total_timesteps_sampled = 0
 
         # setup vectorized environment
 
@@ -128,7 +129,8 @@ class MAMLSampler(Sampler):
             n_samples += new_samples
             obses = next_obses
         pbar.stop()
-        
+
+        self.total_timesteps_sampled += self.total_samples
         if log:
             logger.logkv(log_prefix+"PolicyExecTime", policy_time)
             logger.logkv(log_prefix+"EnvExecTime", env_time)
