@@ -23,7 +23,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'vpg-finally-fucked-up'
+EXP_NAME = 'vpg-formulations'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
         'baseline': [LinearFeatureBaseline],
 
-        'env': [HalfCheetahRandDirecEnv],
+        'env': [HalfCheetahRandDirecEnv, AntRandDirecEnv],
 
         'rollouts_per_meta_task': [40],
         'max_path_length': [100],
@@ -116,7 +116,7 @@ if __name__ == '__main__':
         'inner_lr': [0.1],
         'learning_rate': [1e-3],
         'inner_type': ['log_likelihood'],
-        'exploration': [True],
+        'exploration': [False],
         'normalize_adv_per_task': [False],
 
         'n_itr': [501],
