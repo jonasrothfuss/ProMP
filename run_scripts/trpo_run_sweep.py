@@ -66,7 +66,6 @@ def run_experiment(**kwargs):
         gae_lambda=kwargs['gae_lambda'],
         normalize_adv=kwargs['normalize_adv'],
         positive_adv=kwargs['positive_adv'],
-        normalize_adv_per_task=kwargs['normalize_adv_per_task'],
     )
 
     algo = TRPOMAML(
@@ -118,7 +117,6 @@ if __name__ == '__main__':
         'inner_type': ['log_likelihood'],
         'step_size': [0.01],
         'exploration': [True, False],
-        'normalize_adv_per_task': [True, False],
 
         'n_itr': [501],
         'meta_batch_size': [20],
