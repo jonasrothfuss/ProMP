@@ -16,6 +16,7 @@ class VPGMAML(MAMLAlgo):
         policy (Policy): policy object
         name (str): tf variable scope
         learning_rate (float): learning rate for the meta-objective
+        exploration (bool): use exploration / pre-update sampling term / E-MAML term
         inner_type (str): inner optimization objective - either log_likelihood or likelihood_ratio
         inner_lr (float) : gradient step size used for inner step
         meta_batch_size (int): number of meta-learning tasks
@@ -38,7 +39,10 @@ class VPGMAML(MAMLAlgo):
         self.inner_type = inner_type
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']
         self.name = name
+
         self.exploration = exploration
+        if exploration: # add adjusted average rewards tp optimization keys
+            self._optimization_keys.append('adj_avg_rewards')
 
         self.build_graph()
 
@@ -134,9 +138,13 @@ class VPGMAML(MAMLAlgo):
                 surr_obj = - tf.reduce_mean(log_likelihood * adv_phs[i])
 
                 if self.exploration:
+                    # add adj_avg_reward placeholder
+                    adj_avg_rewards = tf.placeholder(dtype=tf.float32, shape=[None], name='adj_avg_rewards' + '_' + str(self.num_inner_grad_steps) + '_' + str(i))
+                    self.meta_op_phs_dict['step%i_task%i_%s' % (self.num_inner_grad_steps, i, 'adj_avg_rewards')] = adj_avg_rewards
+
                     log_likelihood_inital = self.policy.distribution.log_likelihood_sym(initial_action_phs[i],
                                                                                         initial_distribution_info_vars[i])
-                    surr_obj += - tf.reduce_mean(adv_phs[i]) * tf.reduce_sum(log_likelihood_inital)
+                    surr_obj += - tf.reduce_mean(adj_avg_rewards) * tf.reduce_mean(log_likelihood_inital)
 
                 surr_objs.append(surr_obj)
 

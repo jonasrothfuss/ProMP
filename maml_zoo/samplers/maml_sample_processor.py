@@ -36,7 +36,13 @@ class MAMLSampleProcessor(SampleProcessor):
             samples_data_meta_batch.append(samples_data)
             all_paths.extend(paths)
 
-        # 7) log statistics if desired
+        # 7) compute normalized trajectory-batch rewards (for E-MAML)
+        overall_avg_reward = np.mean(np.stack([samples_data['rewards'] for samples_data in samples_data_meta_batch]))
+        overall_avg_reward_std = np.std(np.stack([samples_data['rewards'] for samples_data in samples_data_meta_batch]))
+        for samples_data in samples_data_meta_batch:
+            samples_data['adj_avg_rewards'] = (samples_data['rewards'] - overall_avg_reward) / (overall_avg_reward_std + 1e-8)
+
+        # 8) log statistics if desired
         self._log_path_stats(all_paths, log=log, log_prefix=log_prefix)
 
         return samples_data_meta_batch
