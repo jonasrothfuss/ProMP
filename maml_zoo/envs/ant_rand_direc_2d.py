@@ -5,15 +5,17 @@ from maml_zoo.logger import logger
 import gym
 
 
-class AntRandDirecEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
-    def __init__(self, goal_direction=None):
-        self.goal_direction = goal_direction if goal_direction else 1.0
+class AntRandDirec2DEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
+    def __init__(self):
+        self.set_task(self.sample_tasks(1)[0])
         MujocoEnv.__init__(self, 'ant.xml', 5)
         gym.utils.EzPickle.__init__(self)
 
     def sample_tasks(self, n_tasks):
         # for fwd/bwd env, goal direc is backwards if - 1.0, forwards if + 1.0
-        return np.random.choice((-1.0, 1.0), (n_tasks, ))
+        directions = np.random.normal(size=(n_tasks, 2))
+        directions /= np.linalg.norm(directions, axis=1)[..., np.newaxis]
+        return directions
 
     def set_task(self, task):
         """
@@ -30,10 +32,10 @@ class AntRandDirecEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
         return self.goal_direction
 
     def step(self, a):
-        xposbefore = self.get_body_com("torso")[0]
+        posbefore = np.copy(self.get_body_com("torso")[:2])
         self.do_simulation(a, self.frame_skip)
-        xposafter = self.get_body_com("torso")[0]
-        forward_reward = self.goal_direction * (xposafter - xposbefore)/self.dt
+        posafter = self.get_body_com("torso")[:2]
+        forward_reward = np.sum(self.goal_direction * (posafter - posbefore))/self.dt
         ctrl_cost = .5 * np.square(a).sum()
         contact_cost = 0.5 * 1e-3 * np.sum(
             np.square(np.clip(self.sim.data.cfrc_ext, -1, 1)))
@@ -75,3 +77,14 @@ class AntRandDirecEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
         logger.logkv(prefix+'StdForwardReturn', np.std(progs))
 
         logger.logkv(prefix + 'AverageCtrlCost', np.mean(ctrl_cost))
+
+
+if __name__ == "__main__":
+    env = AntRandDirec2DEnv()
+    while True:
+        task = env.sample_tasks(1)[0]
+        env.set_task(task)
+        env.reset()
+        for _ in range(100):
+            env.render()
+            _, reward, _, _ = env.step(env.action_space.sample())  # take a random action

@@ -7,6 +7,7 @@ from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline, LinearTimeBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
+from maml_zoo.envs.ant_rand_direc_2d import AntRandDirec2DEnv
 from maml_zoo.envs.ant_rand_goal import AntRandGoalEnv
 from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
 from maml_zoo.envs.swimmer_rand_vel import SwimmerRandVelEnv
@@ -23,7 +24,11 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
+<<<<<<< Updated upstream
 EXP_NAME = 'vpg-formulations'
+=======
+EXP_NAME = 'vpg-eval-final'
+>>>>>>> Stashed changes
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -92,11 +97,11 @@ def run_experiment(**kwargs):
 if __name__ == '__main__':    
 
     sweep_params = {
-        'seed' : [1, 2, 3],
+        'seed' : [1, 2, 3, 4 ,5],
 
         'baseline': [LinearFeatureBaseline],
 
-        'env': [HalfCheetahRandDirecEnv, AntRandDirecEnv],
+        'env': [Walker2DRandParamsEnv, HopperRandParamsEnv],
 
         'rollouts_per_meta_task': [40],
         'max_path_length': [100],
@@ -112,13 +117,13 @@ if __name__ == '__main__':
         'hidden_nonlinearity': [tf.tanh],
         'output_nonlinearity': [None],
 
-        'inner_lr': [0.1],
+        'inner_lr': [0.05],
         'learning_rate': [1e-3],
-        'inner_type': ['log_likelihood'],
+        'inner_type': ['likelihood_ratio', 'log_likelihood'],
         'exploration': [False],
 
-        'n_itr': [501],
-        'meta_batch_size': [20],
+        'n_itr': [301],
+        'meta_batch_size': [40],
         'num_inner_grad_steps': [1],
         'scope': [None],
     }

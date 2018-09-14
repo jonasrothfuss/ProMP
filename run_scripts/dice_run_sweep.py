@@ -17,7 +17,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'dice-hyperparams'
+EXP_NAME = 'trpo-exploration-eval'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
         'baseline': [LinearTimeBaseline],
 
-        'env': [HalfCheetahRandVelEnv, HalfCheetahRandDirecEnv],
+        'env': [HalfCheetahRandDirecEnv, AntRandGoalEnv, AntRandDirecEnv, HalfCheetahRandVelEnv],
 
         'rollouts_per_meta_task': [80],
         'max_path_length': [100],
