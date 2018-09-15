@@ -15,9 +15,9 @@ class SawyerPushSimpleEnv(FlatGoalEnv, MetaEnv):
             # obj_high=(0.0, 0.5, 0.02),
             # goal_low=(0, 0.7, 0.02),
             # goal_high=(0, 0.7, 0.02),
-            obj_type='block',
+            # obj_type='block',
             *args, **kwargs)
-        SawyerEnv.compute_rewards = compute_rewards
+        # SawyerEnv.compute_rewards = compute_rewards
         FlatGoalEnv.__init__(self, sawyer_env, obs_keys=['state_observation'], goal_keys=['state_desired_goal'])
 
     def sample_tasks(self, n_tasks):

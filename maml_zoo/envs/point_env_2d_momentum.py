@@ -68,12 +68,7 @@ class MetaPointEnvMomentum(MetaEnv):
             elif self.reward_type == 'dense_squared':
                 return - goal_distance**2
             elif self.reward_type == 'sparse':
-                move_energy = np.linalg.norm(act)
-                if goal_distance < self.sparse_reward_radius:
-                    return np.linalg.norm(obs[:2] - self.goal[None,:], axis=1)[0] - goal_distance - move_energy * 0.01
-                else:
-                    return - move_energy * 0.01
-                # return np.maximum(self.sparse_reward_radius - goal_distance, 0)
+                return np.maximum(self.sparse_reward_radius - goal_distance, 0)
 
         elif obs_next.ndim == 1:
             return self.reward(np.array([obs]), np.array([act]), np.array([obs_next]))

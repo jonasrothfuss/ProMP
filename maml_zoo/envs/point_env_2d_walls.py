@@ -38,6 +38,16 @@ class MetaPointEnvWalls(MetaEnv):
         reward = self.reward(prev_state, action, self._state)
         done = False # self.done(self._state)
         next_observation = np.copy(self._state)
+        if np.linalg.norm(prev_state) < 1 and np.linalg.norm(self._state) > 1:
+            gap_1_dist = np.linalg.norm(self._state - self.gap_1[None,:], axis=1)[0]
+            if gap_1_dist > 1:
+                self._state = self._state / (np.linalg.norm(self._state) + 1e-6)
+            assert gap_1_dist < 1 or np.linalg.norm(self._state) < 1
+        elif np.linalg.norm(prev_state) < 2 and np.linalg.norm(self._state) > 2:
+            gap_2_dist = np.linalg.norm(self._state - self.gap_2[None,:], axis=1)[0]
+            if gap_2_dist > 1:
+                self._state = self._state / (np.linalg.norm(self._state) * 0.5 + 1e-6)
+            assert gap_2_dist < 1 or np.linalg.norm(self._state) < 2
         return next_observation, reward, done, {}
 
     def reset(self):
@@ -61,23 +71,15 @@ class MetaPointEnvWalls(MetaEnv):
     def reward(self, obs, act, obs_next):
         if obs_next.ndim == 2:
             goal_distance = np.linalg.norm(obs_next - self.goal[None,:], axis=1)[0]
-            wall_penalty = 0
-            if np.max(obs) < 1 and np.max(obs_next) > 1:
-                gap_1_dist = np.linalg.norm(obs_next - self.gap_1[None,:], axis=1)[0]
-                wall_penalty += np.max(gap_1_dist - 1, 0) * 1000
-            # elif np.max(obs) < 2 and np.max(obs_next) > 2:
-            #     gap_2_dist = np.linalg.norm(obs_next - self.gap_2[None,:], axis=1)[0]
-            #     wall_penalty += np.max(gap_2_dist - 1, 0) * 1000
             if self.reward_type == 'dense':
-                return - goal_distance - wall_penalty
+                return - goal_distance
             elif self.reward_type == 'dense_squared':
-                return - goal_distance**2 - wall_penalty
+                return - goal_distance**2
             elif self.reward_type == 'sparse':
-                move_distance = np.linalg.norm(act)
                 if goal_distance < self.sparse_reward_radius:
-                    return np.linalg.norm(obs - self.goal[None,:], axis=1)[0] - goal_distance - move_distance * 0.01 - wall_penalty
+                    return np.linalg.norm(obs - self.goal[None,:], axis=1)[0] - goal_distance
                 else:
-                    return - move_distance * 0.01 - wall_penalty
+                    return
                 # return np.maximum(self.sparse_reward_radius - goal_distance, 0)
 
         elif obs_next.ndim == 1:
