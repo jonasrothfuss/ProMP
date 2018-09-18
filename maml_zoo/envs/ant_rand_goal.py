@@ -11,8 +11,9 @@ class AntRandGoalEnv(MetaEnv, gym.utils.EzPickle, MujocoEnv):
         gym.utils.EzPickle.__init__(self)
 
     def sample_tasks(self, n_tasks):
-        # random target location
-        return np.random.uniform(-3.0, 3.0, size=(n_tasks, 2))
+        a = np.random.random(n_tasks) * 2 * np.pi
+        r = 3 * np.random.random(n_tasks) ** 0.5
+        return np.stack((r * np.cos(a), r * np.sin(a)), axis=-1)
 
     def set_task(self, task):
         """
@@ -50,7 +51,7 @@ class AntRandGoalEnv(MetaEnv, gym.utils.EzPickle, MujocoEnv):
 
     def _get_obs(self):
         return np.concatenate([
-            self.sim.data.qpos.flat[2:],
+            self.sim.data.qpos.flat,
             self.sim.data.qvel.flat,
             np.clip(self.sim.data.cfrc_ext, -1, 1).flat,
         ])

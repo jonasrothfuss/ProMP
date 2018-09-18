@@ -16,8 +16,9 @@ class SawyerPushSimpleEnv(FlatGoalEnv, MetaEnv):
             # goal_low=(0, 0.7, 0.02),
             # goal_high=(0, 0.7, 0.02),
             # obj_type='block',
+            rew_mode='posPlace',
             *args, **kwargs)
-        # SawyerEnv.compute_rewards = compute_rewards
+        SawyerEnv.compute_rewards = compute_rewards
         FlatGoalEnv.__init__(self, sawyer_env, obs_keys=['state_observation'], goal_keys=['state_desired_goal'])
 
     def sample_tasks(self, n_tasks):
@@ -79,7 +80,7 @@ def compute_rewards(self, actions, obs):
         reward = -reachDist + 100* max(0, self.origPlacingDist - placeDist)
 
     elif self.rew_mode == 'angle':
-        reward = -0.1 * reachDist - placeDist + 0.1 * cosDist
+        reward = -1.0 * reachDist - placeDist + 0.5 * cosDist
 
     return reward, reachDist, placeDist, cosDist
 

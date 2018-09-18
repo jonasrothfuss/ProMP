@@ -10,7 +10,7 @@ class MetaPointEnvWalls(MetaEnv):
     (one of the 4 points (-2,-2), (-2, 2), (2, -2), (2,2)) which are sampled with equal probability
     """
 
-    def __init__(self, reward_type='dense_squared', sparse_reward_radius=2):
+    def __init__(self, reward_type='dense', sparse_reward_radius=2):
         assert reward_type in ['dense', 'dense_squared', 'sparse']
         self.reward_type = reward_type
         print("Point Env reward type is", reward_type)
@@ -37,7 +37,6 @@ class MetaPointEnvWalls(MetaEnv):
         self._state = prev_state + np.clip(action, -0.2, 0.2)
         reward = self.reward(prev_state, action, self._state)
         done = False # self.done(self._state)
-        next_observation = np.copy(self._state)
         if np.linalg.norm(prev_state) < 1 and np.linalg.norm(self._state) > 1:
             gap_1_dist = np.linalg.norm(self._state - self.gap_1[None,:], axis=1)[0]
             if gap_1_dist > 1:
@@ -48,6 +47,7 @@ class MetaPointEnvWalls(MetaEnv):
             if gap_2_dist > 1:
                 self._state = self._state / (np.linalg.norm(self._state) * 0.5 + 1e-6)
             assert gap_2_dist < 1 or np.linalg.norm(self._state) < 2
+        next_observation = np.copy(self._state)
         return next_observation, reward, done, {}
 
     def reset(self):
