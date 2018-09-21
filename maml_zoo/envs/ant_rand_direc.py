@@ -75,5 +75,3 @@ class AntRandDirecEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
         logger.logkv(prefix+'StdForwardReturn', np.std(progs))
 
         logger.logkv(prefix + 'AverageCtrlCost', np.mean(ctrl_cost))
-
-

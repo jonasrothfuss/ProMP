@@ -7,11 +7,16 @@ from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline, LinearTimeBaseline
 from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
+from maml_zoo.envs.ant_rand_direc_2d import AntRandDirec2DEnv
 from maml_zoo.envs.ant_rand_goal import AntRandGoalEnv
 from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
 from maml_zoo.envs.swimmer_rand_vel import SwimmerRandVelEnv
 from maml_zoo.envs.point_env_2d_corner import MetaPointEnvCorner
+from maml_zoo.envs.point_env_2d_walls import MetaPointEnvWalls
+from maml_zoo.envs.point_env_2d_momentum import MetaPointEnvMomentum
 from maml_zoo.envs.sawyer_pick_and_place import SawyerPickAndPlaceEnv
+from maml_zoo.envs.sawyer_push import SawyerPushEnv
+from maml_zoo.envs.sawyer_push_simple import SawyerPushSimpleEnv
 from rand_param_envs.hopper_rand_params import HopperRandParamsEnv
 from rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
 from maml_zoo.envs.normalized_env import normalize
@@ -23,7 +28,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'trpo-exploration'
+EXP_NAME = 'trpo-exploration-eval-2'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -57,7 +62,7 @@ def run_experiment(**kwargs):
         meta_batch_size=kwargs['meta_batch_size'],
         max_path_length=kwargs['max_path_length'],
         parallel=kwargs['parallel'],
-        envs_per_task=1,
+        # envs_per_task=1,
     )
 
     sample_processor = MAMLSampleProcessor(
@@ -66,7 +71,6 @@ def run_experiment(**kwargs):
         gae_lambda=kwargs['gae_lambda'],
         normalize_adv=kwargs['normalize_adv'],
         positive_adv=kwargs['positive_adv'],
-        normalize_adv_per_task=kwargs['normalize_adv_per_task'],
     )
 
     algo = TRPOMAML(
@@ -93,15 +97,15 @@ def run_experiment(**kwargs):
 
 if __name__ == '__main__':    
 
-    sweep_params = {
-        'seed' : [1, 2, 3],
+    sweep_params = {    
+        'seed' : [1, 2, 3, 4, 5],
 
         'baseline': [LinearFeatureBaseline],
 
-        'env': [HalfCheetahRandDirecEnv],
+        'env': [AntRandDirec2DEnv],
 
         'rollouts_per_meta_task': [20],
-        'max_path_length': [200],
+        'max_path_length': [100],
         'parallel': [True],
 
         'discount': [0.99],
@@ -115,15 +119,16 @@ if __name__ == '__main__':
         'output_nonlinearity': [None],
 
         'inner_lr': [0.1],
-        'inner_type': ['log_likelihood'],
+        'inner_type': ['likelihood_ratio', 'log_likelihood'],
         'step_size': [0.01],
         'exploration': [True, False],
-        'normalize_adv_per_task': [True, False],
 
-        'n_itr': [501],
-        'meta_batch_size': [20],
+        'n_itr': [301],
+        'meta_batch_size': [40],
         'num_inner_grad_steps': [1],
         'scope': [None],
+
+        'exp_tag': [''], # For changes besides hyperparams
     }
-    
+
     run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)

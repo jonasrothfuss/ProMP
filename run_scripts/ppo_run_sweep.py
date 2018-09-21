@@ -24,7 +24,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'ppo-hyperparams'
+EXP_NAME = 'ppo/non-adaptive-inner'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -106,7 +106,7 @@ if __name__ == '__main__':
 
         'baseline': [LinearFeatureBaseline],
 
-        'env': [HalfCheetahRandVelEnv, HalfCheetahRandDirecEnv],
+        'env': [HalfCheetahRandDirecEnv],
 
         'rollouts_per_meta_task': [40],
         'max_path_length': [100],
@@ -122,22 +122,22 @@ if __name__ == '__main__':
         'hidden_nonlinearity': [tf.tanh],
         'output_nonlinearity': [None],
 
-        'inner_lr': [0.05, 0.1],
+        'inner_lr': [0.1],
         'learning_rate': [1e-3],
-        'num_ppo_steps': [3, 5, 10],
+        'num_ppo_steps': [5],
         'num_minibatches': [1],
-        'clip_eps': [0.5, 0.3],
+        'clip_eps': [0.3],
         'clip_outer': [True],
         'target_outer_step': [0],
-        'target_inner_step': [0.1, 0.05, 0.01],
+        'target_inner_step': [0],
         'init_outer_kl_penalty': [0],
-        'init_inner_kl_penalty': [1e-3],
+        'init_inner_kl_penalty': [1e-4, 2e-4],
         'adaptive_outer_kl_penalty': [False],
-        'adaptive_inner_kl_penalty': [True],
+        'adaptive_inner_kl_penalty': [False],
         'anneal_factor': [1.0],
 
-        'n_itr': [501],
-        'meta_batch_size': [20],
+        'n_itr': [301],
+        'meta_batch_size': [40],
         'num_inner_grad_steps': [1],
         'scope': [None],
     }

@@ -46,7 +46,6 @@ class DiceSampleProcessor(SampleProcessor):
         self.normalize_adv = normalize_adv
         self.positive_adv = positive_adv
         self.return_baseline = return_baseline
-        self.normalize_adv_per_task = True
 
     def process_samples(self, paths, log=False, log_prefix=''):
         """

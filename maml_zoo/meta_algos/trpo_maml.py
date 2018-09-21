@@ -38,9 +38,13 @@ class TRPOMAML(MAMLAlgo):
         self.step_size = step_size
         self.inner_type = inner_type
         self.name = name
-        self.exploration = exploration
-
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']
+
+        self.exploration = exploration
+        if exploration: # add adjusted average rewards tp optimization keys
+            self._optimization_keys.append('adj_avg_rewards')
+
+
         self.optimizer = ConjugateGradientOptimizer()
 
         self.build_graph()
@@ -145,9 +149,16 @@ class TRPOMAML(MAMLAlgo):
                 surr_obj = - tf.reduce_mean(likelihood_ratio * adv_phs[i])
 
                 if self.exploration:
+                    # add adj_avg_reward placeholder
+                    adj_avg_rewards = tf.placeholder(dtype=tf.float32, shape=[None], name='adj_avg_rewards' + '_' + str(
+                        self.num_inner_grad_steps) + '_' + str(i))
+                    self.meta_op_phs_dict[
+                        'step%i_task%i_%s' % (self.num_inner_grad_steps, i, 'adj_avg_rewards')] = adj_avg_rewards
+
                     log_likelihood_inital = self.policy.distribution.log_likelihood_sym(initial_action_phs[i],
-                                                                                        initial_distribution_info_vars[i])
-                    surr_obj += -tf.reduce_mean(adv_phs[i]) * tf.reduce_sum(log_likelihood_inital)
+                                                                                        initial_distribution_info_vars[
+                                                                                            i])
+                    surr_obj += - tf.reduce_mean(adj_avg_rewards) * tf.reduce_mean(log_likelihood_inital)
 
                 surr_objs.append(surr_obj)
                 outer_kls.append(outer_kl)

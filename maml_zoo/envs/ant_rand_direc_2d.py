@@ -1,57 +1,59 @@
 import numpy as np
 from maml_zoo.envs.base import MetaEnv
+from gym.envs.mujoco.mujoco_env import MujocoEnv
 from maml_zoo.logger import logger
 import gym
-from gym.envs.mujoco.mujoco_env import MujocoEnv
 
-class AntRandGoalEnv(MetaEnv, gym.utils.EzPickle, MujocoEnv):
+
+class AntRandDirec2DEnv(MetaEnv, MujocoEnv, gym.utils.EzPickle):
     def __init__(self):
         self.set_task(self.sample_tasks(1)[0])
         MujocoEnv.__init__(self, 'ant.xml', 5)
         gym.utils.EzPickle.__init__(self)
 
     def sample_tasks(self, n_tasks):
-        a = np.random.random(n_tasks) * 2 * np.pi
-        r = 3 * np.random.random(n_tasks) ** 0.5
-        return np.stack((r * np.cos(a), r * np.sin(a)), axis=-1)
+        # for fwd/bwd env, goal direc is backwards if - 1.0, forwards if + 1.0
+        directions = np.random.normal(size=(n_tasks, 2))
+        directions /= np.linalg.norm(directions, axis=1)[..., np.newaxis]
+        return directions
 
     def set_task(self, task):
         """
         Args:
             task: task of the meta-learning environment
         """
-        self.goal_pos = task
+        self.goal_direction = task
 
     def get_task(self):
         """
         Returns:
             task: task of the meta-learning environment
         """
-        return self.goal_pos
+        return self.goal_direction
 
     def step(self, a):
+        posbefore = np.copy(self.get_body_com("torso")[:2])
         self.do_simulation(a, self.frame_skip)
-        xposafter = self.get_body_com("torso")
-        goal_reward = -np.sum(np.abs(xposafter[:2] - self.goal_pos))  # make it happy, not suicidal
-        ctrl_cost = .1 * np.square(a).sum()
-        contact_cost = 0.5 * 1e-3 * np.sum(np.square(np.clip(self.sim.data.cfrc_ext, -1, 1)))
-        # survive_reward = 1.0
-        survive_reward = 0.0
-        reward = goal_reward - ctrl_cost - contact_cost + survive_reward
+        posafter = self.get_body_com("torso")[:2]
+        forward_reward = np.sum(self.goal_direction * (posafter - posbefore))/self.dt
+        ctrl_cost = .5 * np.square(a).sum()
+        contact_cost = 0.5 * 1e-3 * np.sum(
+            np.square(np.clip(self.sim.data.cfrc_ext, -1, 1)))
+        survive_reward = 1.0
+        reward = forward_reward - ctrl_cost - contact_cost + survive_reward
         state = self.state_vector()
-        # notdone = np.isfinite(state).all() and 1.0 >= state[2] >= 0.
-        # done = not notdone
-        done = False
+        notdone = np.isfinite(state).all() and 1.0 >= state[2] >= 0.
+        done = not notdone
         ob = self._get_obs()
         return ob, reward, done, dict(
-            reward_forward=goal_reward,
+            reward_forward=forward_reward,
             reward_ctrl=-ctrl_cost,
             reward_contact=-contact_cost,
             reward_survive=survive_reward)
 
     def _get_obs(self):
         return np.concatenate([
-            self.sim.data.qpos.flat,
+            self.sim.data.qpos.flat[2:],
             self.sim.data.qvel.flat,
             np.clip(self.sim.data.cfrc_ext, -1, 1).flat,
         ])
@@ -78,9 +80,10 @@ class AntRandGoalEnv(MetaEnv, gym.utils.EzPickle, MujocoEnv):
 
 
 if __name__ == "__main__":
-    env = AntRandGoalEnv()
-    import time
+    env = AntRandDirec2DEnv()
     while True:
+        task = env.sample_tasks(1)[0]
+        env.set_task(task)
         env.reset()
         for _ in range(100):
             env.render()

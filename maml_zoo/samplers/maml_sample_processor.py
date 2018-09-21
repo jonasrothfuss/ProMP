@@ -4,9 +4,6 @@ from maml_zoo.utils import utils
 import numpy as np
 
 class MAMLSampleProcessor(SampleProcessor):
-    def __init__(self, normalize_adv_per_task=True, *args, **kwargs):
-        self.normalize_adv_per_task = normalize_adv_per_task
-        super(MAMLSampleProcessor, self).__init__(*args, **kwargs)
 
     def process_samples(self, paths_meta_batch, log=False, log_prefix=''):
         """
@@ -31,10 +28,6 @@ class MAMLSampleProcessor(SampleProcessor):
         samples_data_meta_batch = []
         all_paths = []
 
-        if not self.normalize_adv_per_task:
-            _normalize_adv = self.normalize_adv
-            self.normalize_adv = False
-
         for meta_task, paths in paths_meta_batch.items():
 
             # fits baseline, compute advantages and stack path data
@@ -43,15 +36,13 @@ class MAMLSampleProcessor(SampleProcessor):
             samples_data_meta_batch.append(samples_data)
             all_paths.extend(paths)
 
-        if not self.normalize_adv_per_task:
-            advantages = np.stack([samples_data['advantages'] for samples_data in samples_data_meta_batch])
-            if _normalize_adv:
-                advantages = utils.normalize_advantages(advantages)
-                for i in range(len(samples_data_meta_batch)):
-                    samples_data_meta_batch[i]['advantages'] = advantages[i]
-            self.normalize_adv = _normalize_adv
+        # 7) compute normalized trajectory-batch rewards (for E-MAML)
+        overall_avg_reward = np.mean(np.stack([samples_data['rewards'] for samples_data in samples_data_meta_batch]))
+        overall_avg_reward_std = np.std(np.stack([samples_data['rewards'] for samples_data in samples_data_meta_batch]))
+        for samples_data in samples_data_meta_batch:
+            samples_data['adj_avg_rewards'] = (samples_data['rewards'] - overall_avg_reward) / (overall_avg_reward_std + 1e-8)
 
-        # 7) log statistics if desired
+        # 8) log statistics if desired
         self._log_path_stats(all_paths, log=log, log_prefix=log_prefix)
 
         return samples_data_meta_batch

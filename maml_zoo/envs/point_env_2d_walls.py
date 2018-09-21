@@ -4,13 +4,13 @@ import numpy as np
 from gym.spaces import Box
 
 
-class MetaPointEnvCorner(MetaEnv):
+class MetaPointEnvWalls(MetaEnv):
     """
     Simple 2D point meta environment. Each meta-task corresponds to a different goal / corner
     (one of the 4 points (-2,-2), (-2, 2), (2, -2), (2,2)) which are sampled with equal probability
     """
 
-    def __init__(self, reward_type='sparse', sparse_reward_radius=0.5):
+    def __init__(self, reward_type='dense', sparse_reward_radius=2):
         assert reward_type in ['dense', 'dense_squared', 'sparse']
         self.reward_type = reward_type
         print("Point Env reward type is", reward_type)
@@ -37,6 +37,16 @@ class MetaPointEnvCorner(MetaEnv):
         self._state = prev_state + np.clip(action, -0.2, 0.2)
         reward = self.reward(prev_state, action, self._state)
         done = False # self.done(self._state)
+        if np.linalg.norm(prev_state) < 1 and np.linalg.norm(self._state) > 1:
+            gap_1_dist = np.linalg.norm(self._state - self.gap_1[None,:], axis=1)[0]
+            if gap_1_dist > 1:
+                self._state = self._state / (np.linalg.norm(self._state) + 1e-6)
+            assert gap_1_dist < 1 or np.linalg.norm(self._state) < 1
+        elif np.linalg.norm(prev_state) < 2 and np.linalg.norm(self._state) > 2:
+            gap_2_dist = np.linalg.norm(self._state - self.gap_2[None,:], axis=1)[0]
+            if gap_2_dist > 1:
+                self._state = self._state / (np.linalg.norm(self._state) * 0.5 + 1e-6)
+            assert gap_2_dist < 1 or np.linalg.norm(self._state) < 2
         next_observation = np.copy(self._state)
         return next_observation, reward, done, {}
 
@@ -66,13 +76,10 @@ class MetaPointEnvCorner(MetaEnv):
             elif self.reward_type == 'dense_squared':
                 return - goal_distance**2
             elif self.reward_type == 'sparse':
-                dist_from_start = np.linalg.norm(obs_next, ord=1, axis=1)[0]
-                if dist_from_start < self.sparse_reward_radius:
-                    return 0
-                dists = [np.linalg.norm(obs_next - corner[None, :], axis=1) for corner in self.corners]
-                if np.min(goal_distance) == min(dists):
+                if goal_distance < self.sparse_reward_radius:
                     return np.linalg.norm(obs - self.goal[None,:], axis=1)[0] - goal_distance
-                return 0
+                else:
+                    return
                 # return np.maximum(self.sparse_reward_radius - goal_distance, 0)
 
         elif obs_next.ndim == 1:
@@ -84,19 +91,25 @@ class MetaPointEnvCorner(MetaEnv):
         pass
 
     def sample_tasks(self, n_tasks):
-        return [self.corners[idx] for idx in np.random.choice(range(len(self.corners)), size=n_tasks)]
+        goals = [self.corners[idx] for idx in np.random.choice(range(len(self.corners)), size=n_tasks)]
+        gaps_1 = np.random.normal(size=(n_tasks, 2))
+        gaps_1 /= np.linalg.norm(gaps_1, axis=1)[..., np.newaxis]
+        gaps_2 = np.random.normal(size=(n_tasks, 2))
+        gaps_2 /= (np.linalg.norm(gaps_2, axis=1) / 2)[..., np.newaxis]
+        return [dict(goal=goal, gap_1=gap_1, gap_2=gap_2) for goal, gap_1, gap_2 in zip(goals, gaps_1, gaps_2)]
 
     def set_task(self, task):
-        self.goal = task
+        self.goal = task['goal']
+        self.gap_1 = task['gap_1']
+        self.gap_2 = task['gap_2']
 
     def get_task(self):
-        return self.goal
+        return dict(goal=self.goal, gap_1=self.gap_1, gap_2=self.gap_2)
 
 if __name__ == "__main__":
-    env = MetaPointEnvCorner()
-    task = env.sample_tasks(10)
-    print(task[0])
+    env = MetaPointEnvWalls()
     while True:
+        task = env.sample_tasks(10)
         env.set_task(task[0])
         env.reset()
         done = False
@@ -107,9 +120,9 @@ if __name__ == "__main__":
             t_r += reward
             i += 1
             if reward > 0:
-                print(obs)
+                break
+            if np.max(obs) > 300:
                 break
             if i > 200:
-                print(obs)
                 break
         print(i, t_r)

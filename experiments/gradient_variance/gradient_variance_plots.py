@@ -100,17 +100,23 @@ def plot_from_exps(exp_data,
             axarr[i].set_xlabel(x_label if x_label else x_key)
             axarr[i].set_ylabel(y_labels[i] if y_labels[i] else y_key)
 
+            # axis ticks
+
+    axarr[0].set_ylim(0, 80)
+
+
     fig.legend(loc='center right', ncol=1, bbox_transform=plt.gcf().transFigure)
-    fig.savefig(plot_name + '.png')
+    fig.savefig(plot_name + '.pdf')
 
 plot_from_exps(exps_data,
                filters={'normalize_by_path_length': False},
-               split_figures_by='max_path_length',
                split_plots_by='algo',
-               x_key='Itr',
-               y_keys=['Meta-GradientRVariance', 'Step_1-AverageReturn'],
+               x_key='n_timesteps',
+               y_keys=['Meta-GradientRStd', 'Step_1-AverageReturn'],
                x_label='Time steps',
                y_labels=['Relative Std', 'Average Return'],
                subfigure_titles=['Gradient Variance', 'Return'],
-               plot_name='./gradient_variance'
+               plot_labels=['LCV', 'DICE'],
+               plot_name='./gradient_variance',
+               cut_x_range_at=295
                )
