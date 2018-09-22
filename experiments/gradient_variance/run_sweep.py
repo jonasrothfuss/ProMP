@@ -9,8 +9,9 @@ from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
 from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
 from maml_zoo.envs.normalized_env import normalize
-from experiments.gradient_variance.dice_maml_extract_grads import DICEMAML
+from experiments.gradient_variance.vpg_dice_maml_extract_grads import VPG_DICEMAML
 from experiments.gradient_variance.vpg_maml_extract_grads import VPGMAML
+from experiments.gradient_variance.dice_maml_extract_grads import DICEMAML
 from experiments.gradient_variance.meta_trainer_gradient_variance import TrainerGradientStd
 from maml_zoo.samplers.maml_sampler import MAMLSampler
 from maml_zoo.samplers import DiceMAMLSampleProcessor, MAMLSampleProcessor
@@ -18,7 +19,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.4xlarge'
-EXP_NAME = 'gradient_variance'
+EXP_NAME = 'gradient_variance_v2'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -60,7 +61,6 @@ def run_experiment(**kwargs):
             discount=kwargs['discount'],
             normalize_adv=kwargs['normalize_adv'],
             positive_adv=kwargs['positive_adv'],
-            normalize_by_path_length=kwargs['normalize_by_path_length']
         )
 
         algo = DICEMAML(
@@ -71,6 +71,26 @@ def run_experiment(**kwargs):
             inner_lr=kwargs['inner_lr'],
             learning_rate=kwargs['learning_rate']
         )
+
+    elif kwargs['algo'] == 'VPG_DICE':
+        sample_processor = DiceMAMLSampleProcessor(
+            baseline=LinearTimeBaseline(),
+            max_path_length=kwargs['max_path_length'],
+            discount=kwargs['discount'],
+            normalize_adv=kwargs['normalize_adv'],
+            positive_adv=kwargs['positive_adv'],
+            return_baseline=LinearFeatureBaseline()
+        )
+
+        algo = VPG_DICEMAML(
+            policy=policy,
+            max_path_length=kwargs['max_path_length'],
+            meta_batch_size=kwargs['meta_batch_size'],
+            num_inner_grad_steps=kwargs['num_inner_grad_steps'],
+            inner_lr=kwargs['inner_lr'],
+            learning_rate=kwargs['learning_rate']
+        )
+
     elif kwargs['algo'] == 'VPG':
         sample_processor = MAMLSampleProcessor(
             baseline=LinearFeatureBaseline(),
@@ -96,6 +116,7 @@ def run_experiment(**kwargs):
         sample_processor=sample_processor,
         n_itr=kwargs['n_itr'],
         num_inner_grad_steps=kwargs['num_inner_grad_steps'],
+        num_sapling_rounds=kwargs['sampling_rounds']
     )
 
     trainer.train()
@@ -105,9 +126,9 @@ if __name__ == '__main__':
     sweep_params = {
         'seed': [22, 35, 76, 34, 92],
 
-        'algo': ['VPG', 'DICE'],
+        'algo': ['VPG_DICE', 'VPG', 'DICE'],
 
-        'sampling_rounds': [20],
+        'sampling_rounds': [10],
 
         'env': [HalfCheetahRandDirecEnv],
 
@@ -118,7 +139,6 @@ if __name__ == '__main__':
         'discount': [0.99],
         'normalize_adv': [True],
         'positive_adv': [False],
-        'normalize_by_path_length': [False],
 
         'hidden_sizes': [(64, 64)],
         'learn_std': [True],

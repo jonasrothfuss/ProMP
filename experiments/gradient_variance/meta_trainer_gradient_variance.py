@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import time
 from maml_zoo.logger import logger
+from scipy.spatial.distance import cdist
 
 
 class TrainerGradientStd(object):
@@ -129,12 +130,23 @@ class TrainerGradientStd(object):
 
                         meta_grad_std = np.mean(std)
                         meta_grad_rstd = np.mean(std/(mean + 1e-8))
-                        meta_grad_rvar = np.mean(std**2/ (mean + 1e-8))
+                        meta_grad_rvar = np.mean(std**2/(mean + 1e-8))
 
                         logger.logkv('Meta-GradientMean', np.mean(mean))
                         logger.logkv('Meta-GradientStd', meta_grad_std)
                         logger.logkv('Meta-GradientRStd', meta_grad_rstd)
                         logger.logkv('Meta-GradientRVariance', meta_grad_rvar)
+
+                        # compute cosine dists
+                        cosine_dists = cdist(np.transpose(stacked_grads), np.transpose(np.mean(stacked_grads, axis=1).reshape((-1, 1))),
+                                             metric='cosine')
+                        mean_abs_cos_dist = np.mean(np.abs(cosine_dists))
+                        mean_squared_cosine_dists = np.mean(cosine_dists**2)
+                        mean_squared_cosine_dists_sqrt = np.sqrt(mean_squared_cosine_dists)
+
+                        logger.logkv('Meta-GradientCosAbs', mean_abs_cos_dist)
+                        logger.logkv('Meta-GradientCosVar', mean_squared_cosine_dists)
+                        logger.logkv('Meta-GradientCosStd', mean_squared_cosine_dists_sqrt)
 
 
                         """ ------------------ Outer Policy Update ---------------------"""
