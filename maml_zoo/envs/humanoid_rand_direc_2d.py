@@ -79,3 +79,4 @@ if __name__ == "__main__":
         for _ in range(200):
             env.render()
             _, reward, _, _ = env.step(env.action_space.sample())  # take a random action
+            print(reward)

@@ -7,11 +7,11 @@ from gym.envs.mujoco.mujoco_env import MujocoEnv
 class Walker2DRandVelEnv(MetaEnv, gym.utils.EzPickle, MujocoEnv):
     def __init__(self):
         self.set_task(self.sample_tasks(1)[0])
-        MujocoEnv.__init__(self, 'walker2d.xml', 4)
+        MujocoEnv.__init__(self, 'walker2d.xml', 8)
         gym.utils.EzPickle.__init__(self)
     
     def sample_tasks(self, n_tasks):
-        return np.random.uniform(0.0, 3.0, (n_tasks, ))
+        return np.random.uniform(0.0, 10.0, (n_tasks, ))
 
     def set_task(self, task):
         """
@@ -31,7 +31,7 @@ class Walker2DRandVelEnv(MetaEnv, gym.utils.EzPickle, MujocoEnv):
         posbefore = self.sim.data.qpos[0]
         self.do_simulation(a, self.frame_skip)
         posafter, height, ang = self.sim.data.qpos[0:3]
-        alive_bonus = 1.0
+        alive_bonus = 15.0
         forward_vel = (posafter - posbefore) / self.dt
         reward = - np.abs(forward_vel - self.goal_velocity)
         reward += alive_bonus

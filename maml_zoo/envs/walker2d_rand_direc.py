@@ -7,7 +7,7 @@ from gym.envs.mujoco.mujoco_env import MujocoEnv
 class Walker2DRandDirecEnv(MetaEnv, gym.utils.EzPickle, MujocoEnv):
     def __init__(self):
         self.set_task(self.sample_tasks(1)[0])
-        MujocoEnv.__init__(self, 'walker2d.xml', 4)
+        MujocoEnv.__init__(self, 'walker2d.xml', 8)
         gym.utils.EzPickle.__init__(self)
     
     def sample_tasks(self, n_tasks):
