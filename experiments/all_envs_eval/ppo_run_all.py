@@ -33,7 +33,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'ppo-ant-cheetah-test'
+EXP_NAME = 'ppo-eval-all'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -116,7 +116,7 @@ if __name__ == '__main__':
 
         'baseline': [LinearFeatureBaseline],
 
-        'env': [AntRandDirecEnv, AntRandDirec2DEnv, HalfCheetahRandDirecEnv],
+        'env': [HalfCheetahRandDirecEnv],
 
         'rollouts_per_meta_task': [20],
         'max_path_length': [100],
@@ -199,7 +199,7 @@ if __name__ == '__main__':
         'exp_tag': ['v0']
     }
 
-    # run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)
+    run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)
 
     sweep_params = {
         'seed': [1, 2, 3],
@@ -244,7 +244,7 @@ if __name__ == '__main__':
         'exp_tag': ['v0']
     }
 
-    # run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)
+    run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)
 
     sweep_params = {
         'seed': [1, 2, 3],
@@ -289,7 +289,7 @@ if __name__ == '__main__':
         'exp_tag': ['v0']
     }
 
-    # run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)
+    run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)
 
     sweep_params = {
         'seed': [1, 2, 3],
@@ -334,7 +334,7 @@ if __name__ == '__main__':
         'exp_tag': ['v0']
     }
 
-    # run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)
+    run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)
 
     sweep_params = {
         'seed': [1, 2, 3],
@@ -379,4 +379,4 @@ if __name__ == '__main__':
         'exp_tag': ['v0']
     }
 
-    # run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)
+    run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)

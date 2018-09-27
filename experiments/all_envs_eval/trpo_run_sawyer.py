@@ -32,7 +32,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.4xlarge'
-EXP_NAME = 'trpo-sawyer-fill'
+EXP_NAME = 'trpo-sawyer'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -135,7 +135,7 @@ if __name__ == '__main__':
         'exp_tag': ['Medium'], # For changes besides hyperparams
     }
         
-    # run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)
+    run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)
 
     sweep_params = {    
         'seed' : [1, 2, 3],
@@ -171,4 +171,4 @@ if __name__ == '__main__':
         'exp_tag': ['Medium'], # For changes besides hyperparams
     }
         
-    # run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)
+    run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)
