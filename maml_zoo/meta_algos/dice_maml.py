@@ -257,7 +257,7 @@ class DICEMAML(MAMLAlgo):
 
 def magic_box(logprobs):
     """
-    Dice magic box oeperator
+    Dice magic box operator
 
     Args:
         logprobs: 2d tensor of log probabilities (batch_size, max_path_length)
