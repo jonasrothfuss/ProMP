@@ -5,13 +5,22 @@ import numpy as np
 from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline, LinearTimeBaseline
-from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
-from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
-from maml_zoo.envs.ant_rand_goal import AntRandGoalEnv
-from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
-from maml_zoo.envs.swimmer_rand_vel import SwimmerRandVelEnv
-from maml_zoo.envs.point_env_2d_corner import MetaPointEnvCorner
-from maml_zoo.envs.sawyer_pick_and_place import SawyerPickAndPlaceEnv
+from maml_zoo.envs.mujoco_envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
+from maml_zoo.envs.mujoco_envs.ant_rand_direc import AntRandDirecEnv
+from maml_zoo.envs.mujoco_envs.ant_rand_direc_2d import AntRandDirec2DEnv
+from maml_zoo.envs.mujoco_envs.ant_rand_goal import AntRandGoalEnv
+from maml_zoo.envs.mujoco_envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
+from maml_zoo.envs.mujoco_envs.swimmer_rand_vel import SwimmerRandVelEnv
+from maml_zoo.envs.mujoco_envs.humanoid_rand_direc import HumanoidRandDirecEnv
+from maml_zoo.envs.mujoco_envs.humanoid_rand_direc_2d import HumanoidRandDirec2DEnv
+from maml_zoo.envs.mujoco_envs.walker2d_rand_direc import Walker2DRandDirecEnv
+from maml_zoo.envs.mujoco_envs.walker2d_rand_vel import Walker2DRandVelEnv
+from maml_zoo.envs.point_envs.point_env_2d_corner import MetaPointEnvCorner
+from maml_zoo.envs.point_envs.point_env_2d_walls import MetaPointEnvWalls
+from maml_zoo.envs.point_envs.point_env_2d_momentum import MetaPointEnvMomentum
+from maml_zoo.envs.sawyer_envs.sawyer_pick_and_place import SawyerPickAndPlaceEnv
+from maml_zoo.envs.sawyer_envs.sawyer_push import SawyerPushEnv
+from maml_zoo.envs.sawyer_envs.sawyer_push_simple import SawyerPushSimpleEnv
 from rand_param_envs.hopper_rand_params import HopperRandParamsEnv
 from rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
 from maml_zoo.envs.normalized_env import normalize
@@ -23,8 +32,8 @@ from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
 from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
-INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'ppo/non-adaptive-inner'
+INSTANCE_TYPE = 'c4.4xlarge'
+EXP_NAME = 'ppo-humanoid-large-batch'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -58,6 +67,7 @@ def run_experiment(**kwargs):
         meta_batch_size=kwargs['meta_batch_size'],
         max_path_length=kwargs['max_path_length'],
         parallel=kwargs['parallel'],
+        envs_per_task=40,
     )
 
     sample_processor = MAMLSampleProcessor(
@@ -106,10 +116,10 @@ if __name__ == '__main__':
 
         'baseline': [LinearFeatureBaseline],
 
-        'env': [HalfCheetahRandDirecEnv],
+        'env': [HumanoidRandDirec2DEnv],
 
-        'rollouts_per_meta_task': [40],
-        'max_path_length': [100],
+        'rollouts_per_meta_task': [80],
+        'max_path_length': [200],
         'parallel': [True],
 
         'discount': [0.99],
@@ -117,7 +127,7 @@ if __name__ == '__main__':
         'normalize_adv': [True],
         'positive_adv': [False],
 
-        'hidden_sizes': [(64, 64)],
+        'hidden_sizes': [(128, 128)],
         'learn_std': [True],
         'hidden_nonlinearity': [tf.tanh],
         'output_nonlinearity': [None],
@@ -131,15 +141,17 @@ if __name__ == '__main__':
         'target_outer_step': [0],
         'target_inner_step': [0],
         'init_outer_kl_penalty': [0],
-        'init_inner_kl_penalty': [1e-4, 2e-4],
+        'init_inner_kl_penalty': [5e-4],
         'adaptive_outer_kl_penalty': [False],
         'adaptive_inner_kl_penalty': [False],
         'anneal_factor': [1.0],
 
-        'n_itr': [301],
+        'n_itr': [1001],
         'meta_batch_size': [40],
         'num_inner_grad_steps': [1],
         'scope': [None],
+
+        'exp_tag': ['v0']
     }
 
     run_sweep(run_experiment, sweep_params, EXP_NAME, INSTANCE_TYPE)

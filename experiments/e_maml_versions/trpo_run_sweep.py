@@ -5,13 +5,13 @@ import numpy as np
 from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline, LinearTimeBaseline
-from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
-from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
-from maml_zoo.envs.ant_rand_goal import AntRandGoalEnv
-from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
-from maml_zoo.envs.swimmer_rand_vel import SwimmerRandVelEnv
-from maml_zoo.envs.point_env_2d_corner import MetaPointEnvCorner
-from maml_zoo.envs.sawyer_pick_and_place import SawyerPickAndPlaceEnv
+from maml_zoo.envs.mujoco_envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
+from maml_zoo.envs.mujoco_envs.ant_rand_direc import AntRandDirecEnv
+from maml_zoo.envs.mujoco_envs.ant_rand_goal import AntRandGoalEnv
+from maml_zoo.envs.mujoco_envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
+from maml_zoo.envs.mujoco_envs.swimmer_rand_vel import SwimmerRandVelEnv
+from maml_zoo.envs.point_envs.point_env_2d_corner import MetaPointEnvCorner
+from maml_zoo.envs.sawyer_envs.sawyer_pick_and_place import SawyerPickAndPlaceEnv
 from rand_param_envs.hopper_rand_params import HopperRandParamsEnv
 from rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
 from maml_zoo.envs.normalized_env import normalize
