@@ -27,6 +27,11 @@ Sample Processor
     :inherited-members:
     :show-inheritance:
 
+.. autoclass:: DiceSampleProcessor
+    :members:
+    :inherited-members:
+    :show-inheritance:
+
 .. autoclass:: MAMLSampleProcessor
     :members:
     :inherited-members:

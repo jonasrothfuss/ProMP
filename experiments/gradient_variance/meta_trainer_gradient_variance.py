@@ -53,7 +53,8 @@ class TrainerGradientStd(object):
         """
         Trains policy on env using algo
 
-        Pseudocode:
+        Pseudocode::
+        
             for itr in n_itr:
                 for step in num_inner_grad_steps:
                     sampler.sample()

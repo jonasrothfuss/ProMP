@@ -87,17 +87,6 @@ class DICEMAML(MAMLAlgo):
     def build_graph(self):
         """
         Creates the computation graph for DICE MAML
-
-        Notes:
-            Pseudocode:
-            for task in meta_batch_size:
-                make_vars
-                init_init_dist_sym
-            for step in num_inner_grad_steps:
-                for task in meta_batch_size:
-                    make_vars
-                    update_init_dist_sym
-            set objectives for optimizer
         """
 
         self.gradients = []

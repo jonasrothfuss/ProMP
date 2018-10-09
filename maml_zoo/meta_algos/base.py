@@ -23,8 +23,7 @@ class MetaAlgo(object):
         """
         Creates meta-learning computation graph
 
-        Notes:
-            Pseudocode:
+        Pseudocode::
 
             for task in meta_batch_size:
                 make_vars

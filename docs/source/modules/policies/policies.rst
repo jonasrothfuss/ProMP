@@ -10,7 +10,7 @@ Policy Interfaces
     :inherited-members:
     :show-inheritance:
 
-.. autoclass:: Meta-Policy
+.. autoclass:: MetaPolicy
     :members:
     :inherited-members:
     :show-inheritance:

@@ -4,6 +4,10 @@ import numpy as np
 
 
 class MetaEnv(Env):
+    """
+    Wrapper around OpenAI gym environments, interface for meta learning
+    """
+
     def sample_tasks(self, n_tasks):
         """
         Samples task of the meta-environment

@@ -113,14 +113,11 @@ class ConjugateGradientOptimizer(Optimizer):
     Args:
         cg_iters (int) : The number of conjugate gradients iterations used to calculate A^-1 g
         reg_coeff (float) : A small value so that A -> A + reg*I
-        subsample_factor (float) : Subsampling factor to reduce samples when using "conjugate gradient. Since the
-        computation time for the descent direction dominates, this can greatly reduce the overall computation time.
+        subsample_factor (float) : Subsampling factor to reduce samples when using "conjugate gradient. Since the computation time for the descent direction dominates, this can greatly reduce the overall computation time.
         backtrack_ratio (float) : ratio for decreasing the step size for the line search
         max_backtracks (int) : maximum number of backtracking iterations for the line search
-        debug_nan (bool) : if set to True, NanGuard will be added to the compilation, and ipdb will be invoked when
-        nan is detected
-        accept_violation (bool) : whether to accept the descent step if it violates the line search condition after
-        exhausting all backtracking budgets
+        debug_nan (bool) : if set to True, NanGuard will be added to the compilation, and ipdb will be invoked when nan is detected
+        accept_violation (bool) : whether to accept the descent step if it violates the line search condition after exhausting all backtracking budgets
         hvp_approach (obj) : Hessian vector product approach
     """
 

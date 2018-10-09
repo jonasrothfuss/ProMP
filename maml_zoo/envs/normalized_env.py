@@ -3,24 +3,6 @@ from maml_zoo.utils.serializable import Serializable
 from gym.spaces import Box
 from rand_param_envs.gym.spaces import Box as OldBox
 
-"""
-Normalizes the environment class.
-
-Args:
-    EnvCls (gym.Env): class of the unnormalized gym environment
-    env_args (dict or None): arguments of the environment
-    scale_reward (float): scale of the reward
-    normalize_obs (bool): whether normalize the observations or not
-    normalize_reward (bool): whether normalize the reward or not
-    obs_alpha (float): step size of the running mean and variance for the observations
-    reward_alpha (float): step size of the running mean and variance for the observations
-
-Returns:
-    Normalized environment
-
-"""
-
-
 class NormalizedEnv(Serializable):
     """
     Normalizes the environment class.
@@ -32,6 +14,7 @@ class NormalizedEnv(Serializable):
         normalize_reward (bool): whether normalize the reward or not
         obs_alpha (float): step size of the running mean and variance for the observations
         reward_alpha (float): step size of the running mean and variance for the observations
+        normalization_scale (float): rescaled action magnitude
 
     """
     def __init__(self,
@@ -131,7 +114,6 @@ class NormalizedEnv(Serializable):
             scaled_action = np.clip(scaled_action, lb, ub)
         else:
             scaled_action = action
-            print("here!!")
         wrapped_step = self._wrapped_env.step(scaled_action)
         next_obs, reward, done, info = wrapped_step
         if getattr(self, "_normalize_obs", False):
