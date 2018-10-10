@@ -1,5 +1,4 @@
-from maml_zoo.utils import utils
-from maml_zoo.logger import logger
+from maml_zoo.utils import utils, logger
 from maml_zoo.samplers.base import SampleProcessor
 import numpy as np
 

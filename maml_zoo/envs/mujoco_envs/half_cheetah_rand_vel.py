@@ -1,6 +1,6 @@
 import numpy as np
 from maml_zoo.envs.base import MetaEnv
-from maml_zoo.logger import logger
+from maml_zoo.utils import logger
 import gym
 from gym.envs.mujoco.mujoco_env import MujocoEnv
 

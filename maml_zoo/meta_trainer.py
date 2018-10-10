@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import time
-from maml_zoo.logger import logger
+from maml_zoo.utils import logger
 
 
 class Trainer(object):

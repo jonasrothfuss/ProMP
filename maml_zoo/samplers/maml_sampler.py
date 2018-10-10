@@ -1,7 +1,6 @@
 from maml_zoo.samplers.base import Sampler
 from maml_zoo.samplers.vectorized_env_executor import MAMLParallelEnvExecutor, MAMLIterativeEnvExecutor
-from maml_zoo.logger import logger
-from maml_zoo.utils import utils
+from maml_zoo.utils import utils, logger
 from collections import OrderedDict
 
 from pyprind import ProgBar
@@ -132,8 +131,8 @@ class MAMLSampler(Sampler):
 
         self.total_timesteps_sampled += self.total_samples
         if log:
-            logger.logkv(log_prefix+"PolicyExecTime", policy_time)
-            logger.logkv(log_prefix+"EnvExecTime", env_time)
+            logger.logkv(log_prefix + "PolicyExecTime", policy_time)
+            logger.logkv(log_prefix + "EnvExecTime", env_time)
 
         return paths
 

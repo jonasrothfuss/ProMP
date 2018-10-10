@@ -1,10 +1,8 @@
-from maml_zoo.logger import logger
+from maml_zoo.utils import logger
 from maml_zoo.meta_algos.dice_maml import DICEMAML
 from maml_zoo.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
-from maml_zoo import utils
 
 import tensorflow as tf
-import numpy as np
 from collections import OrderedDict
 
 

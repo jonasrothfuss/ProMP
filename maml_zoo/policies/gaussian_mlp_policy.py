@@ -1,9 +1,8 @@
 from maml_zoo.policies.networks.mlp import create_mlp, forward_mlp
 from maml_zoo.policies.distributions.diagonal_gaussian import DiagonalGaussian
 from maml_zoo.policies.base import Policy
-from maml_zoo.utils import Serializable
+from maml_zoo.utils import Serializable, logger
 from maml_zoo.utils.utils import remove_scope_from_name
-from maml_zoo.logger import logger
 
 import tensorflow as tf
 import numpy as np
@@ -121,7 +120,7 @@ class GaussianMLPPolicy(Policy):
         Log extra information per iteration based on the collected paths
         """
         log_stds = np.vstack([path["agent_infos"]["log_std"] for path in paths])
-        logger.logkv(prefix+'AveragePolicyStd', np.mean(np.exp(log_stds)))
+        logger.logkv(prefix + 'AveragePolicyStd', np.mean(np.exp(log_stds)))
 
     def load_params(self, policy_params):
         """

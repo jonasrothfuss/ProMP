@@ -6,8 +6,6 @@ from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_baseline import LinearTimeBaseline, LinearFeatureBaseline
 from maml_zoo.envs.mujoco_envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
-from maml_zoo.envs.mujoco_envs.ant_rand_direc import AntRandDirecEnv
-from maml_zoo.envs.mujoco_envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
 from maml_zoo.envs.normalized_env import normalize
 from experiments.gradient_variance.vpg_dice_maml_extract_grads import VPG_DICEMAML
 from experiments.gradient_variance.vpg_maml_extract_grads import VPGMAML
@@ -16,7 +14,7 @@ from experiments.gradient_variance.meta_trainer_gradient_variance import Trainer
 from maml_zoo.samplers.maml_sampler import MAMLSampler
 from maml_zoo.samplers import DiceMAMLSampleProcessor, MAMLSampleProcessor
 from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
-from maml_zoo.logger import logger
+from maml_zoo.utils import logger
 
 INSTANCE_TYPE = 'c4.4xlarge'
 EXP_NAME = 'gradient_variance_v2'

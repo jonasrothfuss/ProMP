@@ -1,10 +1,8 @@
-from maml_zoo.logger import logger
+from maml_zoo.utils import logger
 from maml_zoo.meta_algos.base import MAMLAlgo
 from maml_zoo.optimizers.maml_first_order_optimizer import MAMLFirstOrderOptimizer
-from maml_zoo import utils
 
 import tensorflow as tf
-import numpy as np
 from collections import OrderedDict
 
 

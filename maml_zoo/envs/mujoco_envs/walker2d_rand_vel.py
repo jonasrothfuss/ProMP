@@ -1,6 +1,5 @@
 import numpy as np
 from maml_zoo.envs.base import MetaEnv
-from maml_zoo.logger import logger
 import gym
 from gym.envs.mujoco.mujoco_env import MujocoEnv
 
@@ -59,7 +58,6 @@ class Walker2DRandVelEnv(MetaEnv, gym.utils.EzPickle, MujocoEnv):
 
 if __name__ == "__main__":
     env = Walker2DRandVelEnv()
-    import time
     while True:
         env.reset()
         for _ in range(200):

@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import time
-from maml_zoo.logger import logger
+from maml_zoo.utils import logger
 from scipy.spatial.distance import cdist
 
 
@@ -120,7 +120,7 @@ class TrainerGradientStd(object):
                                 grad_rstd.append(np.mean(std/mean))
 
                             logger.logkv('Step_%i-GradientMean', np.mean(mean))
-                            logger.logkv('Step_%i-GradientStd'%step_id, np.mean(grad_std))
+                            logger.logkv('Step_%i-GradientStd' % step_id, np.mean(grad_std))
                             logger.logkv('Step_%i-GradientRStd' % step_id, np.mean(grad_rstd))
 
                         # compute variance of meta gradients

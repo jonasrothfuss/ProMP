@@ -2,7 +2,8 @@ from multiworld.envs.mujoco.sawyer_xyz.push.sawyer_push_simple import SawyerPush
 from multiworld.core.flat_goal_env import FlatGoalEnv
 import numpy as np
 from maml_zoo.envs.base import MetaEnv
-from maml_zoo.logger import logger
+from maml_zoo.utils import logger
+
 
 class SawyerPushSimpleEnv(FlatGoalEnv, MetaEnv):
     """

@@ -4,23 +4,16 @@ import tensorflow as tf
 import numpy as np
 from experiment_utils.run_sweep import run_sweep
 from maml_zoo.utils.utils import set_seed, ClassEncoder
-from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline, LinearTimeBaseline
+from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline
 from maml_zoo.envs.mujoco_envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
-from maml_zoo.envs.mujoco_envs.ant_rand_direc import AntRandDirecEnv
-from maml_zoo.envs.mujoco_envs.ant_rand_goal import AntRandGoalEnv
 from maml_zoo.envs.mujoco_envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
-from maml_zoo.envs.mujoco_envs.swimmer_rand_vel import SwimmerRandVelEnv
-from maml_zoo.envs.point_envs.point_env_2d_corner import MetaPointEnvCorner
-from maml_zoo.envs.sawyer_envs.sawyer_pick_and_place import SawyerPickAndPlaceEnv
-from rand_param_envs.hopper_rand_params import HopperRandParamsEnv
-from rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
 from maml_zoo.envs.normalized_env import normalize
 from maml_zoo.meta_algos.trpo_maml import TRPOMAML
 from maml_zoo.meta_trainer import Trainer
 from maml_zoo.samplers.maml_sampler import MAMLSampler
 from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
 from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
-from maml_zoo.logger import logger
+from maml_zoo.utils import logger
 
 INSTANCE_TYPE = 'c4.4xlarge'
 EXP_NAME = 'trpo-exploration-v2'
