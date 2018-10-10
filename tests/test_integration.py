@@ -1,5 +1,5 @@
 from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline
-from maml_zoo.meta_algos.ppo_maml import PPOMAML
+from maml_zoo.meta_algos.pro_mp import ProMP
 from maml_zoo.samplers.maml_sampler import MAMLSampler
 from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
 from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
@@ -112,7 +112,7 @@ class TestLikelihoodRation(unittest.TestCase):
             positive_adv=False,
         )
 
-        self.algo = PPOMAML(
+        self.algo = ProMP(
             policy=policy,
             inner_lr=0.1,
             meta_batch_size=10,

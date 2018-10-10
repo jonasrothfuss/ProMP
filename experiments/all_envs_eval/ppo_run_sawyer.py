@@ -7,7 +7,7 @@ from maml_zoo.utils.utils import set_seed, ClassEncoder
 from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline
 from maml_zoo.envs.sawyer_envs.sawyer_push_simple import SawyerPushSimpleEnv
 from maml_zoo.envs.normalized_env import normalize
-from maml_zoo.meta_algos.ppo_maml import PPOMAML
+from maml_zoo.meta_algos.pro_mp import ProMP
 from maml_zoo.meta_trainer import Trainer
 from maml_zoo.samplers.maml_sampler import MAMLSampler
 from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
@@ -60,7 +60,7 @@ def run_experiment(**kwargs):
         positive_adv=kwargs['positive_adv'],
     )
 
-    algo = PPOMAML(
+    algo = ProMP(
         policy=policy,
         inner_lr=kwargs['inner_lr'],
         meta_batch_size=kwargs['meta_batch_size'],

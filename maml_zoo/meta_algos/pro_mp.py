@@ -6,9 +6,9 @@ import tensorflow as tf
 import numpy as np
 from collections import OrderedDict
 
-class PPOMAML(MAMLAlgo):
+class ProMP(MAMLAlgo):
     """
-    Algorithm for PPO MAML
+    ProMP Algorithm
 
     Args:
         policy (Policy): policy object
@@ -17,14 +17,11 @@ class PPOMAML(MAMLAlgo):
         num_ppo_steps (int): number of ppo steps (without re-sampling)
         num_minibatches (int): number of minibatches for computing the ppo gradient steps
         clip_eps (float): PPO clip range
-        clip_outer (bool) : whether to use L^CLIP or L^KLPEN on outer gradient update
-        target_outer_step (float) : target outer kl divergence, used only with L^KLPEN and when adaptive_outer_kl_penalty is true
         target_inner_step (float) : target inner kl divergence, used only when adaptive_inner_kl_penalty is true
         init_outer_kl_penalty (float) : initial penalty for outer kl, used only with L^KLPEN
         init_inner_kl_penalty (float) : initial penalty for inner kl
-        adaptive_outer_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on outer gradient update
         adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
-        anneal_factor (float) : multiplicative factor for clip_eps, updated every iteration
+        anneal_factor (float) : multiplicative factor for annealing clip_eps. If anneal_factor < 1, clip_eps <- anneal_factor * clip_eps at each iteration
         inner_lr (float) : gradient step size used for inner step
         meta_batch_size (int): number of meta-learning tasks
         num_inner_grad_steps (int) : number of gradient updates taken per maml iteration
@@ -39,27 +36,20 @@ class PPOMAML(MAMLAlgo):
             num_ppo_steps=5,
             num_minibatches=1,
             clip_eps=0.2,
-            clip_outer=True,
-            target_outer_step=0.001,
             target_inner_step=0.01,
-            init_outer_kl_penalty=1e-3,
             init_inner_kl_penalty=1e-2,
-            adaptive_outer_kl_penalty=True,
             adaptive_inner_kl_penalty=True,
             anneal_factor=1.0,
             **kwargs
             ):
-        super(PPOMAML, self).__init__(*args, **kwargs)
+        super(ProMP, self).__init__(*args, **kwargs)
 
         self.optimizer = MAMLPPOOptimizer(learning_rate=learning_rate, max_epochs=num_ppo_steps, num_minibatches=num_minibatches)
         self.clip_eps = clip_eps
-        self.clip_outer = clip_outer
         self.target_outer_step = target_outer_step
         self.target_inner_step = target_inner_step
-        self.adaptive_outer_kl_penalty = adaptive_outer_kl_penalty
         self.adaptive_inner_kl_penalty = adaptive_inner_kl_penalty
         self.inner_kl_coeff = init_inner_kl_penalty * np.ones(self.num_inner_grad_steps)
-        self.outer_kl_coeff = init_outer_kl_penalty
         self.anneal_coeff = 1
         self.anneal_factor = anneal_factor
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']
