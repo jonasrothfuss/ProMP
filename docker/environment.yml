@@ -13,7 +13,6 @@ dependencies:
         - tensorflow
         - cloudpickle
         - click
-        - plotly
         - boto3
         - Pillow
         - moviepy
