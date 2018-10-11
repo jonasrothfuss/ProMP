@@ -89,7 +89,7 @@ if __name__ == '__main__':
     sweep_params = {
         'seed': [22, 43, 76, 34],
 
-        'env': [HalfCheetahRandDirecEnv, AntRandDirec2DEnv],
+        'env': [HalfCheetahRandDirecEnv],
 
         'rollouts_per_meta_task': [100],
         'max_path_length': [100],
@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
         'discount': [0.99],
         'normalize_adv': [True],
-        'positive_adv': [False],
+        'positive_adv': [True],
 
         'hidden_sizes': [(64, 64)],
         'learn_std': [True],
@@ -105,7 +105,7 @@ if __name__ == '__main__':
         'output_nonlinearity': [None],
 
         'inner_lr': [0.1],
-        'learning_rate': [1e-3, 5e-4],
+        'learning_rate': [5e-3, 2e-3],
 
         'n_itr': [801],
         'meta_batch_size': [40],

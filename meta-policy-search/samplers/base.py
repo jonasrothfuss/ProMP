@@ -8,7 +8,7 @@ class Sampler(object):
 
     Args:
         env (gym.Env) : environment object
-        policy (maml_zoo.policies.policy) : policy object
+        policy (meta-policy-search.policies.policy) : policy object
         batch_size (int) : number of trajectories per task
         max_path_length (int) : max number of steps per trajectory
     """

@@ -122,9 +122,9 @@ def run_experiment(**kwargs):
 if __name__ == '__main__':    
 
     sweep_params = {
-        'seed': [22, 35, 76, 34, 92],
+        'seed': [35, 76, 34, 92],
 
-        'algo': ['VPG_DICE', 'VPG', 'DICE'],
+        'algo': ['VPG_DICE', 'VPG'],
 
         'sampling_rounds': [10],
 
