@@ -1,8 +1,8 @@
-from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline
-from maml_zoo.meta_algos.pro_mp import ProMP
-from maml_zoo.samplers.maml_sampler import MAMLSampler
-from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
-from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
+from meta_policy_search.baselines.linear_baseline import LinearFeatureBaseline
+from meta_policy_search.meta_algos.pro_mp import ProMP
+from meta_policy_search.samplers.meta_sampler import MetaSampler
+from meta_policy_search.samplers.meta_sample_processor import MetaSampleProcessor
+from meta_policy_search.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 
 import tensorflow as tf
 import numpy as np
@@ -95,7 +95,7 @@ class TestLikelihoodRation(unittest.TestCase):
             output_nonlinearity=None,
         )
 
-        self.sampler = MAMLSampler(
+        self.sampler = MetaSampler(
             env=env,
             policy=policy,
             rollouts_per_meta_task=2,
@@ -104,7 +104,7 @@ class TestLikelihoodRation(unittest.TestCase):
             parallel=False,
         )
 
-        self.sample_processor = MAMLSampleProcessor(
+        self.sample_processor = MetaSampleProcessor(
             baseline=baseline,
             discount=0.99,
             gae_lambda=1.0,
@@ -121,14 +121,8 @@ class TestLikelihoodRation(unittest.TestCase):
             num_ppo_steps=5,
             num_minibatches=1,
             clip_eps=0.5,
-            clip_outer=True,
-            target_outer_step=0,
             target_inner_step=2e-2,
-            init_outer_kl_penalty=0,
             init_inner_kl_penalty=1e-3,
-            adaptive_outer_kl_penalty=False,
-            adaptive_inner_kl_penalty=True,
-            anneal_factor=1.0,
         )
 
     def test_likelihood_ratio(self):

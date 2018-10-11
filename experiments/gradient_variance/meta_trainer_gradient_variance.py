@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import time
-from maml_zoo.utils import logger
+from meta_policy_search.utils import logger
 from scipy.spatial.distance import cdist
 
 

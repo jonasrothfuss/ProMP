@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from maml_zoo.optimizers.maml_first_order_optimizer import MAMLFirstOrderOptimizer
+from meta_policy_search.optimizers.maml_first_order_optimizer import MAMLFirstOrderOptimizer
 from collections import OrderedDict
 import tensorflow as tf
 

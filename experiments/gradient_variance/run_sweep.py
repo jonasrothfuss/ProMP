@@ -3,18 +3,18 @@ import json
 import tensorflow as tf
 import numpy as np
 from experiment_utils.run_sweep import run_sweep
-from maml_zoo.utils.utils import set_seed, ClassEncoder
-from maml_zoo.baselines.linear_baseline import LinearTimeBaseline, LinearFeatureBaseline
-from maml_zoo.envs.mujoco_envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
-from maml_zoo.envs.normalized_env import normalize
+from meta_policy_search.utils.utils import set_seed, ClassEncoder
+from meta_policy_search.baselines.linear_baseline import LinearTimeBaseline, LinearFeatureBaseline
+from meta_policy_search.envs.mujoco_envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
+from meta_policy_search.envs.normalized_env import normalize
 from experiments.gradient_variance.vpg_dice_maml_extract_grads import VPG_DICEMAML
 from experiments.gradient_variance.vpg_maml_extract_grads import VPGMAML
 from experiments.gradient_variance.dice_maml_extract_grads import DICEMAML
 from experiments.gradient_variance.meta_trainer_gradient_variance import TrainerGradientStd
-from maml_zoo.samplers.maml_sampler import MAMLSampler
-from maml_zoo.samplers import DiceMAMLSampleProcessor, MAMLSampleProcessor
-from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
-from maml_zoo.utils import logger
+from meta_policy_search.samplers.maml_sampler import MAMLSampler
+from meta_policy_search.samplers import DiceMAMLSampleProcessor, MAMLSampleProcessor
+from meta_policy_search.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
+from meta_policy_search.utils import logger
 
 INSTANCE_TYPE = 'c4.4xlarge'
 EXP_NAME = 'gradient_variance_v2'

@@ -46,7 +46,7 @@ def run_sweep(run_experiment, sweep_params, exp_name, instance_type='c4.xlarge')
 
     elif args.mode == 'local_singularity':
         mode_singularity = dd.mode.LocalSingularity(
-            image='~/meta-policy-search.simg')
+            image='~/meta_policy_search.simg')
         run_sweep_doodad(run_experiment, sweep_params, run_mode=mode_singularity, 
                 mounts=sweeper.mounts) 
     else:

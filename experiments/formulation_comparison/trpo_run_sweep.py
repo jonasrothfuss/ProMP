@@ -3,16 +3,16 @@ import json
 import tensorflow as tf
 import numpy as np
 from experiment_utils.run_sweep import run_sweep
-from maml_zoo.utils.utils import set_seed, ClassEncoder
-from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline
-from maml_zoo.envs.mujoco_envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
-from maml_zoo.envs.normalized_env import normalize
-from maml_zoo.meta_algos.trpo_maml import TRPOMAML
-from maml_zoo.meta_trainer import Trainer
-from maml_zoo.samplers.maml_sampler import MAMLSampler
-from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
-from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
-from maml_zoo.utils import logger
+from meta_policy_search.utils.utils import set_seed, ClassEncoder
+from meta_policy_search.baselines.linear_baseline import LinearFeatureBaseline
+from meta_policy_search.envs.mujoco_envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
+from meta_policy_search.envs.normalized_env import normalize
+from meta_policy_search.meta_algos.trpo_maml import TRPOMAML
+from meta_policy_search.meta_trainer import Trainer
+from meta_policy_search.samplers.maml_sampler import MAMLSampler
+from meta_policy_search.samplers.maml_sample_processor import MAMLSampleProcessor
+from meta_policy_search.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
+from meta_policy_search.utils import logger
 
 INSTANCE_TYPE = 'c4.4xlarge'
 EXP_NAME = 'trpo-formulation-comparison'

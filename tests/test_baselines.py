@@ -1,10 +1,10 @@
 import unittest
 import numpy as np
 import pickle
-from maml_zoo.utils import utils
-from maml_zoo.policies.base import Policy
-from maml_zoo.baselines.linear_baseline import LinearFeatureBaseline, LinearTimeBaseline
-from maml_zoo.samplers.maml_sampler import MAMLSampler
+from meta_policy_search.utils import utils
+from meta_policy_search.policies.base import Policy
+from meta_policy_search.baselines.linear_baseline import LinearFeatureBaseline, LinearTimeBaseline
+from meta_policy_search.samplers.meta_sampler import MetaSampler
 from gym import Env
 
 
@@ -61,7 +61,7 @@ class TestLinearFeatureBaseline(unittest.TestCase):
         self.batch_size = 10
         self.path_length = 100
         self.linear = LinearFeatureBaseline()
-        self.sampler = MAMLSampler(self.random_env, self.random_policy, self.batch_size,
+        self.sampler = MetaSampler(self.random_env, self.random_policy, self.batch_size,
                                    self.meta_batch_size, self.path_length, parallel=True)
 
     def testFit(self):
@@ -106,7 +106,7 @@ class TestLinearFeatureBaseline(unittest.TestCase):
         self.batch_size = 10
         self.path_length = 100
         self.linear = LinearTimeBaseline()
-        self.sampler = MAMLSampler(self.random_env, self.random_policy, self.batch_size,
+        self.sampler = MetaSampler(self.random_env, self.random_policy, self.batch_size,
                                    self.meta_batch_size, self.path_length, parallel=True)
 
     def testFit(self):

@@ -1,6 +1,6 @@
-from maml_zoo.utils import logger
-from maml_zoo.meta_algos.base import MAMLAlgo
-from maml_zoo.optimizers.maml_first_order_optimizer import MAMLFirstOrderOptimizer
+from meta_policy_search.utils import logger
+from meta_policy_search.meta_algos.base import MAMLAlgo
+from meta_policy_search.optimizers.maml_first_order_optimizer import MAMLFirstOrderOptimizer
 
 import tensorflow as tf
 from collections import OrderedDict
