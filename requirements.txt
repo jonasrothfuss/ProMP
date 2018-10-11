@@ -1,0 +1,15 @@
+numpy
+joblib
+mujoco_py
+gym==0.10.5
+scipy
+PyPrind
+Pillow
+moviepy
+mpi4py
+click
+tensorflow>=1.4.0
+cloudpickle
+matplotlib
+git+https://github.com/dennisl88/rand_param_envs.git
+git+https://github.com/dennisl88/multiworld.git@russell
