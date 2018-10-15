@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/jonasrothfuss/maml_zoo.svg?token=j5XSZzvzzLqAy58VEYoC&branch=master)](https://travis-ci.com/jonasrothfuss/maml_zoo)
+[![Build Status](https://api.travis-ci.com/jonasrothfuss/ProMP.svg?branch=master)](https://travis-ci.com/jonasrothfuss/ProMP)
 [![Docs](https://readthedocs.org/projects/promp/badge/?version=latest)](promp.readthedocs.io)
 # ProMP: Proximal Meta-Policy Search
 Implementations corresponding to ProMP ([Rothfuss et al., 2018](https://arxiv.org/abs/????)). 
