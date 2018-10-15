@@ -10,7 +10,7 @@ Welcome to maml-zoo's documentation!
    :maxdepth: 3
    :caption: Contents:
 
-   modules/maml_zoo.rst
+   modules/meta_policy_search.rst
 
 
 Indices and tables

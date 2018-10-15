@@ -1,7 +1,7 @@
 Meta-Algorithms
 =============================
 
-.. automodule:: maml_zoo.meta_algos
+.. automodule:: meta_policy_search.meta_algos
 
 MAML-Algorithm (Interface)
 ------------------------------

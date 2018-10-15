@@ -14,7 +14,7 @@ MAML-ZOO
 Trainer
 ------------------------------
 
-.. automodule:: maml_zoo.meta_trainer
+.. automodule:: meta_policy_search.meta_trainer
     :members:
     :undoc-members:
     :show-inheritance:

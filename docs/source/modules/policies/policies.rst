@@ -3,7 +3,7 @@ Policies
 
 Policy Interfaces
 --------------------------
-.. automodule:: maml_zoo.policies
+.. automodule:: meta_policy_search.policies
 
 .. autoclass:: Policy
     :members:

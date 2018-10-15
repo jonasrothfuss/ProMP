@@ -1,7 +1,7 @@
 Baselines
 ===========================
 
-.. automodule:: maml_zoo.baselines
+.. automodule:: meta_policy_search.baselines
 
 Baseline (Interface)
 ---------------------------
