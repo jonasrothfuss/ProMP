@@ -23,8 +23,8 @@ plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
-path_expl = # Path of the E-MAML policy
-path_dice = # Path of the dice policy
+path_expl = '' # Path of the E-MAML policy
+path_dice = '' # Path of the dice policy
 LINEWIDTH = 1.25
 WIDTH = 0.0075
 SIZE = 150
