@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.com/jonasrothfuss/maml_zoo.svg?token=j5XSZzvzzLqAy58VEYoC&branch=master)](https://travis-ci.com/jonasrothfuss/maml_zoo)
-
+[![Docs](https://readthedocs.org/projects/promp/badge/?version=latest)](promp.readthedocs.io)
 # ProMP: Proximal Meta-Policy Search
 Implementations corresponding to ProMP ([Rothfuss et al., 2018](https://arxiv.org/abs/????)). 
 Overall this repository consists of two branches:
@@ -64,14 +64,6 @@ can be specified through the dump_path flag:
 ```
 python run_scripts/pro-mp_run.py --config_file <config_file_path> --dump_path <dump_path>
 ```
-
-## Generating the documentation
-Run
-```
-make clean && make html
-```
-in the docs/ directory to generate the html documentation.
-The html are saved in docs/build/
 
 ## Acknowledgements
 This repository includes environments introduced in ([Duan et al., 2016](https://arxiv.org/abs/1611.02779), 

@@ -14,11 +14,10 @@ class ProMP(MAMLAlgo):
         policy (Policy): policy object
         name (str): tf variable scope
         learning_rate (float): learning rate for optimizing the meta-objective
-        num_ppo_steps (int): number of ppo steps (without re-sampling)
+        num_ppo_steps (int): number of ProMP steps (without re-sampling)
         num_minibatches (int): number of minibatches for computing the ppo gradient steps
         clip_eps (float): PPO clip range
         target_inner_step (float) : target inner kl divergence, used only when adaptive_inner_kl_penalty is true
-        init_outer_kl_penalty (float) : initial penalty for outer kl, used only with L^KLPEN
         init_inner_kl_penalty (float) : initial penalty for inner kl
         adaptive_inner_kl_penalty (bool): whether to used a fixed or adaptive kl penalty on inner gradient update
         anneal_factor (float) : multiplicative factor for annealing clip_eps. If anneal_factor < 1, clip_eps <- anneal_factor * clip_eps at each iteration
