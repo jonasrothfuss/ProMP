@@ -1,8 +1,58 @@
 [![Build Status](https://travis-ci.com/jonasrothfuss/maml_zoo.svg?token=j5XSZzvzzLqAy58VEYoC&branch=master)](https://travis-ci.com/jonasrothfuss/maml_zoo)
 
-# MAML-ZOO
+# ProMP: Proximal Meta-Policy Search
+Implementations corresponding to ProMP ([Rothfuss et al., 2018](https://arxiv.org/abs/????)). 
+Overall this repository consists of two branches:
 
-Different implementations of Model-Agnostic Meta-Learning (MAML) applied on Reinforcement Learning problems. This repository includes environments introduced in ([Duan et al., 2016](https://arxiv.org/abs/1611.02779), [Finn et al., 2017](https://arxiv.org/abs/1703.03400)): multi-armed bandits, tabular MDPs, continuous control with MuJoCo, and 2D navigation task.
+1) master: lightweight branch that provides the necessary code to run Meta-RL algorithms such as ProMP, E-MAML, MAML.
+            This branch is meant to provide an easy start with Meta-RL and can be integrated into other projects and setups.
+2) full-code: branch that provides the comprehensive code that was used to produce the experimental results in [Rothfuss et al. (2018)](https://arxiv.org/abs/????).
+              This includes experiment scrips and plotting scripts that can be used to reproduce the experimental results in the paper.
+              
+The code is written in Python 3 and builds on [Tensorflow](https://www.tensorflow.org/). 
+Many of the provided reinforcement learning environments require the [Mujoco](http://www.mujoco.org/) physics engine.
+Overall the code was developed under consideration of modularity and computational efficiency.
+Many components of the Meta-RL algorithm are parallelized either using either [MPI](https://mpi4py.readthedocs.io/en/stable/) 
+or [Tensorflow](https://www.tensorflow.org/) in order to ensure efficient use of all CPU cores.
+
+## Getting started
+
+### Installing MPI
+Ensure that you have a working MPI implementation ([see here](https://mpi4py.readthedocs.io/en/stable/install.html) for more instructions). 
+
+For Ubuntu you can install MPI through the package manager:
+
+```
+sudo apt-get install libopenmpi-dev
+```
+
+### Virtualenv
+```
+pip install --upgrade virtualenv
+```
+Create a virtual environment, activate it and install the requirements in [`requirements.txt`](requirements.txt).
+```
+virtualenv <venv-name>
+source <venv-name>/bin/activate
+pip install -r requirements.txt
+```
+
+### Anaconda 
+TODO
+
+### Docker container
+TODO
+
+### Setting up mujoco-py
+For running the majority of the provided Meta-RL environments, the Mujoco physics engine as well as a 
+corresponding python wrapper are required.
+For setting up [Mujoco](http://www.mujoco.org/) and [mujoco-py](https://github.com/openai/mujoco-py), 
+please follow the instructions [here](https://github.com/openai/mujoco-py).
+
+
+
+## Usage
+TODO
 
 ## Generating the documentation
 Run
@@ -12,55 +62,6 @@ make clean && make html
 in the docs/ directory to generate the html documentation.
 The html are saved in docs/build/
 
-## Getting started
-To avoid any conflict with your existing Python setup, and to keep this project self-contained, it is suggested to work in a virtual environment with [`virtualenv`](http://docs.python-guide.org/en/latest/dev/virtualenvs/). To install `virtualenv`:
-```
-pip install --upgrade virtualenv
-```
-Create a virtual environment, activate it and install the requirements in [`requirements.txt`](requirements.txt).
-```
-virtualenv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-## Usage
-You can use the [`main.py`](main.py) script in order to run reinforcement learning experiments with MAML. This script was tested with Python 3.5. Note that some environments may also work with Python 2.7 (all experiments besides MuJoCo-based environments).
-```
-python main.py --env-name HalfCheetahDir-v1 --num-workers 8 --fast-lr 0.1 --max-kl 0.01 --fast-batch-size 20 --meta-batch-size 40 --num-layers 2 --hidden-size 100 --num-batches 1000 --gamma 0.99 --tau 1.0 --cg-damping 1e-5 --ls-max-steps 15 --output-folder maml-halfcheetah-dir --device cuda
-```
-
-## Setting up the EC2 experiment pipeline 
-
-Install AWS commandline interface
-
-```
-sudo apt-get install awscli
-```
-
-and configure the asw cli
-
-```
-aws configure
-```
-
-Clone the doodad repository 
-
-```
-git clone https://github.com/jonasrothfuss/doodad.git
-```
-
-Install the extra package requirements for doodad
-```
-cd doodad && pip install -r requirements.txt
-```
-
-Configure doodad for your ec2 account. First you have to specify the following environment variables in your ~/.bashrc: 
-AWS_ACCESS_KEY, AWS_ACCESS_KEY, DOODAD_S3_BUCKET
-
-Then run
-```
-python scripts/setup_ec2.py
-```
-
-Set S3_BUCKET_NAME in experiment_utils/config.py to your bucket name
+## Acknowledgements
+This repository includes environments introduced in ([Duan et al., 2016](https://arxiv.org/abs/1611.02779), 
+[Finn et al., 2017](https://arxiv.org/abs/1703.03400)).
