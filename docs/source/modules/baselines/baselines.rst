@@ -7,7 +7,6 @@ Baseline (Interface)
 ---------------------------
 .. autoclass:: Baseline
     :members:
-    :inherited-members:
 
 Linear Feature Baseline
 ---------------------------

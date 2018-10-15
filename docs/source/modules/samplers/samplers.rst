@@ -1,7 +1,7 @@
 Samplers
 ==========================
 
-.. automodule:: meta-policy-search.samplers
+.. automodule:: meta_policy_search.samplers
     :members:
     :undoc-members:
     :show-inheritance:
@@ -40,9 +40,9 @@ Sample Processor
 Vectorized Environment Executor
 -------------------------------
 
-.. automodule:: meta-policy-search.samplers.vectorized_env_executor
+.. automodule:: meta_policy_search.samplers.vectorized_env_executor
 
-.. autoclass:: MetaMetaIterativeEnvExecutor
+.. autoclass:: MetaIterativeEnvExecutor
     :members:
     :inherited-members:
     :show-inheritance:
