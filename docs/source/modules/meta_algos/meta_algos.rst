@@ -14,20 +14,20 @@ MAML-Algorithm (Interface)
 PPO-MAML-Algorithm
 ------------------------------
 
-.. autoclass:: MAMLPPO
+.. autoclass:: PPOMAML
     :members:
     :show-inheritance:
 
 TRPO-MAML-Algorithm
 ------------------------------
 
-.. autoclass:: MAMLTRPO
+.. autoclass:: TRPOMAML
     :members:
     :show-inheritance:
 
 VPG-MAML-Algorithm
 ------------------------------
 
-.. autoclass:: MAMLVPG
+.. autoclass:: VPGMAML
     :members:
     :show-inheritance:

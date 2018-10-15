@@ -1,11 +1,8 @@
-from maml_zoo.logger import logger
-from maml_zoo.meta_algos.base import MAMLAlgo
-from maml_zoo.optimizers.maml_first_order_optimizer import MAMLPPOOptimizer
-from maml_zoo.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
-from maml_zoo import utils
+from meta_policy_search.utils import logger
+from meta_policy_search.meta_algos.base import MAMLAlgo
+from meta_policy_search.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
 
 import tensorflow as tf
-import numpy as np
 from collections import OrderedDict
 
 class TRPOMAML(MAMLAlgo):
@@ -77,17 +74,6 @@ class TRPOMAML(MAMLAlgo):
     def build_graph(self):
         """
         Creates the computation graph
-
-        Notes:
-            Pseudocode:
-            for task in meta_batch_size:
-                make_vars
-                init_init_dist_sym
-            for step in num_inner_grad_steps:
-                for task in meta_batch_size:
-                    make_vars
-                    update_init_dist_sym
-            set objectives for optimizer
         """
 
         """ Create Variables """

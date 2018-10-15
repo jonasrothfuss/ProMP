@@ -1,5 +1,5 @@
 import unittest
-from maml_zoo.policies.gaussian_mlp_policy import GaussianMLPPolicy
+from meta_policy_search.policies.gaussian_mlp_policy import GaussianMLPPolicy
 import numpy as np
 import tensorflow as tf
 import pickle

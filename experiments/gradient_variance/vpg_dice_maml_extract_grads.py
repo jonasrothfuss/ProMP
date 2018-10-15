@@ -1,11 +1,9 @@
-from maml_zoo.logger import logger
+from maml_zoo.utils import logger
 
 from maml_zoo.meta_algos.dice_maml import DICEMAML
-from maml_zoo.optimizers.maml_first_order_optimizer import MAMLFirstOrderOptimizer
 from maml_zoo import utils
 
 import tensorflow as tf
-import numpy as np
 from collections import OrderedDict
 
 
@@ -40,17 +38,6 @@ class VPG_DICEMAML(DICEMAML):
     def build_graph(self):
         """
         Creates the computation graph for DICE MAML
-
-        Notes:
-            Pseudocode:
-            for task in meta_batch_size:
-                make_vars
-                init_init_dist_sym
-            for step in num_inner_grad_steps:
-                for task in meta_batch_size:
-                    make_vars
-                    update_init_dist_sym
-            set objectives for optimizer
         """
 
         self.gradients = []

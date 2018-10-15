@@ -115,8 +115,8 @@ venv.bak/
 # mjkey
 /docker/mjkey.txt
 
-# sandbox
-/sandbox
-
 #env file
 .env
+
+# sandbox
+/sandbox

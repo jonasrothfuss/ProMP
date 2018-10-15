@@ -24,23 +24,23 @@ plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 prop_cycle = plt.rcParams['axes.prop_cycle']
 colors = prop_cycle.by_key()['color']
-COLORS = dict(ours=colors.pop(0))
+COLORS = dict(ours=colors.pop(2))
 
-LEGEND_ORDER = {'VPG': 0, 'DICE': 1}
+LEGEND_ORDER = {'LVC': 0, 'DiCE': 4}
 
 ########## Add data path here #############
-data_path = '/home/jonasrothfuss/Dropbox/Eigene_Dateien/UC_Berkley/2_Code/maml-zoo/data/s3/gradient-variance'
+data_path = '/home/jonasrothfuss/Dropbox/Publication_Data/PMPO/gradient-variance'
 ###########################################
 exps_data = plot_utils.load_exps_data([data_path])
 
-def sorting_legend(label):
-    return LEGEND_ORDER[label]
+#def sorting_legend(label):
+#    return LEGEND_ORDER[label]
 
 
 def get_color(label):
     if label not in COLORS.keys():
-        COLORS[label] = colors.pop(0)
-    return COLORS[label]
+        COLORS[label] = colors[LEGEND_ORDER[label]]
+    return colors[LEGEND_ORDER[label]]
 
 def runningMeanFast(x, N):
     return np.convolve(x, np.ones((N,))/N)[(N-1):]
@@ -56,14 +56,14 @@ def plot_from_exps(exp_data,
                    plot_labels=None,
                    x_label=None,
                    y_labels=None,
-                   running_mean_size=5,
+                   running_mean_size=10,
                    cut_x_range_at=None
                    ):
 
     exp_data = plot_utils.filter(exp_data, filters=filters)
     exps_per_plot = dict([(y_key, exp_data) for y_key in y_keys])
-    fig, axarr = plt.subplots(1, len(exps_per_plot.keys()), figsize=(20, 6))
-    fig.tight_layout(pad=2., w_pad=1.5, h_pad=3.0, rect=[0, 0, 0.9, 1])
+    fig, axarr = plt.subplots(len(exps_per_plot.keys()), 1, figsize=(9, 12))
+    fig.tight_layout(pad=1.5, w_pad=0, h_pad=2.0, rect=[0, 0.08, 1, 1])
 
     if not hasattr(axarr, '__iter__'): axarr = [axarr]
 
@@ -80,7 +80,7 @@ def plot_from_exps(exp_data,
         axarr[i].xaxis.set_major_locator(plt.MaxNLocator(5))
 
         # iterate over plots in figure
-        for j, default_label in enumerate(sorted(plots_in_figure_exps, key=sorting_legend)):
+        for j, default_label in enumerate(sorted(plots_in_figure_exps)):
             exps = plots_in_figure_exps[default_label]
             x, y_mean, y_std = plot_utils.prepare_data_for_plot(exps, x_key=x_key, y_key=y_key, round_x=True)
 
@@ -102,21 +102,21 @@ def plot_from_exps(exp_data,
 
             # axis ticks
 
-    axarr[0].set_ylim(0, 80)
+    axarr[0].set_ylim(0, 50)
 
 
-    fig.legend(loc='center right', ncol=1, bbox_transform=plt.gcf().transFigure)
+    fig.legend(loc='lower center', ncol=2, bbox_transform=plt.gcf().transFigure)
     fig.savefig(plot_name + '.pdf')
 
 plot_from_exps(exps_data,
-               filters={'normalize_by_path_length': False},
+               filters={},
                split_plots_by='algo',
                x_key='n_timesteps',
                y_keys=['Meta-GradientRStd', 'Step_1-AverageReturn'],
                x_label='Time steps',
                y_labels=['Relative Std', 'Average Return'],
                subfigure_titles=['Gradient Variance', 'Return'],
-               plot_labels=['LCV', 'DICE'],
+               plot_labels=['LVC', 'DiCE'],
                plot_name='./gradient_variance',
-               cut_x_range_at=295
+               cut_x_range_at=292
                )

@@ -3,19 +3,17 @@ import json
 import tensorflow as tf
 import numpy as np
 from experiment_utils.run_sweep import run_sweep
-from maml_zoo.utils.utils import set_seed, ClassEncoder
-from maml_zoo.baselines.linear_baseline import LinearTimeBaseline, LinearFeatureBaseline
-from maml_zoo.envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
-from maml_zoo.envs.ant_rand_direc import AntRandDirecEnv
-from maml_zoo.envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
-from maml_zoo.envs.ant_rand_direc_2d import AntRandDirec2DEnv
-from maml_zoo.envs.normalized_env import normalize
-from maml_zoo.meta_algos.vpg_dice_maml import VPG_DICEMAML
-from maml_zoo.meta_trainer import Trainer
-from maml_zoo.samplers.maml_sampler import MAMLSampler
-from maml_zoo.samplers import DiceMAMLSampleProcessor
-from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
-from maml_zoo.logger import logger
+from meta_policy_search.utils.utils import set_seed, ClassEncoder
+from meta_policy_search.baselines.linear_baseline import LinearTimeBaseline, LinearFeatureBaseline
+from meta_policy_search.envs.mujoco_envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
+from meta_policy_search.envs.mujoco_envs.ant_rand_direc_2d import AntRandDirec2DEnv
+from meta_policy_search.envs.normalized_env import normalize
+from meta_policy_search.meta_algos.vpg_dice_maml import VPG_DICEMAML
+from meta_policy_search.meta_trainer import Trainer
+from meta_policy_search.samplers.maml_sampler import MAMLSampler
+from meta_policy_search.samplers import DiceMAMLSampleProcessor
+from meta_policy_search.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
+from meta_policy_search.utils import logger
 
 INSTANCE_TYPE = 'c4.4xlarge'
 EXP_NAME = 'vpg-dice'
@@ -91,7 +89,7 @@ if __name__ == '__main__':
     sweep_params = {
         'seed': [22, 43, 76, 34],
 
-        'env': [HalfCheetahRandDirecEnv, AntRandDirec2DEnv],
+        'env': [HalfCheetahRandDirecEnv],
 
         'rollouts_per_meta_task': [100],
         'max_path_length': [100],
@@ -99,7 +97,7 @@ if __name__ == '__main__':
 
         'discount': [0.99],
         'normalize_adv': [True],
-        'positive_adv': [False],
+        'positive_adv': [True],
 
         'hidden_sizes': [(64, 64)],
         'learn_std': [True],
@@ -107,7 +105,7 @@ if __name__ == '__main__':
         'output_nonlinearity': [None],
 
         'inner_lr': [0.1],
-        'learning_rate': [1e-3, 5e-4],
+        'learning_rate': [5e-3, 2e-3],
 
         'n_itr': [801],
         'meta_batch_size': [40],

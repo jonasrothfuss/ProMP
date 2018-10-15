@@ -32,7 +32,7 @@ def run_sweep(run_experiment, sweep_params, exp_name, instance_type='c4.xlarge')
 
         if query_yes_no("Continue?"):
             sweeper.run_sweep_ec2(run_experiment, sweep_params, bucket_name=config.S3_BUCKET_NAME, instance_type=instance_type,
-                              region='us-east-2', s3_log_name=exp_name, add_date_to_logname=False)
+                              region='us-west-1', s3_log_name=exp_name, add_date_to_logname=False)
 
     elif args.mode == 'local_docker':
         mode_docker = dd.mode.LocalDocker(
@@ -46,7 +46,7 @@ def run_sweep(run_experiment, sweep_params, exp_name, instance_type='c4.xlarge')
 
     elif args.mode == 'local_singularity':
         mode_singularity = dd.mode.LocalSingularity(
-            image='~/maml_zoo.simg')
+            image='~/meta_policy_search.simg')
         run_sweep_doodad(run_experiment, sweep_params, run_mode=mode_singularity, 
                 mounts=sweeper.mounts) 
     else:

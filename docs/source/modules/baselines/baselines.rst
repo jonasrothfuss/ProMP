@@ -15,5 +15,8 @@ Linear Feature Baseline
     :members:
     :inherited-members:
 
-
-
+LinearTimeBaseline
+---------------------------
+.. autoclass:: LinearTimeBaseline
+    :members:
+    :inherited-members:
