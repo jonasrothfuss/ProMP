@@ -1,4 +1,4 @@
-MAML-ZOO
+Meta-Policy Search
 =================
 
 .. toctree::
@@ -11,7 +11,7 @@ MAML-ZOO
     samplers/samplers
 
 
-Trainer
+Meta-Trainer
 ------------------------------
 
 .. automodule:: meta_policy_search.meta_trainer

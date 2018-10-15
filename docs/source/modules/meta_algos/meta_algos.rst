@@ -11,12 +11,13 @@ MAML-Algorithm (Interface)
     :inherited-members:
     :show-inheritance:
 
-PPO-MAML-Algorithm
+ProMP-Algorithm
 ------------------------------
 
-.. autoclass:: PPOMAML
+.. autoclass:: ProMP
     :members:
     :show-inheritance:
+    :inherited-members:
 
 TRPO-MAML-Algorithm
 ------------------------------
@@ -24,6 +25,7 @@ TRPO-MAML-Algorithm
 .. autoclass:: TRPOMAML
     :members:
     :show-inheritance:
+    :inherited-members:
 
 VPG-MAML-Algorithm
 ------------------------------
@@ -31,3 +33,4 @@ VPG-MAML-Algorithm
 .. autoclass:: VPGMAML
     :members:
     :show-inheritance:
+    :inherited-members:
