@@ -40,6 +40,7 @@ class CombinedMlp(object):
 class TestOptimizer(unittest.TestCase): #TODO add test for ConjugateGradientOptimizer
 
     def testSine(self):
+        np.random.seed(65)
         for optimizer in [MAMLFirstOrderOptimizer()]:
             tf.reset_default_graph()
             with tf.Session():
@@ -66,6 +67,7 @@ class TestOptimizer(unittest.TestCase): #TODO add test for ConjugateGradientOpti
                 self.assertLessEqual(np.mean((ys-y_pred)**2), 0.02)
 
     def testGauss(self):
+        np.random.seed(65)
         for optimizer in [MAMLFirstOrderOptimizer()]:
             tf.reset_default_graph()
             with tf.Session():

@@ -198,7 +198,6 @@ class ProMP(MAMLAlgo):
             logger.logkv('LossAfter', loss_after)
             logger.logkv('KLInner', np.mean(inner_kls))
             logger.logkv('KLCoeffInner', np.mean(self.inner_kl_coeff))
-            if not self.clip_outer: logger.logkv('KLOuter', outer_kl)
 
     def adapt_kl_coeff(self, kl_coeff, kl_values, kl_target):
         if hasattr(kl_values, '__iter__'):

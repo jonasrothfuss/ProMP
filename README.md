@@ -51,8 +51,19 @@ please follow the instructions [here](https://github.com/openai/mujoco-py).
 
 
 
-## Usage
-TODO
+## Running ProMP
+In order to run the ProMP algorithm with default configurations execute:
+```
+python run_scripts/pro-mp_run.py 
+```
+
+The run configuration can be change either in the run script directly or by providing a JSON configuration file with all
+the necessary hyperparameters. A JSON configuration file can be provided through the flag. Additionally the dump path 
+can be specified through the dump_path flag:
+
+```
+python run_scripts/pro-mp_run.py --config_file <config_file_path> --dump_path <dump_path>
+```
 
 ## Generating the documentation
 Run
