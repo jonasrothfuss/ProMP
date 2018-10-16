@@ -16,9 +16,23 @@ Overall the code was developed under consideration of modularity and computation
 Many components of the Meta-RL algorithm are parallelized either using either [MPI](https://mpi4py.readthedocs.io/en/stable/) 
 or [Tensorflow](https://www.tensorflow.org/) in order to ensure efficient use of all CPU cores.
 
-## Getting started
+## Installation / Dependencies
+The provided code can be either run in A) docker container provided by us or B) using python on
+your local machine. The latter requires multiple installation steps in order to setup dependencies.
 
-### Installing MPI
+### A. Docker
+If not installed yet, [set up](https://docs.docker.com/install/) docker on your machine.
+Pull our docker container ``jonasrothfuss/promp`` from docker-hub:
+
+```
+docker pull jonasrothfuss/promp
+```
+
+All the necessary dependencies are already installed inside the docker container.
+
+### B. Anaconda or Virtualenv
+
+##### B.1. Installing MPI
 Ensure that you have a working MPI implementation ([see here](https://mpi4py.readthedocs.io/en/stable/install.html) for more instructions). 
 
 For Ubuntu you can install MPI through the package manager:
@@ -27,24 +41,29 @@ For Ubuntu you can install MPI through the package manager:
 sudo apt-get install libopenmpi-dev
 ```
 
-### Virtualenv
+##### B.2. Create either venv or conda environment and activate it
+
+###### Virtualenv
 ```
 pip install --upgrade virtualenv
-```
-Create a virtual environment, activate it and install the requirements in [`requirements.txt`](requirements.txt).
-```
 virtualenv <venv-name>
 source <venv-name>/bin/activate
+```
+
+###### Anaconda 
+If not done yet, install [anaconda](https://www.anaconda.com/) by following the instructions [here](https://www.anaconda.com/download/#linux).
+Then reate a anaconda environment, activate it and install the requirements in [`requirements.txt`](requirements.txt).
+```
+conda create -n <env-name> python=3.6
+source activate <env-name>
+```
+
+##### B.3. Install the required python dependencies
+```
 pip install -r requirements.txt
 ```
 
-### Anaconda 
-TODO
-
-### Docker container
-TODO
-
-### Setting up mujoco-py
+##### B.4. Set up the Mujoco physics engine and mujoco-py
 For running the majority of the provided Meta-RL environments, the Mujoco physics engine as well as a 
 corresponding python wrapper are required.
 For setting up [Mujoco](http://www.mujoco.org/) and [mujoco-py](https://github.com/openai/mujoco-py), 
