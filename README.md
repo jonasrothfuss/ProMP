@@ -1,5 +1,6 @@
 [![Build Status](https://api.travis-ci.com/jonasrothfuss/ProMP.svg?branch=master)](https://travis-ci.com/jonasrothfuss/ProMP)
-[![Docs](https://readthedocs.org/projects/promp/badge/?version=latest)](promp.readthedocs.io)
+[![Docs](https://readthedocs.org/projects/promp/badge/?version=latest)](https://promp.readthedocs.io)
+
 # ProMP: Proximal Meta-Policy Search
 Implementations corresponding to ProMP ([Rothfuss et al., 2018](https://arxiv.org/abs/????)). 
 Overall this repository consists of two branches:
