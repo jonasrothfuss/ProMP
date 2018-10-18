@@ -2,12 +2,12 @@
 [![Docs](https://readthedocs.org/projects/promp/badge/?version=latest)](https://promp.readthedocs.io)
 
 # ProMP: Proximal Meta-Policy Search
-Implementations corresponding to ProMP ([Rothfuss et al., 2018](https://arxiv.org/abs/????)). 
+Implementations corresponding to ProMP ([Rothfuss et al., 2018](https://arxiv.org/abs/1810.06784)). 
 Overall this repository consists of two branches:
 
 1) master: lightweight branch that provides the necessary code to run Meta-RL algorithms such as ProMP, E-MAML, MAML.
             This branch is meant to provide an easy start with Meta-RL and can be integrated into other projects and setups.
-2) full-code: branch that provides the comprehensive code that was used to produce the experimental results in [Rothfuss et al. (2018)](https://arxiv.org/abs/????).
+2) full-code: branch that provides the comprehensive code that was used to produce the experimental results in [Rothfuss et al. (2018)](https://arxiv.org/abs/1810.06784).
               This includes experiment scripts and plotting scripts that can be used to reproduce the experimental results in the paper.
               
 The code is written in Python 3 and builds on [Tensorflow](https://www.tensorflow.org/). 
