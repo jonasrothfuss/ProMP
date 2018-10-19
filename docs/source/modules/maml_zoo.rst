@@ -11,11 +11,13 @@ MAML-ZOO
     samplers/samplers
 
 
-Trainer
+Meta-Trainer
 ------------------------------
 
-.. automodule:: maml_zoo.meta_trainer
+.. automodule:: meta_policy_search.meta_trainer
+
+.. autoclass:: Trainer
     :members:
-    :undoc-members:
+    :inherited-members:
     :show-inheritance:
 
