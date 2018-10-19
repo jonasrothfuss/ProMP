@@ -15,7 +15,8 @@ Meta-Trainer
 ------------------------------
 
 .. automodule:: meta_policy_search.meta_trainer
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
+.. autoclass:: Trainer
+    :members:
+    :inherited-members:
+    :show-inheritance:
