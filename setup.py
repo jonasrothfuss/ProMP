@@ -17,6 +17,6 @@ setup(name="meta_policy_search",
         'scipy',
         'gym==0.10.5',
         'python_dateutil',
-        'tensorflow>=1.4.0'
+        'tensorflow'
       ],
 zip_safe=False)

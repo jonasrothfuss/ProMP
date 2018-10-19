@@ -16,6 +16,21 @@ Overall the code was developed under consideration of modularity and computation
 Many components of the Meta-RL algorithm are parallelized either using either [MPI](https://mpi4py.readthedocs.io/en/stable/) 
 or [Tensorflow](https://www.tensorflow.org/) in order to ensure efficient use of all CPU cores.
 
+## Documentation
+
+An API specification and explanation of the code components can be found [here](https://promp.readthedocs.io/en/latest/).
+Also the documentation can be build locally by running the following commands
+
+```
+# ensure that you are in the root folder of the project
+cd docs
+# install the sphinx documentaiton tool dependencies
+pip install requirements.txt
+# build the documentaiton
+make clean && make html
+# now the html documentation can be found under docs/build/html/index.html
+```
+
 ## Installation / Dependencies
 The provided code can be either run in A) docker container provided by us or B) using python on
 your local machine. The latter requires multiple installation steps in order to setup dependencies.
