@@ -1,5 +1,5 @@
 Meta-Policy Search
-=================
+=================================
 
 .. toctree::
 
@@ -12,7 +12,7 @@ Meta-Policy Search
 
 
 Meta-Trainer
-------------------------------
+----------------------------------
 
 .. automodule:: meta_policy_search.meta_trainer
 

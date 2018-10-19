@@ -6,15 +6,26 @@ from meta_policy_search.utils import logger
 
 class Trainer(object):
     """
-    Performs steps for MAML
+    Performs steps of meta-policy search.
+
+     Pseudocode::
+
+            for iter in n_iter:
+                sample tasks
+                for task in tasks:
+                    for adapt_step in num_inner_grad_steps
+                        sample trajectories with policy
+                        perform update/adaptation step
+                    sample trajectories with post-update policy
+                perform meta-policy gradient step(s)
 
     Args:
         algo (Algo) :
         env (Env) :
-        sampler (Sampler) : 
-        sample_processor (SampleProcessor) : 
-        baseline (Baseline) : 
-        policy (Policy) : 
+        sampler (Sampler) :
+        sample_processor (SampleProcessor) :
+        baseline (Baseline) :
+        policy (Policy) :
         n_itr (int) : Number of iterations to train for
         start_itr (int) : Number of iterations policy has already trained for, if reloading
         num_inner_grad_steps (int) : Number of inner steps per maml iteration
