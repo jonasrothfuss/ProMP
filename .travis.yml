@@ -7,12 +7,17 @@ python:
   - "3.6-dev"  # 3.6 development branch
 
 before_install:
-  - sudo apt-get install libopenmpi-dev
+  - sudo apt-get install -y libopenmpi-dev wget unzip
+  #- sudo apt-get install -y curl git libgl1-mesa-dev libgl1-mesa-glx libglew-dev libosmesa6-dev
+  #- wget https://www.roboti.us/download/mjpro150_linux.zip
+  #- unzip mjpro150_linux.zip -d /home/travis/.mujoco
+  #- echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/travis/.mujoco/mjpro150/bin" >> /home/travis/.bashrc
+  #- source /home/travis/.bashrc
 
 # command to install dependencies
 install:
   - pip install .
-  - pip install -r requirements.txt
+  - pip install mpi4py click
 
 # command to run tests
 script:
@@ -23,4 +28,8 @@ script:
   - python -m tests.test_integration
 
 notifications:
-  email: false
+  email:
+    recipients:
+      - jonas.rothfuss@gmail.com
+    on_success: never
+    on_failure: always
