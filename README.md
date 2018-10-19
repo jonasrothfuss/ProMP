@@ -72,9 +72,14 @@ please follow the instructions [here](https://github.com/openai/mujoco-py).
 
 
 ## Running ProMP
-In order to run the ProMP algorithm with default configurations execute:
+In order to run the ProMP algorithm point environment (no Mujoco needed) with default configurations execute:
 ```
-python run_scripts/pro-mp_run.py 
+python run_scripts/pro-mp_run_point_mass.py 
+```
+
+To run the ProMP algorithm in a Mujoco environment with default configurations:
+```
+python run_scripts/pro-mp_run_mujoco.py 
 ```
 
 The run configuration can be change either in the run script directly or by providing a JSON configuration file with all
@@ -83,6 +88,14 @@ can be specified through the dump_path flag:
 
 ```
 python run_scripts/pro-mp_run.py --config_file <config_file_path> --dump_path <dump_path>
+```
+
+Additionally, in order to run the the gradient-based meta-learning methods MAML and E-MAML ([Finn et. al., 2017](https://arxiv.org/abs/1703.03400) and
+[Stadie et. al., 2018](https://arxiv.org/abs/1803.01118)) in a Mujoco environment with the default configuration 
+execute, respectively:
+```
+python run_scripts/maml_run_mujoco.py 
+python run_scripts/e-maml_run_mujoco.py 
 ```
 
 ## Acknowledgements
