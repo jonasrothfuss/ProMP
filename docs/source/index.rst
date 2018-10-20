@@ -16,7 +16,7 @@ The code repository provides implementations of various gradient-based Meta-RL m
 - MAML: Model Agnostic Meta-Learning (`Finn et al., 2017`_)
 - E-MAML: Exploration MAML (`Al-Shedivat et al., 2018`_, `Stadie et al., 2018`_)
 
-The code was written as part of ProMP_. Further information and experimental results can be found our the website_.
+The code was written as part of ProMP_. Further information and experimental results can be found on our website_.
 This documentation specifies the API and interaction of the algorithm's components. Overall, on iteration of
 gradient-based Meta-RL consists of the followings steps:
 
