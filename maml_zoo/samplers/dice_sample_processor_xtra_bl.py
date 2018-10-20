@@ -119,7 +119,7 @@ class DiceSampleProcessor(SampleProcessor):
 
         # compute reward (return-to-go) baseline
         for path in paths:
-            path['baselines'] = np.cumsum(path['baselines'])
+            path['baselines'] = np.cumsum(path['baselines'][::-1] )[::-1] # reversed cumsum
 
         if self.positive_adv:
             raise NotImplementedError

@@ -17,7 +17,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.4xlarge'
-EXP_NAME = 'dice_included_bl'
+EXP_NAME = 'dice_xtra_bl'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME

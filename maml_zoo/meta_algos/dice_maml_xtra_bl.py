@@ -30,7 +30,7 @@ class DICEMAML(MAMLAlgo):
             *args,
             name="dice_maml",
             learning_rate=1e-3,
-            second_order_baseline=True,
+            second_order_baseline=False,
             **kwargs
             ):
         super(DICEMAML, self).__init__(*args, **kwargs)
