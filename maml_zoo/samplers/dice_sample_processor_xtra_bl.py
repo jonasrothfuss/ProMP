@@ -47,7 +47,6 @@ class DiceSampleProcessor(SampleProcessor):
         self.normalize_adv = normalize_adv
         self.positive_adv = positive_adv
         self.return_baseline = return_baseline
-        assert return_baseline is not None, "return baseline must be provided"
 
     def process_samples(self, paths, log=False, log_prefix=''):
         """
@@ -118,8 +117,7 @@ class DiceSampleProcessor(SampleProcessor):
             baselines = baselines / (std + 1e-8)
 
         # compute reward (return-to-go) baseline
-        for path in paths:
-            path['baselines'] = np.cumsum(path['baselines'][::-1] )[::-1] # reversed cumsum
+        baselines = np.cumsum((baselines*mask)[::-1], axis=-1)[::-1]
 
         if self.positive_adv:
             raise NotImplementedError
@@ -187,7 +185,7 @@ class DiceSampleProcessor(SampleProcessor):
             mask.append(self._pad(np.ones(path_length), path_length))
             observations.append(self._pad(path["observations"], path_length))
             actions.append(self._pad(path["actions"], path_length))
-            rewards.append(self._pad(path["rewards"], path_length))
+            rewards.append(self._pad(path["discounted_rewards"], path_length))
             baselines.append(self._pad(path["baselines"], path_length))
             adjusted_rewards.append(self._pad(path["adjusted_rewards"], path_length))
             env_infos.append(dict([(key, self._pad(array, path_length)) for key, array in path["env_infos"].items()]))

@@ -17,7 +17,7 @@ from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
 INSTANCE_TYPE = 'c4.4xlarge'
-EXP_NAME = 'dice_xtra_bl'
+EXP_NAME = 'dice_xtra_bl_discounted_fixed'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -34,7 +34,7 @@ def run_experiment(**kwargs):
 
     policy = MetaGaussianMLPPolicy(
         name="meta-policy",
-        obs_dim=np.prod(env.observation_space.shape), # Todo...?
+        obs_dim=np.prod(env.observation_space.shape),
         action_dim=np.prod(env.action_space.shape),
         meta_batch_size=kwargs['meta_batch_size'],
         hidden_sizes=kwargs['hidden_sizes'],
@@ -110,7 +110,7 @@ if __name__ == '__main__':
 
         'inner_lr': [0.1],
         'learning_rate': [1e-3],
-        'second_order_baseline': [False],
+        'second_order_baseline': [True, False],
 
         'n_itr': [1001],
         'meta_batch_size': [40],

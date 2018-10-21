@@ -43,6 +43,22 @@ class DICEMAML(MAMLAlgo):
 
         self.build_graph()
 
+    # def _adapt_objective_sym(self, action_stacked_sym, reward_sym, baseline_sym, mask_sym, dist_info_stacked_sym):
+    #     with tf.variable_scope("log_likelihood"):
+    #         log_likelihood_adapt = self.policy.distribution.log_likelihood_sym(action_stacked_sym, dist_info_stacked_sym)
+    #         log_likelihood_adapt = tf.reshape(log_likelihood_adapt, tf.shape(mask_sym))
+    #     with tf.variable_scope("dice_loss"):
+    #         dice_loss = - tf.reduce_mean(tf.reduce_sum(magic_box_cumsum(log_likelihood_adapt) * reward_sym * mask_sym, axis=-1))
+    #         baseline_loss = - (1 - tf.reduce_mean(tf.reduce_sum(magic_box(log_likelihood_adapt) * baseline_sym * mask_sym, axis=-1)))
+    #         if self.second_order_baseline:
+    #             second_order_bl_loss = (1 - (magic_box(log_likelihood_adapt))[:, 1:]) * \
+    #                               (1 - (magic_box_cumsum(log_likelihood_adapt))[:, :-1]) * mask_sym[:, 1:] * baseline_sym[:, 1:]
+    #             second_order_bl_loss = tf.reduce_mean(tf.reduce_sum(second_order_bl_loss, axis=-1))
+    #         else:
+    #             second_order_bl_loss = 0
+    #
+    #     return dice_loss + baseline_loss + second_order_bl_loss
+
     def _adapt_objective_sym(self, action_stacked_sym, reward_sym, baseline_sym, mask_sym, dist_info_stacked_sym):
         with tf.variable_scope("log_likelihood"):
             log_likelihood_adapt = self.policy.distribution.log_likelihood_sym(action_stacked_sym, dist_info_stacked_sym)
@@ -51,8 +67,9 @@ class DICEMAML(MAMLAlgo):
             dice_loss = - tf.reduce_mean(magic_box_cumsum(log_likelihood_adapt) * reward_sym * mask_sym)
             baseline_loss = - (1 - tf.reduce_mean(magic_box(log_likelihood_adapt) * baseline_sym * mask_sym))
             if self.second_order_baseline:
-                second_order_bl_loss = (1 - tf.reduce_mean(magic_box(log_likelihood_adapt) * baseline_sym * mask_sym)) * \
-                                  (1 - tf.reduce_mean(magic_box_cumsum(log_likelihood_adapt) * baseline_sym * mask_sym))
+                second_order_bl_loss = (1 - magic_box(log_likelihood_adapt))[:, 1:] * \
+                                  (1 - magic_box_cumsum(log_likelihood_adapt))[:, :-1] * baseline_sym[:, 1:] * mask_sym[:, 1:]
+                second_order_bl_loss = tf.reduce_mean(second_order_bl_loss)
             else:
                 second_order_bl_loss = 0
 
