@@ -112,6 +112,16 @@ execute, respectively:
 python run_scripts/maml_run_mujoco.py 
 python run_scripts/e-maml_run_mujoco.py 
 ```
+## Cite
+To cite ProMP please use
+```
+@article{rothfuss2018promp,
+  title={ProMP: Proximal Meta-Policy Search},
+  author={Rothfuss, Jonas and Lee, Dennis and Clavera, Ignasi and Asfour, Tamim and Abbeel, Pieter},
+  journal={arXiv preprint arXiv:1810.06784},
+  year={2018}
+}
+```
 
 ## Acknowledgements
 This repository includes environments introduced in ([Duan et al., 2016](https://arxiv.org/abs/1611.02779), 
