@@ -16,7 +16,7 @@ dependencies:
         - boto3
         - Pillow
         - moviepy
-        - mujoco_py
+        - mujoco_py==1.50.1.56
         - scipy
         - matplotlib
         - git+https://github.com/dennisl88/rand_param_envs.git
