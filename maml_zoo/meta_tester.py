@@ -4,7 +4,7 @@ import time
 from maml_zoo.logger import logger
 
 
-class Trainer(object):
+class Tester(object):
     """
     Performs steps for MAML
 
@@ -29,7 +29,7 @@ class Trainer(object):
             policy,
             n_itr,
             start_itr=0,
-            num_inner_grad_steps=1,
+            task=None,
             sess=None,
             ):
         self.algo = algo
@@ -40,7 +40,7 @@ class Trainer(object):
         self.policy = policy
         self.n_itr = n_itr
         self.start_itr = start_itr
-        self.num_inner_grad_steps = num_inner_grad_steps
+        self.task = task
         if sess is None:
             sess = tf.Session()
         self.sess = sess
@@ -63,71 +63,51 @@ class Trainer(object):
             uninit_vars = [var for var in tf.global_variables() if not sess.run(tf.is_variable_initialized(var))]
             sess.run(tf.variables_initializer(uninit_vars))
 
+            if self.task is None:
+                self.task = np.array([self.env.sample_tasks(1)] * self.sampler.meta_batch_size)
+            self.sampler.set_tasks(self.task)
+            self.policy.switch_to_pre_update()
+
             start_time = time.time()
             for itr in range(self.start_itr, self.n_itr):
                 itr_start_time = time.time()
                 logger.log("\n ---------------- Iteration %d ----------------" % itr)
                 logger.log("Sampling set of tasks/goals for this meta-batch...")
 
-                self.sampler.update_tasks()
-                self.policy.switch_to_pre_update()  # Switch to pre-update policy
+                """ -------------------- Sampling --------------------------"""
 
-                all_samples_data, all_paths = [], []
-                list_sampling_time, list_inner_step_time, list_outer_step_time, list_proc_samples_time = [], [], [], []
-                start_total_inner_time = time.time()
-                for step in range(self.num_inner_grad_steps+1):
-                    logger.log('** Step ' + str(step) + ' **')
+                logger.log("Obtaining samples...")
+                time_env_sampling_start = time.time()
+                paths = self.sampler.obtain_samples(log=True, log_prefix='Meta-test-')
+                paths = sum(paths.values(), [])
+                sampling_time = time.time() - time_env_sampling_start
 
-                    """ -------------------- Sampling --------------------------"""
+                """ ----------------- Processing Samples ---------------------"""
 
-                    logger.log("Obtaining samples...")
-                    time_env_sampling_start = time.time()
-                    paths = self.sampler.obtain_samples(log=True, log_prefix='Step_%d-' % step)
-                    list_sampling_time.append(time.time() - time_env_sampling_start)
-                    all_paths.append(paths)
+                logger.log("Processing samples...")
+                time_proc_samples_start = time.time()
+                samples_data = self.sample_processor.process_samples(paths, log='all', log_prefix='Meta-test-')
+                proc_samples_time = time.time() - time_proc_samples_start
 
-                    """ ----------------- Processing Samples ---------------------"""
+                self.log_diagnostics(paths, prefix='Meta-test-')
 
-                    logger.log("Processing samples...")
-                    time_proc_samples_start = time.time()
-                    samples_data = self.sample_processor.process_samples(paths, log='all', log_prefix='Step_%d-' % step)
-                    all_samples_data.append(samples_data)
-                    list_proc_samples_time.append(time.time() - time_proc_samples_start)
-
-                    self.log_diagnostics(sum(list(paths.values()), []), prefix='Step_%d-' % step)
-
-                    """ ------------------- Inner Policy Update --------------------"""
-
-                    time_inner_step_start = time.time()
-                    if step < self.num_inner_grad_steps:
-                        logger.log("Computing inner policy updates...")
-                        self.algo._adapt(samples_data)
-                    # train_writer = tf.summary.FileWriter('/home/ignasi/Desktop/maml_zoo_graph',
-                    #                                      sess.graph)
-                    list_inner_step_time.append(time.time() - time_inner_step_start)
-                total_inner_time = time.time() - start_total_inner_time
-
-                time_maml_opt_start = time.time()
-                """ ------------------ Outer Policy Update ---------------------"""
+                """ ------------------ Policy Update ---------------------"""
 
                 logger.log("Optimizing policy...")
                 # This needs to take all samples_data so that it can construct graph for meta-optimization.
-                time_outer_step_start = time.time()
-                self.algo.optimize_policy(all_samples_data)
+                time_optimization_step_start = time.time()
+                self.algo.optimize_policy(samples_data)
 
                 """ ------------------- Logging Stuff --------------------------"""
                 logger.logkv('Itr', itr)
                 logger.logkv('n_timesteps', self.sampler.total_timesteps_sampled)
 
-                logger.logkv('Time-OuterStep', time.time() - time_outer_step_start)
-                logger.logkv('Time-TotalInner', total_inner_time)
-                logger.logkv('Time-InnerStep', np.sum(list_inner_step_time))
-                logger.logkv('Time-SampleProc', np.sum(list_proc_samples_time))
-                logger.logkv('Time-Sampling', np.sum(list_sampling_time))
+                logger.logkv('Time-Optimization', time.time() - time_optimization_step_start)
+                logger.logkv('Time-SampleProc', np.sum(proc_samples_time))
+                logger.logkv('Time-Sampling', sampling_time)
 
                 logger.logkv('Time', time.time() - start_time)
                 logger.logkv('ItrTime', time.time() - itr_start_time)
-                logger.logkv('Time-MAMLSteps', time.time() - time_maml_opt_start)
 
                 logger.log("Saving snapshot...")
                 params = self.get_itr_snapshot(itr)
@@ -135,11 +115,9 @@ class Trainer(object):
                 logger.log("Saved")
 
                 logger.dumpkvs()
-                if itr == 0:
-                    sess.graph.finalize()
 
         logger.log("Training finished")
-        self.sess.close()        
+        self.sess.close()
 
     def get_itr_snapshot(self, itr):
         """

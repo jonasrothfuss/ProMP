@@ -121,7 +121,27 @@ def concat_tensor_dict_list(tensor_dict_list):
     return ret
 
 
-def stack_tensor_dict_list(tensor_dict_list):
+def _stack_tensor_dict_list(tensor_dict_list):
+    """
+    Args:
+        tensor_dict_list (list) : list of dicts of lists of tensors
+
+    Returns:
+        (dict) : dict of lists of tensors
+    """
+    keys = list(tensor_dict_list[0].keys())
+    ret = dict()
+    for k in keys:
+        example = tensor_dict_list[0][k]
+        if isinstance(example, dict):
+            v = concat_tensor_dict_list([x[k] for x in tensor_dict_list])
+        else:
+            v = np.stack([x[k] for x in tensor_dict_list])
+        ret[k] = v
+    return ret
+
+
+def stack_tensor_dict_list(tensor_dict_list, max_path=None):
     """
     Args:
         tensor_dict_list (list) : list of dicts of tensors
@@ -136,7 +156,12 @@ def stack_tensor_dict_list(tensor_dict_list):
         if isinstance(example, dict):
             v = stack_tensor_dict_list([x[k] for x in tensor_dict_list])
         else:
-            v = np.asarray([x[k] for x in tensor_dict_list])
+            if max_path is not None:
+                v = np.asarray([
+                                np.concatenate([x[k], np.zeros((max_path - x[k].shape[0],) + x[k].shape[1:])])
+                                for x in tensor_dict_list])
+            else:
+                v = np.asarray([x[k] for x in tensor_dict_list])
         ret[k] = v
     return ret
 
@@ -175,6 +200,7 @@ def set_seed(seed):
     np.random.seed(seed)
     tf.set_random_seed(seed)
     print('using seed %s' % (str(seed)))
+
 
 class ClassEncoder(json.JSONEncoder):
     def default(self, o):

@@ -1,4 +1,4 @@
-from maml_zoo.policies.networks.mlp import create_mlp, forward_mlp
+from maml_zoo.policies.networks.mlp import create_rnn
 from maml_zoo.policies.distributions.diagonal_gaussian import DiagonalGaussian
 from maml_zoo.policies.base import Policy
 from maml_zoo.utils import Serializable
@@ -10,7 +10,7 @@ import numpy as np
 from collections import OrderedDict
 
 
-class GaussianMLPPolicy(Policy):
+class GaussianRNNPolicy(Policy):
     """
     Gaussian multi-layer perceptron policy (diagonal covariance matrix)
     Provides functions for executing and updating policy parameters
@@ -29,7 +29,7 @@ class GaussianMLPPolicy(Policy):
 
     """
 
-    def __init__(self, *args, init_std=1., min_std=1e-6, **kwargs):
+    def __init__(self, *args, init_std=1., min_std=1e-6, cell_type='gru', **kwargs):
         # store the init args for serialization and call the super constructors
         Serializable.quick_init(self, locals())
         Policy.__init__(self, *args, **kwargs)
@@ -44,8 +44,12 @@ class GaussianMLPPolicy(Policy):
         self.log_std_var = None
         self.action_var = None
         self._dist = None
+        self._hidden_state = None
+        self.recurrent = True
+        self._cell_type = cell_type
 
         self.build_graph()
+        self._zero_hidden = self.cell.zero_state(1, tf.float32)
 
     def build_graph(self):
         """
@@ -53,13 +57,16 @@ class GaussianMLPPolicy(Policy):
         """
         with tf.variable_scope(self.name):
             # build the actual policy network
-            self.obs_var, self.mean_var = create_mlp(name='mean_network',
-                                                     output_dim=self.action_dim,
-                                                     hidden_sizes=self.hidden_sizes,
-                                                     hidden_nonlinearity=self.hidden_nonlinearity,
-                                                     output_nonlinearity=self.output_nonlinearity,
-                                                     input_dim=(None, self.obs_dim,)
-                                                     )
+            rnn_outs = create_rnn(name='mean_network',
+                                  cell_type=self._cell_type,
+                                  output_dim=self.action_dim,
+                                  hidden_sizes=self.hidden_sizes,
+                                  hidden_nonlinearity=self.hidden_nonlinearity,
+                                  output_nonlinearity=self.output_nonlinearity,
+                                  input_dim=(None, None, self.obs_dim,),
+                                  )
+
+            self.obs_var, self.hidden_var, self.mean_var, self.next_hidden_var, self.cell = rnn_outs
 
             with tf.variable_scope("log_std_network"):
                 log_std_var = tf.get_variable(name='log_std_var',
@@ -72,7 +79,6 @@ class GaussianMLPPolicy(Policy):
                 self.log_std_var = tf.maximum(log_std_var, self.min_log_std, name='log_std')
 
             # symbolically define sampled action and distribution
-            self.action_var = self.mean_var + tf.random_normal(shape=tf.shape(self.mean_var)) * tf.exp(log_std_var)
             self._dist = DiagonalGaussian(self.action_dim)
 
             # save the policy's trainable variables in dicts
@@ -105,20 +111,28 @@ class GaussianMLPPolicy(Policy):
         Returns:
             (ndarray) : array of sampled actions - shape: (batch_size, action_dim)
         """
-        meta_batch_size = len(observations)
-        batch_size = observations[0].shape[0]
-        assert all([obs.shape[0] == batch_size for obs in observations])
-        observations = np.concatenate(observations)
-        assert observations.ndim == 2 and observations.shape[1] == self.obs_dim
+        observations = np.array(observations)
+        assert observations.shape[-1] == self.obs_dim
+        if observations.ndim == 2:
+            observations = np.expand_dims(observations, 1),
+        elif observations.ndim == 3:
+            pass
+        else:
+            raise AssertionError
 
         sess = tf.get_default_session()
-        actions, means, log_stds = sess.run([self.action_var, self.mean_var, self.log_std_var],
-                                             feed_dict={self.obs_var: observations})
+        means, logs_stds, self._hidden_state = sess.run([self.mean_var, self.log_std_var,  self.next_hidden_var],
+                                                     feed_dict={self.obs_var: observations,
+                                                                self.hidden_var: self._hidden_state})
 
-        assert actions.shape == (observations.shape[0], self.action_dim)
-        actions, means = np.split(actions, meta_batch_size, axis=0), np.split(means, meta_batch_size, axis=0)
-        agent_infos = [[dict(mean=mean, log_std=log_stds[0]) for mean in means[idx]] for idx in
-                       range(meta_batch_size)]
+        assert means.ndim == 3 and means.shape[-1] == self.action_dim
+        rnd = np.random.normal(size=means.shape)
+        actions = means + rnd * np.exp(logs_stds)
+
+        means = means[:, 0, :]
+        logs_stds = logs_stds[0, :]
+        assert actions.shape == (observations.shape[0], 1, self.action_dim)
+        agent_infos = [[dict(mean=mean, log_std=logs_stds)] for mean in means]
         return actions, agent_infos
 
     def log_diagnostics(self, paths, prefix=''):
@@ -156,38 +170,20 @@ class GaussianMLPPolicy(Policy):
         Returns:
             (dict) : a dictionary of tf placeholders for the policy output distribution
         """
-        if params is None:
-            with tf.variable_scope(self.name):
-                obs_var, mean_var = create_mlp(name='mean_network',
-                                               output_dim=self.action_dim,
-                                               hidden_sizes=self.hidden_sizes,
-                                               hidden_nonlinearity=self.hidden_nonlinearity,
-                                               output_nonlinearity=self.output_nonlinearity,
-                                               input_var=obs_var,
-                                               reuse=True,
-                                               )
-                log_std_var = self.log_std_var
-        else:
-            mean_network_params = OrderedDict()
-            log_std_network_params = []
-            for name, param in params.items():
-                if 'log_std_network' in name:
-                    log_std_network_params.append(param)
-                else:# if 'mean_network' in name:
-                    mean_network_params[name] = param
+        assert params is None
+        with tf.variable_scope(self.name, reuse=True):
+            rnn_outs = create_rnn(name="mean_network",
+                                  output_dim=self.action_dim,
+                                  hidden_sizes=self.hidden_sizes,
+                                  hidden_nonlinearity=self.hidden_nonlinearity,
+                                  output_nonlinearity=self.output_nonlinearity,
+                                  input_var=obs_var,
+                                  cell_type=self._cell_type,
+                                  )
+            obs_var, hidden_var, mean_var, next_hidden_var, cell = rnn_outs
+            log_std_var = self.log_std_var
 
-            assert len(log_std_network_params) == 1
-            obs_var, mean_var = forward_mlp(output_dim=self.action_dim,
-                                            hidden_sizes=self.hidden_sizes,
-                                            hidden_nonlinearity=self.hidden_nonlinearity,
-                                            output_nonlinearity=self.output_nonlinearity,
-                                            input_var=obs_var,
-                                            mlp_params=mean_network_params,
-                                            )
-
-            log_std_var = log_std_network_params[0]
-
-        return dict(mean=mean_var, log_std=log_std_var)
+        return dict(mean=mean_var, log_std=log_std_var), hidden_var, next_hidden_var
 
     def distribution_info_keys(self, obs, state_infos):
         """
@@ -201,3 +197,25 @@ class GaussianMLPPolicy(Policy):
         """
         raise ["mean", "log_std"]
 
+    def reset(self, dones=None):
+        sess = tf.get_default_session()
+        _hidden_state = sess.run(self._zero_hidden)
+        if self._hidden_state is None:
+            self._hidden_state = sess.run(self.cell.zero_state(len(dones), tf.float32))
+        else:
+            if isinstance(self._hidden_state, tf.contrib.rnn.LSTMStateTuple):
+                self._hidden_state.c[dones] = _hidden_state.c
+                self._hidden_state.h[dones] = _hidden_state.h
+            else:
+                self._hidden_state[dones] = _hidden_state
+
+    def get_zero_state(self, batch_size):
+        sess = tf.get_default_session()
+        _hidden_state = sess.run(self._zero_hidden)
+        if isinstance(self._hidden_state, tf.contrib.rnn.LSTMStateTuple):
+            hidden_c = np.concatenate([_hidden_state.c] * batch_size)
+            hidden_h = np.concatenate([_hidden_state.h] * batch_size)
+            hidden = tf.contrib.rnn.LSTMStateTuple(hidden_c, hidden_h)
+            return hidden
+        else:
+            return np.concatenate([_hidden_state] * batch_size)

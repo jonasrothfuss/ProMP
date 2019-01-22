@@ -8,6 +8,10 @@ from maml_zoo.baselines.linear_baseline import LinearTimeBaseline, LinearFeature
 from maml_zoo.envs.mujoco_envs.half_cheetah_rand_direc import HalfCheetahRandDirecEnv
 from maml_zoo.envs.mujoco_envs.ant_rand_direc import AntRandDirecEnv
 from maml_zoo.envs.mujoco_envs.half_cheetah_rand_vel import HalfCheetahRandVelEnv
+from maml_zoo.envs.mujoco_envs.walker2d_rand_direc import Walker2DRandDirecEnv
+from maml_zoo.envs.mujoco_envs.humanoid_rand_direc_2d import HumanoidRandDirec2DEnv
+from rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
+from rand_param_envs.hopper_rand_params import HopperRandParamsEnv
 from maml_zoo.envs.normalized_env import normalize
 from maml_zoo.meta_algos.dice_maml import DICEMAML
 from maml_zoo.meta_trainer import Trainer
@@ -16,8 +20,8 @@ from maml_zoo.samplers import DiceMAMLSampleProcessor
 from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
-INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'trpo-exploration-eval'
+INSTANCE_TYPE = 'c4.4xlarge'
+EXP_NAME = 'dice-eval-2'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -89,7 +93,8 @@ if __name__ == '__main__':
 
         'baseline': [LinearTimeBaseline],
 
-        'env': [HalfCheetahRandDirecEnv, AntRandGoalEnv, AntRandDirecEnv, HalfCheetahRandVelEnv],
+        'env': [HalfCheetahRandDirecEnv, AntRandDirecEnv, HopperRandParamsEnv,
+                Walker2DRandDirecEnv, HumanoidRandDirec2DEnv, Walker2DRandParamsEnv],
 
         'rollouts_per_meta_task': [80],
         'max_path_length': [100],
@@ -104,8 +109,8 @@ if __name__ == '__main__':
         'hidden_nonlinearity': [tf.tanh],
         'output_nonlinearity': [None],
 
-        'inner_lr': [0.1, 0.05],
-        'learning_rate': [5e-3, 1e-3, 5e-4],
+        'inner_lr': [0.1],
+        'learning_rate': [1e-3],
 
         'n_itr': [1001],
         'meta_batch_size': [40],

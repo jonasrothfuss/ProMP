@@ -4,7 +4,7 @@ class Optimizer(object):
     def __init__(self):
         self._input_ph_dict = None
 
-    def build_graph(self, loss, target, input_ph_dict):
+    def build_graph(self, loss, target, input_ph_dict, *args, **kwargs):
         """
         Sets the objective function and target weights for the optimize function
         

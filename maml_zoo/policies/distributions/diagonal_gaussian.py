@@ -101,7 +101,7 @@ class DiagonalGaussian(Distribution):
         log_stds = dist_info_vars["log_std"]
 
         # assert ranks
-        tf.assert_rank(x_var, 2), tf.assert_rank(means, 2), tf.assert_rank(log_stds, 2)
+        # tf.assert_rank(x_var, 2), tf.assert_rank(means, 2), tf.assert_rank(log_stds, 2)
 
         zs = (x_var - means) / tf.exp(log_stds)
         return - tf.reduce_sum(log_stds, reduction_indices=-1) - \

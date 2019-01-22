@@ -57,6 +57,10 @@ class MAMLSampler(Sampler):
         assert len(tasks) == self.meta_batch_size
         self.vec_env.set_tasks(tasks)
 
+    def set_tasks(self, tasks):
+        assert len(tasks) == self.meta_batch_size
+        self.vec_env.set_tasks(tasks)
+
     def obtain_samples(self, log=False, log_prefix=''):
         """
         Collect batch_size trajectories from each task
@@ -81,6 +85,7 @@ class MAMLSampler(Sampler):
         policy_time, env_time = 0, 0
 
         policy = self.policy
+        policy.reset(dones=[True] * self.meta_batch_size)
 
         # initial reset of envs
         obses = self.vec_env.reset()
@@ -107,9 +112,12 @@ class MAMLSampler(Sampler):
                                                                                     rewards, env_infos, agent_infos,
                                                                                     dones):
                 # append new samples to running paths
+                if isinstance(reward, np.ndarray):
+                    reward = reward[0]
                 running_paths[idx]["observations"].append(observation)
                 running_paths[idx]["actions"].append(action)
                 running_paths[idx]["rewards"].append(reward)
+                running_paths[idx]["dones"].append(done)
                 running_paths[idx]["env_infos"].append(env_info)
                 running_paths[idx]["agent_infos"].append(agent_info)
 
@@ -119,6 +127,7 @@ class MAMLSampler(Sampler):
                         observations=np.asarray(running_paths[idx]["observations"]),
                         actions=np.asarray(running_paths[idx]["actions"]),
                         rewards=np.asarray(running_paths[idx]["rewards"]),
+                        dones=np.asarray(running_paths[idx]["dones"]),
                         env_infos=utils.stack_tensor_dict_list(running_paths[idx]["env_infos"]),
                         agent_infos=utils.stack_tensor_dict_list(running_paths[idx]["agent_infos"]),
                     ))
@@ -132,8 +141,8 @@ class MAMLSampler(Sampler):
 
         self.total_timesteps_sampled += self.total_samples
         if log:
-            logger.logkv(log_prefix+"PolicyExecTime", policy_time)
-            logger.logkv(log_prefix+"EnvExecTime", env_time)
+            logger.logkv(log_prefix + "PolicyExecTime", policy_time)
+            logger.logkv(log_prefix + "EnvExecTime", env_time)
 
         return paths
 
@@ -152,4 +161,4 @@ class MAMLSampler(Sampler):
 
 
 def _get_empty_running_paths_dict():
-    return dict(observations=[], actions=[], rewards=[], env_infos=[], agent_infos=[])
+    return dict(observations=[], actions=[], rewards=[], dones=[], env_infos=[], agent_infos=[])

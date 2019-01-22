@@ -18,9 +18,6 @@ from maml_zoo.envs.mujoco_envs.walker2d_rand_vel import Walker2DRandVelEnv
 from maml_zoo.envs.point_envs.point_env_2d_corner import MetaPointEnvCorner
 from maml_zoo.envs.point_envs.point_env_2d_walls import MetaPointEnvWalls
 from maml_zoo.envs.point_envs.point_env_2d_momentum import MetaPointEnvMomentum
-from maml_zoo.envs.sawyer_envs.sawyer_pick_and_place import SawyerPickAndPlaceEnv
-from maml_zoo.envs.sawyer_envs.sawyer_push import SawyerPushEnv
-from maml_zoo.envs.sawyer_envs.sawyer_push_simple import SawyerPushSimpleEnv
 from rand_param_envs.hopper_rand_params import HopperRandParamsEnv
 from rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
 from maml_zoo.envs.normalized_env import normalize
@@ -32,8 +29,9 @@ from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
 from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
 
-INSTANCE_TYPE = 'c4.4xlarge'
-EXP_NAME = 'ppo-humanoid-large-batch'
+INSTANCE_TYPE = 'm4.4xlarge'
+EXP_NAME = 'def-def-promp-kate-deidre'
+
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -112,13 +110,14 @@ def run_experiment(**kwargs):
 if __name__ == '__main__':
 
     sweep_params = {
-        'seed': [1, 2, 3],
+        'algo': ['ProMP'],
+        'seed': [1, 2, 3, 4, 5],
 
         'baseline': [LinearFeatureBaseline],
 
-        'env': [HumanoidRandDirec2DEnv],
+        'env': [HalfCheetahRandDirecEnv, HalfCheetahRandVelEnv, AntRandDirecEnv, AntRandGoalEnv],
 
-        'rollouts_per_meta_task': [80],
+        'rollouts_per_meta_task': [20],
         'max_path_length': [200],
         'parallel': [True],
 
@@ -127,7 +126,7 @@ if __name__ == '__main__':
         'normalize_adv': [True],
         'positive_adv': [False],
 
-        'hidden_sizes': [(128, 128)],
+        'hidden_sizes': [(64, 64)],
         'learn_std': [True],
         'hidden_nonlinearity': [tf.tanh],
         'output_nonlinearity': [None],
@@ -146,7 +145,7 @@ if __name__ == '__main__':
         'adaptive_inner_kl_penalty': [False],
         'anneal_factor': [1.0],
 
-        'n_itr': [1001],
+        'n_itr': [501],
         'meta_batch_size': [40],
         'num_inner_grad_steps': [1],
         'scope': [None],

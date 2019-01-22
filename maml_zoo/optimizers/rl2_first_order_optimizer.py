@@ -1,8 +1,9 @@
 from maml_zoo.logger import logger
 from maml_zoo.optimizers.base import Optimizer
+import numpy as np
 import tensorflow as tf
 
-class MAMLFirstOrderOptimizer(Optimizer):
+class RL2FirstOrderOptimizer(Optimizer):
     """
     Optimizer for first order methods (SGD, Adam)
 
@@ -27,9 +28,9 @@ class MAMLFirstOrderOptimizer(Optimizer):
             max_epochs=1,
             tolerance=1e-6,
             num_minibatches=1,
+            backprop_steps=32,
             verbose=False
-            ):
-
+    ):
         self._target = None
         if tf_optimizer_args is None:
             tf_optimizer_args = dict()
@@ -38,14 +39,17 @@ class MAMLFirstOrderOptimizer(Optimizer):
         self._tf_optimizer = tf_optimizer_cls(**tf_optimizer_args)
         self._max_epochs = max_epochs
         self._tolerance = tolerance
-        self._num_minibatches = num_minibatches # Unused
+        self._num_minibatches = num_minibatches  # Unused
         self._verbose = verbose
         self._all_inputs = None
         self._train_op = None
         self._loss = None
+        self._next_hidden_var = None
+        self._hidden_ph = None
         self._input_ph_dict = None
-        
-    def build_graph(self, loss, target, input_ph_dict, *args, **kwargs):
+        self._backprop_steps = backprop_steps
+
+    def build_graph(self, loss, target, input_ph_dict, hidden_ph, next_hidden_var):
         """
         Sets the objective function and target weights for the optimize function
 
@@ -61,7 +65,13 @@ class MAMLFirstOrderOptimizer(Optimizer):
         self._target = target
         self._input_ph_dict = input_ph_dict
         self._loss = loss
-        self._train_op = self._tf_optimizer.minimize(loss, var_list=target.get_params())
+        self._hidden_ph = hidden_ph
+        self._next_hidden_var = next_hidden_var
+        params = list(target.get_params().values())
+        self._gradients_var = tf.gradients(loss, params)
+        self._gradients_ph = [tf.placeholder(shape=param.shape, dtype=tf.float32) for param in params]
+        applied_gradients = zip(self._gradients_ph, params)
+        self._train_op = self._tf_optimizer.apply_gradients(applied_gradients)
 
     def loss(self, input_val_dict):
         """
@@ -76,6 +86,9 @@ class MAMLFirstOrderOptimizer(Optimizer):
         """
         sess = tf.get_default_session()
         feed_dict = self.create_feed_dict(input_val_dict)
+        batch_size, seq_len, *_ = list(input_val_dict.values())[0].shape
+        hidden_batch = self._target.get_zero_state(batch_size)
+        feed_dict[self._hidden_ph] = hidden_batch
         loss = sess.run(self._loss, feed_dict=feed_dict)
         return loss
 
@@ -92,19 +105,32 @@ class MAMLFirstOrderOptimizer(Optimizer):
         """
 
         sess = tf.get_default_session()
-        feed_dict = self.create_feed_dict(input_val_dict)
-
-        # Overload self._batch size
-        # dataset = MAMLBatchDataset(inputs, num_batches=self._batch_size, extra_inputs=extra_inputs, meta_batch_size=self.meta_batch_size, num_grad_updates=self.num_grad_updates)
-        # Todo: reimplement minibatches
+        batch_size, seq_len, *_ = list(input_val_dict.values())[0].shape
 
         loss_before_opt = None
         for epoch in range(self._max_epochs):
+            hidden_batch = self._target.get_zero_state(batch_size)
             if self._verbose:
                 logger.log("Epoch %d" % epoch)
+            # run train op
+            loss = []
+            all_grads = []
 
-            loss, _ = sess.run([self._loss, self._train_op], feed_dict)
-            if not loss_before_opt: loss_before_opt = loss
+            for i in range(0, seq_len, self._backprop_steps):
+                n_i = (i + 1) * self._backprop_steps
+                feed_dict = dict([(self._input_ph_dict[key], input_val_dict[key][:, i:n_i]) for key in
+                                  self._input_ph_dict.keys()])
+                feed_dict[self._hidden_ph] = hidden_batch
+                batch_loss, grads, hidden_batch = sess.run([self._loss, self._gradients_var, self._next_hidden_var],
+                                                            feed_dict=feed_dict)
+                loss.append(batch_loss)
+                all_grads.append(grads)
+
+            grads = [np.mean(grad, axis=0) for grad in zip(*all_grads)]
+            feed_dict = dict(zip(self._gradients_ph, grads))
+            _ = sess.run(self._train_op, feed_dict=feed_dict)
+
+            if not loss_before_opt: loss_before_opt = np.mean(loss)
 
             # if self._verbose:
             #     logger.log("Epoch: %d | Loss: %f" % (epoch, new_loss))
@@ -115,14 +141,14 @@ class MAMLFirstOrderOptimizer(Optimizer):
         return loss_before_opt
 
 
-class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
+class RL2PPOOptimizer(RL2FirstOrderOptimizer):
     """
     Adds inner and outer kl terms to first order optimizer  #TODO: (Do we really need this?)
 
     """
     def __init__(self, *args, **kwargs):
         # Todo: reimplement minibatches
-        super(MAMLPPOOptimizer, self).__init__(*args, **kwargs)
+        super(RL2PPOOptimizer, self).__init__(*args, **kwargs)
         self._inner_kl = None
         self._outer_kl = None
 
@@ -137,7 +163,7 @@ class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
             inner_kl (list): list with the inner kl loss for each task
             outer_kl (list): list with the outer kl loss for each task
         """
-        super(MAMLPPOOptimizer, self).build_graph(loss, target, input_ph_dict)
+        super(RL2PPOOptimizer, self).build_graph(loss, target, input_ph_dict)
         assert inner_kl is not None
 
         self._inner_kl = inner_kl
@@ -161,6 +187,3 @@ class MAMLPPOOptimizer(MAMLFirstOrderOptimizer):
         feed_dict = self.create_feed_dict(input_val_dict)
         loss, inner_kl, outer_kl = sess.run([self._loss, self._inner_kl, self._outer_kl], feed_dict=feed_dict)
         return loss, inner_kl, outer_kl
-
-
-

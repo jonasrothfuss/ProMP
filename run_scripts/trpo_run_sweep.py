@@ -18,11 +18,6 @@ from maml_zoo.envs.mujoco_envs.walker2d_rand_vel import Walker2DRandVelEnv
 from maml_zoo.envs.point_envs.point_env_2d_corner import MetaPointEnvCorner
 from maml_zoo.envs.point_envs.point_env_2d_walls import MetaPointEnvWalls
 from maml_zoo.envs.point_envs.point_env_2d_momentum import MetaPointEnvMomentum
-from maml_zoo.envs.sawyer_envs.sawyer_pick_and_place import SawyerPickAndPlaceEnv
-from maml_zoo.envs.sawyer_envs.sawyer_push import SawyerPushEnv
-from maml_zoo.envs.sawyer_envs.sawyer_push_simple import SawyerPushSimpleEnv
-from rand_param_envs.hopper_rand_params import HopperRandParamsEnv
-from rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
 from maml_zoo.envs.normalized_env import normalize
 from maml_zoo.meta_algos.trpo_maml import TRPOMAML
 from maml_zoo.meta_trainer import Trainer
@@ -30,10 +25,9 @@ from maml_zoo.samplers.maml_sampler import MAMLSampler
 from maml_zoo.samplers.maml_sample_processor import MAMLSampleProcessor
 from maml_zoo.policies.meta_gaussian_mlp_policy import MetaGaussianMLPPolicy
 from maml_zoo.logger import logger
-from sandbox.visualize_point_env import save_plots
 
-INSTANCE_TYPE = 'c4.2xlarge'
-EXP_NAME = 'trpo-ant-2d-rerun'
+INSTANCE_TYPE = 'm4.4xlarge'
+EXP_NAME = 'def-def-maml-kate-deidre'
 
 def run_experiment(**kwargs):
     exp_dir = os.getcwd() + '/data/' + EXP_NAME
@@ -49,7 +43,7 @@ def run_experiment(**kwargs):
 
     policy = MetaGaussianMLPPolicy(
         name="meta-policy",
-        obs_dim=np.prod(env.observation_space.shape), # Todo...?
+        obs_dim=np.prod(env.observation_space.shape),
         action_dim=np.prod(env.action_space.shape),
         meta_batch_size=kwargs['meta_batch_size'],
         hidden_sizes=kwargs['hidden_sizes'],
@@ -100,17 +94,19 @@ def run_experiment(**kwargs):
     trainer.train()
     # save_plots(policy, algo, sampler, sample_processor, dir=exp_dir)
 
+
 if __name__ == '__main__':    
 
-    sweep_params = {    
-        'seed' : [1, 2, 3],
+    sweep_params = {
+        'algo': ["MAML"],
+        'seed' : [1, 2, 3, 4, 5],
 
         'baseline': [LinearFeatureBaseline],
 
-        'env': [AntRandDirec2DEnv], # 
+        'env': [HalfCheetahRandDirecEnv, HalfCheetahRandVelEnv, AntRandDirecEnv, AntRandGoalEnv],
 
         'rollouts_per_meta_task': [20],
-        'max_path_length': [100],
+        'max_path_length': [200],
         'parallel': [True],
 
         'discount': [0.99],

@@ -112,7 +112,7 @@ class SampleProcessor(object):
         paths = self._compute_advantages(paths, all_path_baselines)
 
         # 4) stack path data
-        observations, actions, rewards, returns, advantages, env_infos, agent_infos = self._stack_path_data(paths)
+        observations, actions, rewards, dones, returns, advantages, env_infos, agent_infos = self._concatenate_path_data(paths)
 
         # 5) if desired normalize / shift advantages
         if self.normalize_adv:
@@ -125,6 +125,7 @@ class SampleProcessor(object):
             observations=observations,
             actions=actions,
             rewards=rewards,
+            dones=dones,
             returns=returns,
             advantages=advantages,
             env_infos=env_infos,
@@ -162,14 +163,36 @@ class SampleProcessor(object):
 
         return paths
 
-
-    def _stack_path_data(self, paths):
+    def _concatenate_path_data(self, paths):
         observations = np.concatenate([path["observations"] for path in paths])
         actions = np.concatenate([path["actions"] for path in paths])
         rewards = np.concatenate([path["rewards"] for path in paths])
+        dones = np.concatenate([path["dones"] for path in paths])
         returns = np.concatenate([path["returns"] for path in paths])
         advantages = np.concatenate([path["advantages"] for path in paths])
         env_infos = utils.concat_tensor_dict_list([path["env_infos"] for path in paths])
         agent_infos = utils.concat_tensor_dict_list([path["agent_infos"] for path in paths])
-        return observations, actions, rewards, returns, advantages, env_infos, agent_infos
+        return observations, actions, rewards, dones, returns, advantages, env_infos, agent_infos
+
+    def _stack_path_data(self, paths):
+        max_path = max([len(path['observations']) for path in paths])
+
+        observations = self._stack_padding(paths, 'observations', max_path)
+        actions = self._stack_padding(paths, 'actions', max_path)
+        rewards = self._stack_padding(paths, 'rewards', max_path)
+        dones = self._stack_padding(paths, 'dones', max_path)
+        returns = self._stack_padding(paths, 'returns', max_path)
+        advantages = self._stack_padding(paths, 'advantages', max_path)
+        env_infos = utils.stack_tensor_dict_list([path["env_infos"] for path in paths], max_path)
+        agent_infos = utils.stack_tensor_dict_list([path["agent_infos"] for path in paths], max_path)
+
+        return observations, actions, rewards, dones, returns, advantages, env_infos, agent_infos
+
+
+    def _stack_padding(self, paths, key, max_path):
+        padded_array = np.stack([
+            np.concatenate([path[key], np.zeros((max_path - path[key].shape[0],) + path[key].shape[1:])])
+            for path in paths
+        ])
+        return padded_array
 
