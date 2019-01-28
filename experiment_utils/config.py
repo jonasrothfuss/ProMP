@@ -8,4 +8,4 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 
 DOCKER_IMAGE = 'jonasrothfuss/promp'
 
-S3_BUCKET_NAME = 'iclavera-doodad'
+S3_BUCKET_NAME = 'maml-zoo-experiments'
