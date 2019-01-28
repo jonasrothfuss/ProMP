@@ -117,7 +117,7 @@ class RL2FirstOrderOptimizer(Optimizer):
             all_grads = []
 
             for i in range(0, seq_len, self._backprop_steps):
-                n_i = (i + 1) * self._backprop_steps
+                n_i = i + self._backprop_steps
                 feed_dict = dict([(self._input_ph_dict[key], input_val_dict[key][:, i:n_i]) for key in
                                   self._input_ph_dict.keys()])
                 feed_dict[self._hidden_ph] = hidden_batch
