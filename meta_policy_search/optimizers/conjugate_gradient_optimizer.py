@@ -349,6 +349,6 @@ def conjugate_gradients(f_Ax, b, cg_iters=10, verbose=False, residual_tol=1e-10)
         if rdotr < residual_tol:
             break
 
-    if verbose: print(fmtstr % (i + 1, rdotr, np.linalg.norm(x)))
+        if verbose: print(fmtstr % (i + 1, rdotr, np.linalg.norm(x)))
 
     return x
