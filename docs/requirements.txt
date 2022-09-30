@@ -3,7 +3,7 @@ sphinx-rtd-theme
 sphinxcontrib-napoleon
 sphinxcontrib-websupport
 
-joblib==0.12.2
+joblib==1.2.0
 PyPrind
 numpy
 scipy

@@ -11,7 +11,7 @@ setup(name="meta_policy_search",
       test_suite='nose.collector',
       tests_require=['nose'],
       install_requires=[
-        'joblib==0.12.2',
+        'joblib==1.2.0',
         'PyPrind',
         'numpy',
         'scipy',
